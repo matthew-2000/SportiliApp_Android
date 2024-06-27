@@ -9,13 +9,15 @@ import androidx.compose.ui.unit.sp
 import com.matthew.sportiliapp.R
 
 val montserratFontFamily = FontFamily(
-    Font(R.font.montserrat_regular, FontWeight.Normal)
+    Font(R.font.montserrat_regular, FontWeight.Normal),
+    Font(R.font.montserrat_bold, FontWeight.Bold),
+    Font(R.font.montserrat_medium, FontWeight.Medium)
 )
 
 val CustomTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = montserratFontFamily,
-        fontWeight = FontWeight.Normal,
+        fontWeight = FontWeight.Bold,
         fontSize = 30.sp
     ),
     headlineMedium = TextStyle(
@@ -37,7 +39,7 @@ val CustomTypography = Typography(
     ),
     labelLarge = TextStyle(
         fontFamily = montserratFontFamily,
-        fontWeight = FontWeight.Normal,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp
     ),
     labelSmall = TextStyle(

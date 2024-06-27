@@ -11,15 +11,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.matthew.sportiliapp.R
+import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
 @Composable
 fun LoginScreen(navController: NavHostController) {
@@ -49,7 +52,7 @@ fun LoginScreen(navController: NavHostController) {
             )
             Text(
                 text = "SportiliApp",
-                style = MaterialTheme.typography.headlineLarge
+                style = MaterialTheme.typography.headlineLarge,
             )
         }
 
