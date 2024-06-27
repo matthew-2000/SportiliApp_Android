@@ -16,7 +16,6 @@ import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             SportiliAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
