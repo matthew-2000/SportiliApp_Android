@@ -1,5 +1,7 @@
 package com.matthew.sportiliapp
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -7,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -21,10 +24,10 @@ import com.matthew.sportiliapp.R
 @Composable
 fun LoginScreen(navController: NavHostController) {
     var code by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
     var showAlert by remember { mutableStateOf(false) }
     var alertMessage by remember { mutableStateOf("") }
 
+    val context = LocalContext.current  // Ottieni il contesto dal LocalContext
     val coroutineScope = rememberCoroutineScope()
 
     Column(
@@ -65,42 +68,37 @@ fun LoginScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else {
-                Button(
-                    onClick = {
-                        if (code.isEmpty()) {
-                            alertMessage = "Inserisci il codice!"
-                            showAlert = true
-                        } else {
-                            isLoading = true
-                            coroutineScope.launch {
-                                try {
-                                    register(
-                                        codice = code,
-                                        navController = navController,
-                                        onError = { message ->
-                                            alertMessage = message
-                                            showAlert = true
-                                        }
-                                    )
-                                } catch (e: Exception) {
-                                    alertMessage = "Errore inaspettato: ${e.message}"
-                                    showAlert = true
-                                } finally {
-                                    isLoading = false
-                                }
+            Button(
+                onClick = {
+                    if (code.isEmpty()) {
+                        alertMessage = "Inserisci il codice!"
+                        showAlert = true
+                    } else {
+                        coroutineScope.launch {
+                            try {
+                                register(
+                                    codice = code,
+                                    navController = navController,
+                                    context = context,
+                                    onError = { message ->
+                                        alertMessage = message
+                                        showAlert = true
+                                    }
+                                )
+                            } catch (e: Exception) {
+                                Log.e("AIUTO", "OOOOO")
+                                alertMessage = "Errore inaspettato: ${e.message}"
+                                showAlert = true
                             }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Entra",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Entra",
+                    style = MaterialTheme.typography.headlineMedium
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -134,10 +132,12 @@ fun LoginScreen(navController: NavHostController) {
 
 private suspend fun register(
     codice: String,
+    context: Context, // Aggiunto il parametro del contesto
     navController: NavHostController,
     onError: (String) -> Unit
 ) {
     try {
+        Log.e("AIUTO", "OOOOO")
         val db = FirebaseDatabase.getInstance().getReference("users")
         val snapshot = db.get().await()
         val authUsers = snapshot.value as? Map<String, Map<String, Any>>
@@ -150,7 +150,7 @@ private suspend fun register(
                         displayName = authUsers[codice]?.get("nome") as? String
                     }
                     user?.updateProfile(profileUpdates)
-
+                    salvaCodeInSharedPreferences(context, code = codice)
                     navController.navigate("content")
                 } else {
                     // Errore durante l'accesso
@@ -162,6 +162,14 @@ private suspend fun register(
             onError("Codice non autorizzato.")
         }
     } catch (e: Exception) {
+        e.message?.let { Log.e("AIUTO", it) }
         onError("Errore durante il processo di registrazione: ${e.message}")
     }
+}
+
+fun salvaCodeInSharedPreferences(context: Context, code: String) {
+    val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+    val editor = sharedPreferences.edit()
+    editor.putString("code", code)
+    editor.apply()
 }
