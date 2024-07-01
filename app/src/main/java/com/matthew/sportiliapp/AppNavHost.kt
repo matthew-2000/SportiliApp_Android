@@ -10,6 +10,6 @@ import androidx.navigation.compose.rememberNavController
 fun AppNavHost(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") { LoginScreen(navController) }
-        composable("content") { ContentScreen() }
+        composable("content") { SchedaScreen() }
     }
 }

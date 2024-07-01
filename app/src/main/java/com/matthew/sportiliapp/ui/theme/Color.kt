@@ -2,7 +2,7 @@ package com.matthew.sportiliapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Orange80 = Color(0xFFFFA730)
+val Orange80 = Color(0xFFFF8A00)
 val OrangeGrey80 = Color(0xFFFF9C4E)
 val OrangePink80 = Color(0xFFFFB688)
 
