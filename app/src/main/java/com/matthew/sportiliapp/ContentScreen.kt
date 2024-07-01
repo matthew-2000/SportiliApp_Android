@@ -1,12 +1,14 @@
 package com.matthew.sportiliapp
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -21,21 +23,33 @@ fun ContentScreen() {
         code.value = savedCode
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = "Il codice salvato nelle SharedPreferences è:",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = code.value,
-            style = MaterialTheme.typography.headlineMedium
-        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Il codice salvato nelle SharedPreferences è:",
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            Text(
+                text = code.value,
+                style = MaterialTheme.typography.headlineMedium
+            )
+        }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ContentPreview() {
+    ContentScreen()
 }

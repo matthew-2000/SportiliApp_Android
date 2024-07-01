@@ -3,7 +3,9 @@ package com.matthew.sportiliapp
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +26,7 @@ import kotlinx.coroutines.tasks.await
 import com.matthew.sportiliapp.R
 import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavHostController) {
     var code by remember { mutableStateOf("") }
@@ -33,105 +36,135 @@ fun LoginScreen(navController: NavHostController) {
     val context = LocalContext.current  // Ottieni il contesto dal LocalContext
     val coroutineScope = rememberCoroutineScope()
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .background(MaterialTheme.colorScheme.background), // Aggiunto background dal tema
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.frame_1),
-                contentDescription = null,
-                modifier = Modifier.size(200.dp)
-            )
-            Text(
-                text = "SportiliApp",
-                style = MaterialTheme.typography.headlineLarge,
-            )
-        }
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.frame_1),
+                    contentDescription = null,
+                    modifier = Modifier.size(200.dp)
+                )
+                Text(
+                    text = "SportiliApp",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onBackground // Colore dal tema
+                )
+            }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            OutlinedTextField(
-                value = code,
-                onValueChange = { code = it },
-                label = { Text("Codice") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    label = { Text("Codice", fontWeight = FontWeight.Medium) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface,
+                    )
+                )
 
-            Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(70.dp))
 
-            Button(
-                onClick = {
-                    if (code.isEmpty()) {
-                        alertMessage = "Inserisci il codice!"
-                        showAlert = true
-                    } else {
-                        coroutineScope.launch {
-                            try {
-                                register(
-                                    codice = code,
-                                    navController = navController,
-                                    context = context,
-                                    onError = { message ->
-                                        alertMessage = message
-                                        showAlert = true
-                                    }
-                                )
-                            } catch (e: Exception) {
-                                Log.e("AIUTO", "OOOOO")
-                                alertMessage = "Errore inaspettato: ${e.message}"
-                                showAlert = true
+                Button(
+                    onClick = {
+                        if (code.isEmpty()) {
+                            alertMessage = "Inserisci il codice!"
+                            showAlert = true
+                        } else {
+                            coroutineScope.launch {
+                                try {
+                                    register(
+                                        codice = code,
+                                        navController = navController,
+                                        context = context,
+                                        onError = { message ->
+                                            alertMessage = message
+                                            showAlert = true
+                                        }
+                                    )
+                                } catch (e: Exception) {
+                                    alertMessage = "Errore inaspettato: ${e.message}"
+                                    showAlert = true
+                                }
                             }
                         }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Entra",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(),
+                    shape = RoundedCornerShape(5.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(
+                        text = "Entra",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                TextButton(
+                    onClick = {
+                        // Azione per gestire il caso in cui l'utente non ha il codice
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.secondary
+                    )
+                ) {
+                    Text(
+                        text = "Hai bisogno di aiuto?",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            TextButton(onClick = {
-                // Azione per gestire il caso in cui l'utente non ha il codice
-            }) {
-                Text(
-                    text = "Hai bisogno di aiuto?",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showAlert) {
         AlertDialog(
             onDismissRequest = { showAlert = false },
-            title = { Text("Attenzione") },
-            text = { Text(alertMessage) },
+            title = { Text("Attenzione", color = MaterialTheme.colorScheme.onBackground) },
+            text = { Text(alertMessage, color = MaterialTheme.colorScheme.onBackground) },
             confirmButton = {
-                Button(onClick = { showAlert = false }) {
+                Button(
+                    onClick = { showAlert = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
                     Text("OK")
                 }
             }
         )
     }
 }
+
 
 private suspend fun register(
     codice: String,
@@ -140,7 +173,6 @@ private suspend fun register(
     onError: (String) -> Unit
 ) {
     try {
-        Log.e("AIUTO", "OOOOO")
         val db = FirebaseDatabase.getInstance().getReference("users")
         val snapshot = db.get().await()
         val authUsers = snapshot.value as? Map<String, Map<String, Any>>
@@ -165,7 +197,6 @@ private suspend fun register(
             onError("Codice non autorizzato.")
         }
     } catch (e: Exception) {
-        e.message?.let { Log.e("AIUTO", it) }
         onError("Errore durante il processo di registrazione: ${e.message}")
     }
 }
