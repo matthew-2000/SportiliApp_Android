@@ -1,52 +1,74 @@
 package com.matthew.sportiliapp
 
-import android.content.Context
-import androidx.compose.foundation.background
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+
 
 @Composable
 fun ContentScreen() {
-    val context = LocalContext.current
-    val code = remember { mutableStateOf("") }
+    val navController = rememberNavController()
 
-    // Recupera il codice dalle SharedPreferences quando la Composable si avvia
-    LaunchedEffect(key1 = Unit) {
-        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-        val savedCode = sharedPreferences.getString("code", "") ?: ""
-        code.value = savedCode
-    }
+    // Bottom navigation items
+    val items = listOf(
+        BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
+        BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
+    )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Il codice salvato nelle SharedPreferences è:",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                text = code.value,
-                style = MaterialTheme.typography.headlineMedium
-            )
+                items.forEach { item ->
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = null) },
+                        label = { Text(item.title) },
+                        selected = currentRoute == item.route,
+                        onClick = {
+                            navController.navigate(item.route)
+                        }
+                    )
+                }
+            }
+        },
+        content = { padding ->
+            // NavHost per la navigazione tra le schede
+            NavHost(
+                navController = navController,
+                startDestination = "scheda",
+                modifier = Modifier.fillMaxSize()
+                    .padding(padding),
+                enterTransition = {
+                    EnterTransition.None
+                },
+                exitTransition = {
+                    ExitTransition.None
+                }
+            ) {
+                composable("scheda") { SchedaScreen() }
+                composable("impostazioni") { ImpostazioniScreen() }
+            }
         }
-    }
+    )
 }
+
+
+data class BottomNavItem(val title: String, val icon: ImageVector, val route: String)
+
 
 @Preview(showBackground = true)
 @Composable

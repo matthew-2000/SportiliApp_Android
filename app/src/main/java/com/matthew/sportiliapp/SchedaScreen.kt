@@ -1,8 +1,10 @@
 package com.matthew.sportiliapp
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.database.*
@@ -13,14 +15,16 @@ import com.matthew.sportiliapp.model.Scheda
 
 @Composable
 fun SchedaScreen() {
+    val context = LocalContext.current
     var scheda by remember { mutableStateOf<Scheda?>(null) }
 
-    // Recupera i dati dalla Firebase Realtime Database
     val database = FirebaseDatabase.getInstance()
-    val userId = "Mat00" // Sostituisci con l'ID utente corretto
-    val schedaRef = database.reference.child("users").child(userId).child("scheda")
 
     LaunchedEffect(Unit) {
+        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+        val savedCode = sharedPreferences.getString("code", "") ?: ""
+        val userId = savedCode
+        val schedaRef = database.reference.child("users").child(userId).child("scheda")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val data = snapshot.getValue(Scheda::class.java)
