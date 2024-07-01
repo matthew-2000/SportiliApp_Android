@@ -112,7 +112,6 @@ fun LoginScreen(navController: NavHostController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(),
-                    shape = RoundedCornerShape(5.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
