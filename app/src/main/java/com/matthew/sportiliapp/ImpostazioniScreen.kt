@@ -1,19 +1,30 @@
 package com.matthew.sportiliapp
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
+import com.matthew.sportiliapp.ui.theme.grey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImpostazioniScreen() {
     var isLoggedOut by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val navController = rememberNavController()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -42,13 +53,26 @@ fun ImpostazioniScreen() {
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "PALESTRA SPORTILIA \nvia Valle, 22 83024 \nMonteforte Irpino (Avellino) \ncell. 338 7731977",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 40.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp)
+                            .background(
+                                color = grey,
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center // Allinea il contenuto al centro
+                    ) {
+                        Text(
+                            text = "PALESTRA SPORTILIA \nvia Valle, 22 83024 \nMonteforte Irpino (Avellino) \ncell. 338 7731977",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(16.dp), // Padding interno al testo
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
 
                     OutlinedButton(
                         onClick = { /* Handle Instagram button click */ },
@@ -106,25 +130,38 @@ fun ImpostazioniScreen() {
                     }
                 }
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp)
+                        .background(
+                            color = grey,
+                            shape = RoundedCornerShape(8.dp)
+                        ),
+                    contentAlignment = Alignment.Center // Allinea il contenuto al centro
                 ) {
-                    Text(
-                        text = "Credits",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(top = 25.dp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                    ) {
+                        Text(
+                            text = "Credits",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                    Text(
-                        text = "Made with ❤️ by Matteo Ercolino",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                        Text(
+                            text = "Made with ❤️ by Matteo Ercolino",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
+
             }
 
             // Logout confirmation dialog
@@ -135,36 +172,38 @@ fun ImpostazioniScreen() {
                         TextButton(
                             onClick = {
                                 // Handle logout button click
-                                resetDefaults()
+                                FirebaseAuth.getInstance().signOut()
+                                resetSharedPref(context)
                                 isLoggedOut = true
                                 showLogoutDialog = false
                             }
                         ) {
-                            Text("Confirm")
+                            Text("Conferma")
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showLogoutDialog = false }) {
-                            Text("Cancel")
+                            Text("Annulla")
                         }
                     },
                     title = { Text("Logout") },
-                    text = { Text("Are you sure you want to log out?") }
+                    text = { Text("Sei sicuro di voler effettuare il logout?") }
                 )
             }
 
             // Fullscreen cover logic for logout
             if (isLoggedOut) {
-                // Navigate to LoginView or show a dialog/modal for confirmation
+
             }
         }
     }
 }
 
-fun resetDefaults() {
-    // Implement your UserDefaults reset logic here
-    // Note: On Android, you'd typically use SharedPreferences for similar functionality
+fun resetSharedPref(context: Context) {
+    val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+    sharedPreferences.edit().clear().apply()
 }
+
 
 
 @Preview(showBackground = true)

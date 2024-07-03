@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.matthew.sportiliapp.scheda.SchedaScreen
 
 
 @Composable
@@ -59,7 +60,7 @@ fun ContentScreen() {
                     ExitTransition.None
                 }
             ) {
-                composable("scheda") { SchedaScreen() }
+                composable("scheda") { SchedaScreen(navController = navController) }
                 composable("impostazioni") { ImpostazioniScreen() }
             }
         }
