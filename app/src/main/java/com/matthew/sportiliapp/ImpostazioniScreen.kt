@@ -8,22 +8,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
-import com.matthew.sportiliapp.ui.theme.grey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ImpostazioniScreen() {
+fun ImpostazioniScreen(navController: NavHostController) {
     var isLoggedOut by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    val navController = rememberNavController()
     val context = LocalContext.current
 
     Scaffold(
@@ -56,11 +54,11 @@ fun ImpostazioniScreen() {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 40.dp)
-                            .background(
-                                color = grey,
-                                shape = RoundedCornerShape(8.dp)
-                            ),
+                            .padding(vertical = 40.dp),
+//                            .background(
+//                                color = grey,
+//                                shape = RoundedCornerShape(8.dp)
+//                            ),
                         contentAlignment = Alignment.Center // Allinea il contenuto al centro
                     ) {
                         Text(
@@ -133,11 +131,11 @@ fun ImpostazioniScreen() {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 40.dp)
-                        .background(
-                            color = grey,
-                            shape = RoundedCornerShape(8.dp)
-                        ),
+                        .padding(vertical = 40.dp),
+//                        .background(
+//                            color = grey,
+//                            shape = RoundedCornerShape(8.dp)
+//                        ),
                     contentAlignment = Alignment.Center // Allinea il contenuto al centro
                 ) {
                     Column(
@@ -193,7 +191,7 @@ fun ImpostazioniScreen() {
 
             // Fullscreen cover logic for logout
             if (isLoggedOut) {
-
+                navController.navigate("login")
             }
         }
     }
@@ -202,14 +200,4 @@ fun ImpostazioniScreen() {
 fun resetSharedPref(context: Context) {
     val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
     sharedPreferences.edit().clear().apply()
-}
-
-
-
-@Preview(showBackground = true)
-@Composable
-fun SettingsViewPreview() {
-    MaterialTheme {
-        ImpostazioniScreen()
-    }
 }

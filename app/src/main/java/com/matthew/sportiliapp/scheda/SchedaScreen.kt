@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.scheda
 import android.content.Context
+import android.os.Bundle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +17,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.os.bundleOf
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
+import androidx.navigation.NavOptions
+import androidx.navigation.Navigator
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.matthew.sportiliapp.model.Giorno
@@ -25,6 +31,19 @@ import com.matthew.sportiliapp.model.Scheda
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+
+fun NavController.navigate(
+    route: String,
+    args: Bundle,
+    navOptions: NavOptions? = null,
+    navigatorExtras: Navigator.Extras? = null
+) {
+    val nodeId = graph.findNode(route = route)?.id
+    if (nodeId != null) {
+        navigate(nodeId, args, navOptions, navigatorExtras)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +86,8 @@ fun SchedaScreen(navController: NavHostController) {
                     style = MaterialTheme.typography.headlineSmall
                 )
             } else {
-                LazyColumn(modifier = Modifier.padding(padding)) {
+                LazyColumn(modifier = Modifier.padding(padding)
+                    .padding(all = 16.dp)) {
                     item {
                         Row(
                             modifier = Modifier
@@ -75,7 +95,7 @@ fun SchedaScreen(navController: NavHostController) {
                                 .padding(vertical = 16.dp),
                         ) {
                             Text(
-                                "Inizio: ${convertDateTime(scheda!!.dataInizio) }",
+                                "Inizio: ${convertDateTime(scheda!!.dataInizio)} ",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -90,9 +110,15 @@ fun SchedaScreen(navController: NavHostController) {
 
                     items(scheda!!.giorni.entries.toList()) { (key, giorno) ->
                         GiornoItem(giorno) {
-                            //navController.navigate("giorno")
+                            val bundle = Bundle()
+                            bundle.putParcelable("giorno", giorno)
+                            navController.navigate(
+                                route = "giorno",
+                                args = bundle
+                            )
                         }
                     }
+
                 }
             }
         }
@@ -104,9 +130,9 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
     Column(modifier = Modifier
         .fillMaxWidth()
         .clickable { onClick() }
-        .padding(vertical = 8.dp)) {
-        Text("Giorno: ${giorno.name}", style = MaterialTheme.typography.titleSmall)
-        Text(getGruppiString(giorno), style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+        .padding(vertical = 16.dp)) {
+        Text("Giorno: ${giorno.name}", style = MaterialTheme.typography.titleMedium)
+        Text(getGruppiString(giorno), style = MaterialTheme.typography.labelLarge, color = Color.Gray)
     }
 }
 
@@ -134,14 +160,19 @@ fun convertDateTime(inputDateTime: String): String {
 fun getGruppiString(giorno: Giorno): String {
     var s = ""
 
-    for (gruppo in giorno.gruppiMuscolari) {
-        s += gruppo.value.nome + ", "
+    var isFirst = true
+    for ((key, gruppo) in giorno.gruppiMuscolari) {
+        if (!isFirst) {
+            s += ", "
+        }
+        s += gruppo.nome
+        isFirst = false
     }
-
-    s.removeSuffix(", ")
 
     return s
 }
+
+
 
 @Preview(showBackground = true)
 @Composable
