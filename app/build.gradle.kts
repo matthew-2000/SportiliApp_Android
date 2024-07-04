@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.database.ktx)
     implementation(libs.protolite.well.known.types)
+    implementation(libs.androidx.runtime.livedata)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
