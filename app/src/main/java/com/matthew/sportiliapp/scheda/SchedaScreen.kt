@@ -11,6 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptions
@@ -28,6 +30,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Scheda
+import com.matthew.sportiliapp.model.SchedaViewModel
+import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -48,27 +52,12 @@ fun NavController.navigate(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchedaScreen(navController: NavHostController) {
-    var scheda by remember { mutableStateOf<Scheda?>(null) }
     val context = LocalContext.current
+    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
+    val scheda by viewModel.scheda.observeAsState()
     var nomeUtente by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-        val savedCode = sharedPreferences.getString("code", "") ?: ""
-        val database = FirebaseDatabase.getInstance()
-        val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
-
-        schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val data = snapshot.getValue(Scheda::class.java)
-                scheda = data
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                // Handle error
-            }
-        })
-
         nomeUtente = FirebaseAuth.getInstance().currentUser?.displayName
     }
 
@@ -86,8 +75,11 @@ fun SchedaScreen(navController: NavHostController) {
                     style = MaterialTheme.typography.headlineSmall
                 )
             } else {
-                LazyColumn(modifier = Modifier.padding(padding)
-                    .padding(all = 16.dp)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .padding(padding)
+                        .padding(all = 16.dp)
+                ) {
                     item {
                         Row(
                             modifier = Modifier
@@ -110,20 +102,21 @@ fun SchedaScreen(navController: NavHostController) {
 
                     items(scheda!!.giorni.entries.toList()) { (key, giorno) ->
                         GiornoItem(giorno) {
-                            val bundle = Bundle()
-                            bundle.putParcelable("giorno", giorno)
+                            val bundle = Bundle().apply {
+                                putParcelable("giorno", giorno)
+                            }
                             navController.navigate(
                                 route = "giorno",
                                 args = bundle
                             )
                         }
                     }
-
                 }
             }
         }
     )
 }
+
 
 @Composable
 fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
