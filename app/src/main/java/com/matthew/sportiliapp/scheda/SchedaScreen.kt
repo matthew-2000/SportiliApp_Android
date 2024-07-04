@@ -130,7 +130,7 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
     Column(modifier = Modifier
         .fillMaxWidth()
         .clickable { onClick() }
-        .padding(vertical = 16.dp)) {
+        .padding(vertical = 32.dp)) {
         Text("Giorno: ${giorno.name}", style = MaterialTheme.typography.titleMedium)
         Text(getGruppiString(giorno), style = MaterialTheme.typography.labelLarge, color = Color.Gray)
     }
