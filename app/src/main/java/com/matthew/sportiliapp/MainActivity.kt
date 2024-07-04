@@ -17,6 +17,7 @@ import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             SportiliAppTheme {
                 val navController = rememberNavController()
