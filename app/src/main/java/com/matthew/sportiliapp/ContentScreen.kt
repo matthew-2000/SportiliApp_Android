@@ -18,7 +18,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
+import com.matthew.sportiliapp.scheda.EsercizioScreen
 import com.matthew.sportiliapp.scheda.GiornoScreen
 import com.matthew.sportiliapp.scheda.SchedaScreen
 
@@ -86,7 +88,23 @@ fun ContentScreen(navController: NavHostController) {
                         Log.e("AAAA", "NOOOOOOO")
                     }
                     if (giorno != null) {
-                        GiornoScreen(navController = navController, giorno = giorno)
+                        GiornoScreen(navController = navController2, giorno = giorno)
+                    }
+                }
+                composable("esercizio") {
+                    val bundle = it.arguments
+                    val esercizio = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        bundle?.getParcelable("esercizio", Esercizio::class.java)
+                    } else {
+                        bundle?.getParcelable("esercizio") as? Esercizio
+                    }
+                    if (esercizio != null) {
+                        Log.e("AAAA", esercizio.name)
+                    } else {
+                        Log.e("AAAA", "NOOOOOOO")
+                    }
+                    if (esercizio != null) {
+                        EsercizioScreen(esercizio = esercizio)
                     }
                 }
             }
