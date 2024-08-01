@@ -8,6 +8,13 @@ data class GruppoMuscolare(
     var esercizi: Map<String, Esercizio> = mapOf()
 ) : Parcelable {
 
+    fun toMap(): Map<String, Any> {
+        val result: MutableMap<String, Any> = HashMap()
+        result["nome"] = nome
+        result["esercizi"] = esercizi.mapValues { entry -> entry.value.toMap() }
+        return result
+    }
+
     constructor() : this(nome = "", esercizi = mapOf())
 
     constructor(parcel: Parcel) : this(

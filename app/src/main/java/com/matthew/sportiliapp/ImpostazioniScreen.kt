@@ -107,6 +107,23 @@ fun ImpostazioniScreen(navController: NavHostController) {
 
                         OutlinedButton(
                             onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.tiktok.com/@palestrasportilia"))
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(
+                                text = "Seguici su Tik Tok",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.palestrasportilia.it"))
                                 context.startActivity(intent)
                             },

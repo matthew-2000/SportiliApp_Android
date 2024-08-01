@@ -18,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.matthew.sportiliapp.admin.AdminHomeScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.scheda.EsercizioScreen
@@ -32,6 +33,7 @@ fun ContentScreen(navController: NavHostController) {
     // Bottom navigation items
     val items = listOf(
         BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
+        BottomNavItem("Home", Icons.Filled.Home, "admin"),
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
@@ -74,6 +76,7 @@ fun ContentScreen(navController: NavHostController) {
                 }
             ) {
                 composable("scheda") { SchedaScreen(navController = navController2) }
+                composable("admin") { AdminHomeScreen(navController = navController2) }
                 composable("impostazioni") { ImpostazioniScreen(navController) }
                 composable("giorno") {
                     val bundle = it.arguments
@@ -81,11 +84,6 @@ fun ContentScreen(navController: NavHostController) {
                         bundle?.getParcelable("giorno", Giorno::class.java)
                     } else {
                         bundle?.getParcelable("giorno") as? Giorno
-                    }
-                    if (giorno != null) {
-                        Log.e("AAAA", giorno.name)
-                    } else {
-                        Log.e("AAAA", "NOOOOOOO")
                     }
                     if (giorno != null) {
                         GiornoScreen(navController = navController2, giorno = giorno)
