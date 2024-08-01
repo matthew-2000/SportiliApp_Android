@@ -8,6 +8,13 @@ data class Giorno(
     var gruppiMuscolari: Map<String, GruppoMuscolare> = mapOf()
 ) : Parcelable {
 
+    fun toMap(): Map<String, Any> {
+        val result: MutableMap<String, Any> = HashMap()
+        result["name"] = name
+        result["gruppiMuscolari"] = gruppiMuscolari.mapValues { entry -> entry.value.toMap() }
+        return result
+    }
+
     constructor() : this(name = "", gruppiMuscolari = mapOf())
 
     constructor(parcel: Parcel) : this(

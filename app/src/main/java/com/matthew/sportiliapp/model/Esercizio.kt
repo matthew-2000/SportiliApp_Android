@@ -39,6 +39,19 @@ data class Esercizio(
         return 0
     }
 
+    fun toMap(): Map<String, Any?> {
+        val result: MutableMap<String, Any?> = HashMap()
+        result["name"] = name
+        result["serie"] = serie
+        result["priorita"] = priorita
+        result["riposo"] = riposo
+        result["notePT"] = notePT
+        result["noteUtente"] = noteUtente
+        result["ordine"] = ordine
+
+        return result
+    }
+
     companion object CREATOR : Parcelable.Creator<Esercizio> {
         override fun createFromParcel(parcel: Parcel): Esercizio {
             return Esercizio(parcel)

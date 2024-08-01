@@ -83,6 +83,7 @@ fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController) {
                 }
             }
         }
+        Divider(color = Color.LightGray, thickness = 1.dp)
     }
 }
 
