@@ -14,13 +14,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.matthew.sportiliapp.admin.AdminHomeScreen
+import com.matthew.sportiliapp.admin.UtenteScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
+import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.scheda.EsercizioScreen
 import com.matthew.sportiliapp.scheda.GiornoScreen
 import com.matthew.sportiliapp.scheda.SchedaScreen
@@ -103,6 +107,21 @@ fun ContentScreen(navController: NavHostController) {
                     }
                     if (esercizio != null) {
                         EsercizioScreen(esercizio = esercizio)
+                    }
+                }
+                composable(
+                    route = "utente?utenteCode={utenteCode}",
+                    arguments = listOf(
+                        navArgument(
+                            name = "utente"
+                        ) {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                    )) {
+                    val utenteCode = it.arguments?.getString("utenteCode")
+                    if (utenteCode != null) {
+                        UtenteScreen(navController = navController2, utenteCode = utenteCode)
                     }
                 }
             }
