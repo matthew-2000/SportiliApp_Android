@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.admin
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.scheda.convertDateTime
+import com.matthew.sportiliapp.scheda.navigate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +50,7 @@ fun AdminHomeScreen(navController: NavHostController) {
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             SearchBar(text = searchText, onTextChange = { searchText = it })
-            UserList(users = users, searchText = searchText)
+            UserList(users = users, searchText = searchText, navController = navController)
         }
     }
 
@@ -70,7 +72,7 @@ fun SearchBar(text: String, onTextChange: (String) -> Unit) {
 }
 
 @Composable
-fun UserList(users: List<Utente>, searchText: String) {
+fun UserList(users: List<Utente>, searchText: String, navController: NavHostController) {
     val filteredUsers = users.filter {
         it.nome.contains(searchText, ignoreCase = true) ||
                 it.cognome.contains(searchText, ignoreCase = true) ||
@@ -79,17 +81,22 @@ fun UserList(users: List<Utente>, searchText: String) {
 
     LazyColumn {
         items(filteredUsers) { utente ->
-            UserRow(utente)
+            UserRow(utente) {
+                navController.navigate(
+                    route = "utente?utenteCode=${utente.code}"
+                )
+            }
         }
     }
 }
 
 @Composable
-fun UserRow(utente: Utente) {
+fun UserRow(utente: Utente, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(all = 16.dp)
+            .clickable { onClick() }
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
