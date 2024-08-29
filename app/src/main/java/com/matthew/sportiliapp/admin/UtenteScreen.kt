@@ -141,23 +141,11 @@ fun UtenteNavHost(
                     internalNavController.popBackStack()
                 }
             }
-            composable("addGiornoScreen") {
-                AddGiornoScreen(navController, onGiornoAdded = { newGiorno ->
-                    // Converti la mappa esistente in una mappa mutabile
-                    val updatedGiorni = scheda.giorni.toMutableMap()
-                    // Aggiungi o aggiorna il giorno
-                    updatedGiorni[newGiorno.name] = newGiorno
-                    // Riassegna la mappa aggiornata
-                    scheda.giorni = updatedGiorni
-                }, onDismiss = {
-                    navController.popBackStack()
-                })
-            }
             composable("addGruppoMuscolareScreen/{giornoName}") { backStackEntry ->
                 val giornoName = backStackEntry.arguments?.getString("giornoName") ?: "A"
                 val giorno = scheda.giorni[giornoName] ?: Giorno(giornoName ?: "")
 
-                AddGruppoMuscolareScreen(navController, giorno, onGruppoMuscolareAdded = { newGruppoMuscolare ->
+                AddGruppoMuscolareScreen(internalNavController, giorno, onGruppoMuscolareAdded = { newGruppoMuscolare ->
                     // Converti la mappa esistente in una mappa mutabile
                     val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
                     // Aggiungi o aggiorna il gruppo muscolare
@@ -168,6 +156,7 @@ fun UtenteNavHost(
                     val updatedGiorni = scheda.giorni.toMutableMap()
                     updatedGiorni[giornoName] = giorno
                     scheda.giorni = updatedGiorni
+                    gymViewModel.saveScheda(scheda, utenteCode)
                 })
             }
             composable("addEsercizioScreen/{gruppoName}") { backStackEntry ->
@@ -177,7 +166,7 @@ fun UtenteNavHost(
                     .firstOrNull { it.nome == gruppoName }
                     ?: GruppoMuscolare(gruppoName ?: "")
 
-                AddEsercizioScreen(navController, gruppo, onEsercizioAdded = { newEsercizio ->
+                AddEsercizioScreen(internalNavController, gruppo, onEsercizioAdded = { newEsercizio ->
                     // Converti la mappa esistente in una mappa mutabile
                     val updatedEsercizi = gruppo.esercizi.toMutableMap()
                     // Aggiungi o aggiorna l'esercizio
@@ -195,6 +184,7 @@ fun UtenteNavHost(
                             scheda.giorni = updatedGiorni
                         }
                     }
+                    gymViewModel.saveScheda(scheda, utenteCode)
                 })
             }
 

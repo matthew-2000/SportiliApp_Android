@@ -40,6 +40,7 @@ fun EditSchedaScreen(
 
     var dataInizio by remember { mutableStateOf(scheda.dataInizio) }
     var durata by remember { mutableStateOf(scheda.durata.toString()) }
+    var showAddGiornoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -118,13 +119,65 @@ fun EditSchedaScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
-                navController.navigate("addGiornoScreen")
+                showAddGiornoDialog = true
             }) {
                 Text("Aggiungi Giorno")
+            }
+
+            if (showAddGiornoDialog) {
+                AddGiornoDialog(
+                    onDismiss = { showAddGiornoDialog = false },
+                    onGiornoAdded = { newGiorno ->
+                        val updatedGiorni = scheda.giorni.toMutableMap()
+                        updatedGiorni[newGiorno.name] = newGiorno
+                        scheda.giorni = updatedGiorni
+                        gymViewModel.saveScheda(Scheda(dataInizio, durata.toInt(), updatedGiorni), utenteCode)
+                        showAddGiornoDialog = false
+                        //navController.navigate("addGruppoMuscolareScreen/${newGiorno.name}")
+                    }
+                )
             }
         }
     }
 }
+
+@Composable
+fun AddGiornoDialog(
+    onDismiss: () -> Unit,
+    onGiornoAdded: (Giorno) -> Unit
+) {
+    var giornoName by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Aggiungi Giorno") },
+        text = {
+            OutlinedTextField(
+                value = giornoName,
+                onValueChange = { giornoName = it },
+                label = { Text("Nome del Giorno") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (giornoName.isNotBlank()) {
+                        onGiornoAdded(Giorno(giornoName))
+                    }
+                }
+            ) {
+                Text("Aggiungi")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annulla")
+            }
+        }
+    )
+}
+
 
 @Composable
 fun GiornoItem(giorno: Giorno, onEdit: () -> Unit) {
