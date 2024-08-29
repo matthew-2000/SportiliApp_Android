@@ -11,26 +11,30 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.matthew.sportiliapp.model.Giorno
+import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.GymViewModel
+import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Utente
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UtenteScreen(
     navController: NavController,
-    utenteCode: String
+    utenteCode: String,
+    gymViewModel: GymViewModel = viewModel() // Utilizziamo viewModel() per ottenere l'istanza
 ) {
-    val gymViewModel = GymViewModel()
     val users by gymViewModel.users.observeAsState(initial = emptyList())
 
-    // Controlla se la lista users è vuota o se contiene l'utente cercato
     val utente = users.firstOrNull { utente -> utente.code == utenteCode }
 
     if (utente != null) {
         var editedNome by remember { mutableStateOf(utente.nome) }
         var editedCognome by remember { mutableStateOf(utente.cognome) }
         var showEliminaAlert by remember { mutableStateOf(false) }
-        var showAddSchedaView by remember { mutableStateOf(false) }
 
         Scaffold(
             topBar = {
@@ -44,12 +48,14 @@ fun UtenteScreen(
             ) {
                 FormSection(title = "Codice", content = utente.code)
                 Spacer(modifier = Modifier.height(16.dp))
-                TextField("Nome", editedNome) { editedNome = it }
-                TextField("Cognome", editedCognome) { editedCognome = it }
+                CustomTextField("Nome", editedNome) { editedNome = it }
+                CustomTextField("Cognome", editedCognome) { editedCognome = it }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = { showAddSchedaView = true }) {
+                TextButton(onClick = {
+                    navController.navigate("editScheda")
+                }) {
                     Text(if (utente.scheda != null) "Modifica scheda" else "Aggiungi scheda")
                 }
 
@@ -95,21 +101,110 @@ fun UtenteScreen(
                         }
                     )
                 }
-
-                if (showAddSchedaView) {
-                    // AddSchedaView(userCode = utente.code, gymViewModel = gymViewModel, scheda = utente.scheda, onDismiss = { showAddSchedaView = false })
-                }
             }
         }
     } else {
-        // Qui puoi gestire il caso in cui l'utente non viene trovato o la lista è vuota
+        // Gestione del caso in cui l'utente non viene trovato o la lista è vuota
         Text("Utente non trovato")
     }
 }
 
 
 @Composable
-fun TextField(label: String, value: String, onValueChange: (String) -> Unit) {
+fun UtenteNavHost(
+    navController: NavController,
+    utenteCode: String,
+    gymViewModel: GymViewModel = viewModel() // Utilizziamo viewModel() per ottenere l'istanza
+) {
+    val internalNavController = rememberNavController()
+    val users by gymViewModel.users.observeAsState(initial = emptyList())
+
+    // Controlla se la lista users è vuota o se contiene l'utente cercato
+    val utente = users.firstOrNull { utente -> utente.code == utenteCode }
+
+    if (utente != null) {
+        val scheda = utente.scheda ?: Scheda()
+
+        NavHost(
+            navController = internalNavController,
+            startDestination = "utenteScreen"
+        ) {
+            composable("utenteScreen") {
+                UtenteScreen(navController = internalNavController, utenteCode)
+            }
+            composable("editScheda") {
+                EditSchedaScreen(
+                    navController = internalNavController,
+                    GymViewModel(),
+                    utenteCode
+                ) {
+                    internalNavController.popBackStack()
+                }
+            }
+            composable("addGiornoScreen") {
+                AddGiornoScreen(navController, onGiornoAdded = { newGiorno ->
+                    // Converti la mappa esistente in una mappa mutabile
+                    val updatedGiorni = scheda.giorni.toMutableMap()
+                    // Aggiungi o aggiorna il giorno
+                    updatedGiorni[newGiorno.name] = newGiorno
+                    // Riassegna la mappa aggiornata
+                    scheda.giorni = updatedGiorni
+                }, onDismiss = {
+                    navController.popBackStack()
+                })
+            }
+            composable("addGruppoMuscolareScreen/{giornoName}") { backStackEntry ->
+                val giornoName = backStackEntry.arguments?.getString("giornoName") ?: "A"
+                val giorno = scheda.giorni[giornoName] ?: Giorno(giornoName ?: "")
+
+                AddGruppoMuscolareScreen(navController, giorno, onGruppoMuscolareAdded = { newGruppoMuscolare ->
+                    // Converti la mappa esistente in una mappa mutabile
+                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                    // Aggiungi o aggiorna il gruppo muscolare
+                    updatedGruppiMuscolari[newGruppoMuscolare.nome] = newGruppoMuscolare
+                    // Riassegna la mappa aggiornata
+                    giorno.gruppiMuscolari = updatedGruppiMuscolari
+                    // Aggiorna il giorno nella scheda
+                    val updatedGiorni = scheda.giorni.toMutableMap()
+                    updatedGiorni[giornoName] = giorno
+                    scheda.giorni = updatedGiorni
+                })
+            }
+            composable("addEsercizioScreen/{gruppoName}") { backStackEntry ->
+                val gruppoName = backStackEntry.arguments?.getString("gruppoName") ?: "Nome"
+                val gruppo = scheda.giorni.values
+                    .flatMap { it.gruppiMuscolari.values }
+                    .firstOrNull { it.nome == gruppoName }
+                    ?: GruppoMuscolare(gruppoName ?: "")
+
+                AddEsercizioScreen(navController, gruppo, onEsercizioAdded = { newEsercizio ->
+                    // Converti la mappa esistente in una mappa mutabile
+                    val updatedEsercizi = gruppo.esercizi.toMutableMap()
+                    // Aggiungi o aggiorna l'esercizio
+                    updatedEsercizi[newEsercizio.name] = newEsercizio
+                    // Riassegna la mappa aggiornata
+                    gruppo.esercizi = updatedEsercizi
+                    // Aggiorna il gruppo muscolare nella scheda
+                    scheda.giorni.forEach { (giornoName, giorno) ->
+                        if (giorno.gruppiMuscolari.containsKey(gruppoName)) {
+                            val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                            updatedGruppiMuscolari[gruppoName] = gruppo
+                            giorno.gruppiMuscolari = updatedGruppiMuscolari
+                            val updatedGiorni = scheda.giorni.toMutableMap()
+                            updatedGiorni[giornoName] = giorno
+                            scheda.giorni = updatedGiorni
+                        }
+                    }
+                })
+            }
+
+        }
+    }
+}
+
+
+@Composable
+fun CustomTextField(label: String, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
