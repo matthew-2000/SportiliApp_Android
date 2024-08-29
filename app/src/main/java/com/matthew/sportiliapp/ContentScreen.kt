@@ -21,6 +21,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.matthew.sportiliapp.admin.AdminHomeScreen
+import com.matthew.sportiliapp.admin.UtenteNavHost
 import com.matthew.sportiliapp.admin.UtenteScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
@@ -110,7 +111,7 @@ fun ContentScreen(navController: NavHostController) {
                     }
                 }
                 composable(
-                    route = "utente?utenteCode={utenteCode}",
+                    route = "utenteNavHost?utenteCode={utenteCode}",
                     arguments = listOf(
                         navArgument(
                             name = "utente"
@@ -121,7 +122,7 @@ fun ContentScreen(navController: NavHostController) {
                     )) {
                     val utenteCode = it.arguments?.getString("utenteCode")
                     if (utenteCode != null) {
-                        UtenteScreen(navController = navController2, utenteCode = utenteCode)
+                        UtenteNavHost(navController = navController2, utenteCode = utenteCode)
                     }
                 }
             }

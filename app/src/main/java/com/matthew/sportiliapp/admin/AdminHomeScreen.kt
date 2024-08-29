@@ -83,7 +83,7 @@ fun UserList(users: List<Utente>, searchText: String, navController: NavHostCont
         items(filteredUsers) { utente ->
             UserRow(utente) {
                 navController.navigate(
-                    route = "utente?utenteCode=${utente.code}"
+                    route = "utenteNavHost?utenteCode=${utente.code}"
                 )
             }
         }
