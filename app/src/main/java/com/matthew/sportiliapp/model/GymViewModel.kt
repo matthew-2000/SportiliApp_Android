@@ -64,7 +64,39 @@ class GymViewModel : ViewModel() {
     }
 
     fun saveScheda(scheda: Scheda, userCode: String) {
-        val schedaDict = scheda.toMap()
-        dbRef.child(userCode).child("scheda").setValue(schedaDict)
+        val schedaDict = scheda.toMap() // Assicurati di avere un metodo `toMap()` nella tua classe Scheda
+        val dbRef = FirebaseDatabase.getInstance().getReference("users").child(userCode).child("scheda")
+        dbRef.setValue(schedaDict)
+            .addOnSuccessListener {
+                // Operazione completata con successo
+            }
+            .addOnFailureListener { exception ->
+                // Gestisci gli errori qui
+            }
     }
+
+    fun addGruppoMuscolare(userCode: String, giornoName: String, gruppoMuscolare: GruppoMuscolare) {
+        val gruppoMuscolareDict = gruppoMuscolare.toMap() // Assicurati di avere un metodo `toMap()` nella tua classe GruppoMuscolare
+        val dbRef = FirebaseDatabase.getInstance().getReference("users").child(userCode).child("scheda").child("giorni").child(giornoName).child("gruppiMuscolari").child(gruppoMuscolare.nome)
+        dbRef.setValue(gruppoMuscolareDict)
+            .addOnSuccessListener {
+                // Operazione completata con successo
+            }
+            .addOnFailureListener { exception ->
+                // Gestisci gli errori qui
+            }
+    }
+
+    fun addEsercizio(userCode: String, giornoName: String, gruppoName: String, esercizio: Esercizio) {
+        val esercizioDict = esercizio.toMap() // Assicurati di avere un metodo `toMap()` nella tua classe Esercizio
+        val dbRef = FirebaseDatabase.getInstance().getReference("users").child(userCode).child("scheda").child("giorni").child(giornoName).child("gruppiMuscolari").child(gruppoName).child("esercizi").child(esercizio.name)
+        dbRef.setValue(esercizioDict)
+            .addOnSuccessListener {
+                // Operazione completata con successo
+            }
+            .addOnFailureListener { exception ->
+                // Gestisci gli errori qui
+            }
+    }
+
 }

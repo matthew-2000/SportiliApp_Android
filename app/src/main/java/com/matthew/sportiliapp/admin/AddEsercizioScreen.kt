@@ -108,15 +108,6 @@ fun AddEsercizioScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = noteUtente,
-                onValueChange = { noteUtente = it },
-                label = { Text("Note Utente (facoltative)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
@@ -127,7 +118,6 @@ fun AddEsercizioScreen(
                         priorita = priorita.toIntOrNull(),
                         riposo = riposo,
                         notePT = notePT,
-                        noteUtente = noteUtente
                     )
                     onEsercizioAdded(newEsercizio)
                     navController.popBackStack()
