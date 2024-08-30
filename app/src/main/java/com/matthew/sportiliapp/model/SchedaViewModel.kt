@@ -27,6 +27,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val data = snapshot.getValue(Scheda::class.java)
+                    data?.sortAll()
                     _scheda.postValue(data)
                 }
 

@@ -2,9 +2,13 @@ package com.matthew.sportiliapp.admin
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -12,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,9 +31,11 @@ import okhttp3.internal.notify
 fun AddGruppoMuscolareScreen(
     navController: NavController,
     giorno: Giorno,
-    onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit
+    onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit,
+    onGruppoMuscolareMoved: (oldIndex: Int, newIndex: Int) -> Unit
 ) {
     var showAddGruppoMuscolareDialog by remember { mutableStateOf(false) }
+    val gruppiMuscolariList = remember { giorno.gruppiMuscolari.toList().toMutableStateList() }
 
     Scaffold(
         topBar = {
@@ -54,9 +61,26 @@ fun AddGruppoMuscolareScreen(
             Text("Gruppi Muscolari", style = MaterialTheme.typography.headlineSmall)
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            giorno.gruppiMuscolari.forEach { gruppo ->
-                GruppoMuscolareItem(gruppo = gruppo.value) {
-                    navController.navigate("addEsercizioScreen/${gruppo.value.nome}")
+            LazyColumn {
+                itemsIndexed(gruppiMuscolariList) { index, gruppo ->
+                    GruppoMuscolareItem(
+                        gruppo = gruppo.second,
+                        onEdit = {
+                            navController.navigate("addEsercizioScreen/${gruppo.second.nome}")
+                        },
+                        onMoveUp = {
+                            if (index > 0) {
+                                gruppiMuscolariList.move(index, index - 1)
+                                onGruppoMuscolareMoved(index, index - 1)
+                            }
+                        },
+                        onMoveDown = {
+                            if (index < gruppiMuscolariList.size - 1) {
+                                gruppiMuscolariList.move(index, index + 1)
+                                onGruppoMuscolareMoved(index, index + 1)
+                            }
+                        }
+                    )
                 }
             }
 
@@ -72,6 +96,7 @@ fun AddGruppoMuscolareScreen(
                 AddGruppoMuscolareDialog(
                     onDismiss = { showAddGruppoMuscolareDialog = false },
                     onGruppoMuscolareAdded = { newGruppo ->
+                        gruppiMuscolariList.add("gruppo${gruppiMuscolariList.size + 1}" to newGruppo)
                         onGruppoMuscolareAdded(newGruppo)
                         showAddGruppoMuscolareDialog = false
                     }
@@ -81,8 +106,14 @@ fun AddGruppoMuscolareScreen(
     }
 }
 
+
 @Composable
-fun GruppoMuscolareItem(gruppo: GruppoMuscolare, onEdit: () -> Unit) {
+fun GruppoMuscolareItem(
+    gruppo: GruppoMuscolare,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -92,7 +123,18 @@ fun GruppoMuscolareItem(gruppo: GruppoMuscolare, onEdit: () -> Unit) {
         Column(
             modifier = Modifier.padding(8.dp)
         ) {
-            Text(text = gruppo.nome, style = MaterialTheme.typography.headlineMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = gruppo.nome, style = MaterialTheme.typography.headlineMedium)
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onMoveUp) {
+                    Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
+                }
+                IconButton(onClick = onMoveDown) {
+                    Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
+                }
+            }
 
             // Visualizzazione degli esercizi
             gruppo.esercizi.values.forEach { esercizio ->
@@ -101,6 +143,7 @@ fun GruppoMuscolareItem(gruppo: GruppoMuscolare, onEdit: () -> Unit) {
         }
     }
 }
+
 
 @Composable
 fun EsercizioItem(esercizio: Esercizio) {

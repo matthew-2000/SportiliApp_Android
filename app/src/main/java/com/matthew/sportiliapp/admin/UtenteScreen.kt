@@ -145,20 +145,32 @@ fun UtenteNavHost(
                 val giornoName = backStackEntry.arguments?.getString("giornoName") ?: "A"
                 val giorno = scheda.giorni[giornoName] ?: Giorno(giornoName ?: "")
 
-                AddGruppoMuscolareScreen(internalNavController, giorno, onGruppoMuscolareAdded = { newGruppoMuscolare ->
-                    // Converti la mappa esistente in una mappa mutabile
-                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
-                    // Aggiungi o aggiorna il gruppo muscolare
-                    updatedGruppiMuscolari[newGruppoMuscolare.nome] = newGruppoMuscolare
-                    // Riassegna la mappa aggiornata
-                    giorno.gruppiMuscolari = updatedGruppiMuscolari
-                    // Aggiorna il giorno nella scheda
-                    val updatedGiorni = scheda.giorni.toMutableMap()
-                    updatedGiorni[giornoName] = giorno
-                    scheda.giorni = updatedGiorni
-                    gymViewModel.saveScheda(scheda, utenteCode)
-                })
+                AddGruppoMuscolareScreen(
+                    navController = internalNavController,
+                    giorno = giorno,
+                    onGruppoMuscolareAdded = { newGruppoMuscolare ->
+                        val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                        updatedGruppiMuscolari["gruppo${giorno.gruppiMuscolari.size}"] = newGruppoMuscolare
+                        giorno.gruppiMuscolari = updatedGruppiMuscolari
+                        val updatedGiorni = scheda.giorni.toMutableMap()
+                        updatedGiorni[giornoName] = giorno
+                        scheda.giorni = updatedGiorni
+                        gymViewModel.saveScheda(scheda, utenteCode)
+                    },
+                    onGruppoMuscolareMoved = { oldIndex, newIndex ->
+                        val updatedGruppiMuscolari = giorno.gruppiMuscolari.toList().toMutableList()
+                        val movedItem = updatedGruppiMuscolari.removeAt(oldIndex)
+                        updatedGruppiMuscolari.add(newIndex, movedItem)
+                        val updatedGruppiMuscolari2 = updatedGruppiMuscolari.mapIndexed { index, entry -> "gruppo${index + 1}" to entry.second }.toMap()
+                        giorno.gruppiMuscolari = updatedGruppiMuscolari2
+                        val updatedGiorni = scheda.giorni.toMutableMap()
+                        updatedGiorni[giornoName] = giorno
+                        scheda.giorni = updatedGiorni
+                        gymViewModel.saveScheda(scheda, utenteCode)
+                    }
+                )
             }
+
             composable("addEsercizioScreen/{gruppoName}") { backStackEntry ->
                 val gruppoName = backStackEntry.arguments?.getString("gruppoName") ?: "Nome"
                 val gruppo = scheda.giorni.values
@@ -170,7 +182,7 @@ fun UtenteNavHost(
                     // Converti la mappa esistente in una mappa mutabile
                     val updatedEsercizi = gruppo.esercizi.toMutableMap()
                     // Aggiungi o aggiorna l'esercizio
-                    updatedEsercizi[newEsercizio.name] = newEsercizio
+                    updatedEsercizi["esercizio${gruppo.esercizi.size}"] = newEsercizio
                     // Riassegna la mappa aggiornata
                     gruppo.esercizi = updatedEsercizi
                     // Aggiorna il gruppo muscolare nella scheda
@@ -191,7 +203,6 @@ fun UtenteNavHost(
         }
     }
 }
-
 
 @Composable
 fun CustomTextField(label: String, value: String, onValueChange: (String) -> Unit) {
