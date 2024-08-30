@@ -38,15 +38,15 @@ data class Scheda(
 //        """.trimIndent()
 //    }
 
-//
-//    fun sortAll() {
-//        giorni = giorni.sortedBy { it.name }
-//        giorni.forEach { giorno ->
-//            giorno.gruppiMuscolari.forEach { gruppo ->
-//                gruppo.esercizi = gruppo.esercizi.sortedBy { it.ordine ?: 0 }
-//            }
-//        }
-//    }
+    fun sortAll() {
+        giorni = giorni.toSortedMap()
+        giorni.forEach { giorno ->
+            giorno.value.gruppiMuscolari = giorno.value.gruppiMuscolari.toSortedMap()
+            giorno.value.gruppiMuscolari.forEach { gruppo ->
+                gruppo.value.esercizi = gruppo.value.esercizi.toSortedMap()
+            }
+        }
+    }
 
     fun getDurataScheda(): Int? {
 //        val calendar = Calendar.getInstance()

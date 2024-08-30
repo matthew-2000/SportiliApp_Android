@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -15,6 +17,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,24 +40,23 @@ fun EditSchedaScreen(
     val users by gymViewModel.users.observeAsState(emptyList())
     val utente = users.firstOrNull { it.code == utenteCode } ?: return
     val scheda = utente.scheda ?: Scheda("", 0)
+    if (scheda.giorni.isEmpty()) {
+        val updatedGiorni = scheda.giorni.toMutableMap()
+        updatedGiorni["giorno1"] = Giorno("A")
+        updatedGiorni["giorno2"] = Giorno("B")
+        updatedGiorni["giorno3"] = Giorno("C")
+        scheda.giorni = updatedGiorni
+    }
 
     var dataInizio by remember { mutableStateOf(scheda.dataInizio) }
     var durata by remember { mutableStateOf(scheda.durata.toString()) }
     var showAddGiornoDialog by remember { mutableStateOf(false) }
+    val giorniList = remember { scheda.giorni.toList().toMutableStateList() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Modifica Scheda") },
-                actions = {
-                    IconButton(onClick = {
-                        val updatedScheda = Scheda(dataInizio, durata.toInt(), scheda.giorni)
-                        gymViewModel.saveScheda(updatedScheda, utenteCode)
-                        onDismiss()
-                    }) {
-                        Icon(Icons.Default.Done, contentDescription = "Salva")
-                    }
-                }
+                title = { Text("Modifica Scheda") }
             )
         }
     ) { padding ->
@@ -110,10 +112,23 @@ fun EditSchedaScreen(
             Text("Giorni della Scheda", style = MaterialTheme.typography.headlineSmall)
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            scheda.giorni.forEach { (dayName, giorno) ->
-                GiornoItem(giorno = giorno) {
-                    navController.navigate("addGruppoMuscolareScreen/${dayName}")
-                }
+            giorniList.forEachIndexed { index, (dayName, giorno) ->
+                GiornoItem(
+                    giorno = giorno,
+                    onEdit = { navController.navigate("addGruppoMuscolareScreen/$dayName") },
+                    onMoveUp = {
+                        if (index > 0) {
+                            giorniList.move(index, index - 1)
+                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        }
+                    },
+                    onMoveDown = {
+                        if (index < giorniList.size - 1) {
+                            giorniList.move(index, index + 1)
+                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -128,18 +143,62 @@ fun EditSchedaScreen(
                 AddGiornoDialog(
                     onDismiss = { showAddGiornoDialog = false },
                     onGiornoAdded = { newGiorno ->
-                        val updatedGiorni = scheda.giorni.toMutableMap()
-                        updatedGiorni[newGiorno.name] = newGiorno
-                        scheda.giorni = updatedGiorni
-                        gymViewModel.saveScheda(Scheda(dataInizio, durata.toInt(), updatedGiorni), utenteCode)
+                        giorniList.add("giorno${giorniList.size + 1}" to newGiorno)
+                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
                         showAddGiornoDialog = false
-                        //navController.navigate("addGruppoMuscolareScreen/${newGiorno.name}")
                     }
                 )
             }
         }
     }
 }
+
+@Composable
+fun GiornoItem(giorno: Giorno, onEdit: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable(onClick = onEdit),
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = giorno.name, style = MaterialTheme.typography.headlineMedium)
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onMoveUp) {
+                    Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
+                }
+                IconButton(onClick = onMoveDown) {
+                    Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "Gruppi Muscolari: ${giorno.gruppiMuscolari.size}", style = MaterialTheme.typography.headlineSmall)
+        }
+    }
+}
+
+fun <T> MutableList<T>.move(fromIndex: Int, toIndex: Int) {
+    val item = removeAt(fromIndex)
+    add(toIndex, item)
+}
+
+fun updateScheda(
+    giorniList: List<Pair<String, Giorno>>,
+    gymViewModel: GymViewModel,
+    utenteCode: String,
+    dataInizio: String,
+    durata: String
+) {
+    val updatedGiorni = giorniList.mapIndexed { index, entry -> "giorno${index + 1}" to entry.second }.toMap()
+    val updatedScheda = Scheda(dataInizio, durata.toInt(), updatedGiorni)
+    gymViewModel.saveScheda(updatedScheda, utenteCode)
+}
+
 
 @Composable
 fun AddGiornoDialog(
@@ -177,23 +236,3 @@ fun AddGiornoDialog(
         }
     )
 }
-
-
-@Composable
-fun GiornoItem(giorno: Giorno, onEdit: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onEdit),
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Text(text = giorno.name, style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Gruppi Muscolari: ${giorno.gruppiMuscolari.size}")
-        }
-    }
-}
-
