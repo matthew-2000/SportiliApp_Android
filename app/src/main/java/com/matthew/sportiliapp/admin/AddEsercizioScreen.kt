@@ -3,6 +3,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,11 +28,11 @@ fun AddEsercizioScreen(
     onEsercizioAdded: (Esercizio) -> Unit
 ) {
     var esercizioName by remember { mutableStateOf("") }
-    var serie by remember { mutableStateOf("") }
-    var priorita by remember { mutableStateOf("") }
+    var serie by remember { mutableStateOf(3) }
+    var ripetizioni by remember { mutableStateOf(10) }
+    var serieDescrizione by remember { mutableStateOf("") }
     var riposo by remember { mutableStateOf("") }
     var notePT by remember { mutableStateOf("") }
-    var noteUtente by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -38,14 +40,13 @@ fun AddEsercizioScreen(
                 title = { Text("Aggiungi Esercizio") },
                 actions = {
                     IconButton(onClick = {
-                        if (esercizioName.isNotEmpty() && serie.isNotEmpty()) {
+                        if (esercizioName.isNotEmpty()) {
+                            val finalSerie = if (serieDescrizione.isNotEmpty()) serieDescrizione else "$serie x $ripetizioni"
                             val newEsercizio = Esercizio(
                                 name = esercizioName,
-                                serie = serie,
-                                priorita = priorita.toIntOrNull(),
+                                serie = finalSerie,
                                 riposo = riposo,
-                                notePT = notePT,
-                                noteUtente = noteUtente
+                                notePT = notePT
                             )
                             onEsercizioAdded(newEsercizio)
                             navController.popBackStack()
@@ -62,8 +63,11 @@ fun AddEsercizioScreen(
                 .padding(padding)
                 .padding(16.dp)
                 .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Dettagli Esercizio
+            Text("Dettagli Esercizio", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = esercizioName,
                 onValueChange = { esercizioName = it },
@@ -71,31 +75,49 @@ fun AddEsercizioScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stepper per le Serie
+            Stepper(
+                value = serie,
+                onValueChange = { serie = it },
+                range = 1..30,
+                label = "Serie"
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stepper per le Ripetizioni
+            Stepper(
+                value = ripetizioni,
+                onValueChange = { ripetizioni = it },
+                range = 1..50,
+                label = "Ripetizioni"
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Ripetizioni testuali
+            Text("Ripetizioni testuali", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
-                value = serie,
-                onValueChange = { serie = it },
-                label = { Text("Serie") },
+                value = serieDescrizione,
+                onValueChange = { serieDescrizione = it },
+                label = { Text("Serie o minuti") },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = priorita,
-                onValueChange = { priorita = it },
-                label = { Text("Priorità (facoltativa)") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-
+            // Altro
+            Text("Altro", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = riposo,
                 onValueChange = { riposo = it },
-                label = { Text("Tempo di Riposo (facoltativo)") },
+                label = { Text("Riposo") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -104,18 +126,18 @@ fun AddEsercizioScreen(
             OutlinedTextField(
                 value = notePT,
                 onValueChange = { notePT = it },
-                label = { Text("Note PT (facoltative)") },
+                label = { Text("Note PT") },
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = {
-                if (esercizioName.isNotEmpty() && serie.isNotEmpty()) {
+                if (esercizioName.isNotEmpty()) {
+                    val finalSerie = if (serieDescrizione.isNotEmpty()) serieDescrizione else "$serie x $ripetizioni"
                     val newEsercizio = Esercizio(
                         name = esercizioName,
-                        serie = serie,
-                        priorita = priorita.toIntOrNull(),
+                        serie = finalSerie,
                         riposo = riposo,
                         notePT = notePT,
                     )
@@ -124,6 +146,44 @@ fun AddEsercizioScreen(
                 }
             }) {
                 Text("Aggiungi Esercizio")
+            }
+        }
+    }
+}
+
+@Composable
+fun Stepper(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    label: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = label)
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = {
+                if (value > range.first) {
+                    onValueChange(value - 1)
+                }
+            }) {
+                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Decrement")
+            }
+
+            Text(text = value.toString(), style = MaterialTheme.typography.bodyLarge)
+
+            IconButton(onClick = {
+                if (value < range.last) {
+                    onValueChange(value + 1)
+                }
+            }) {
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Increment")
             }
         }
     }

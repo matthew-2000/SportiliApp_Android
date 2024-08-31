@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -35,6 +36,9 @@ fun AddGruppoMuscolareScreen(
     onGruppoMuscolareMoved: (oldIndex: Int, newIndex: Int) -> Unit
 ) {
     var showAddGruppoMuscolareDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var gruppoToDeleteIndex by remember { mutableStateOf(-1) }
+
     val gruppiMuscolariList = remember { giorno.gruppiMuscolari.toList().toMutableStateList() }
 
     Scaffold(
@@ -79,6 +83,10 @@ fun AddGruppoMuscolareScreen(
                                 gruppiMuscolariList.move(index, index + 1)
                                 onGruppoMuscolareMoved(index, index + 1)
                             }
+                        },
+                        onDelete = {
+                            gruppoToDeleteIndex = index
+                            showDeleteDialog = true
                         }
                     )
                 }
@@ -102,17 +110,41 @@ fun AddGruppoMuscolareScreen(
                     }
                 )
             }
+
+            if (showDeleteDialog && gruppoToDeleteIndex >= 0) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Conferma Eliminazione") },
+                    text = { Text("Sei sicuro di voler eliminare questo gruppo muscolare?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                gruppiMuscolariList.removeAt(gruppoToDeleteIndex)
+                                showDeleteDialog = false
+                                gruppoToDeleteIndex = -1
+                            }
+                        ) {
+                            Text("Elimina")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Annulla")
+                        }
+                    }
+                )
+            }
         }
     }
 }
-
 
 @Composable
 fun GruppoMuscolareItem(
     gruppo: GruppoMuscolare,
     onEdit: () -> Unit,
     onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -134,15 +166,18 @@ fun GruppoMuscolareItem(
                 IconButton(onClick = onMoveDown) {
                     Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
                 }
+                IconButton(onClick = onDelete) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Elimina Gruppo Muscolare")
+                }
             }
 
-            // Visualizzazione degli esercizi
             gruppo.esercizi.values.forEach { esercizio ->
                 EsercizioItem(esercizio)
             }
         }
     }
 }
+
 
 
 @Composable
@@ -153,7 +188,7 @@ fun EsercizioItem(esercizio: Esercizio) {
             style = MaterialTheme.typography.headlineSmall
         )
         Text(
-            text = "Serie: ${esercizio.serie}",
+            text = esercizio.serie,
             style = MaterialTheme.typography.headlineSmall
         )
         Divider(modifier = Modifier.padding(vertical = 8.dp))
