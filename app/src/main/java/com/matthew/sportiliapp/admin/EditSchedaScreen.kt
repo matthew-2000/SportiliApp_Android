@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -28,6 +29,21 @@ import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Scheda
 import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+fun formatToDisplayDate(dateString: String): String {
+    val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+    val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    return formatter.format(parser.parse(dateString) ?: Date())
+}
+
+fun formatToSaveDate(dateString: String): String {
+    val parser = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+    return formatter.format(parser.parse(dateString) ?: Date())
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,10 +64,13 @@ fun EditSchedaScreen(
         scheda.giorni = updatedGiorni
     }
 
-    var dataInizio by remember { mutableStateOf(scheda.dataInizio) }
+    var dataInizio by remember { mutableStateOf(formatToDisplayDate(scheda.dataInizio)) }
     var durata by remember { mutableStateOf(scheda.durata.toString()) }
     var showAddGiornoDialog by remember { mutableStateOf(false) }
     val giorniList = remember { scheda.giorni.toList().toMutableStateList() }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var giornoToDeleteIndex by remember { mutableStateOf(-1) }
 
     Scaffold(
         topBar = {
@@ -74,7 +93,9 @@ fun EditSchedaScreen(
             val datePickerDialog = android.app.DatePickerDialog(
                 context,
                 { _, year, month, dayOfMonth ->
-                    dataInizio = "$dayOfMonth/${month + 1}/$year"
+                    val selectedDate = "$dayOfMonth/${month + 1}/$year"
+                    dataInizio = selectedDate
+                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
                 },
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
@@ -100,7 +121,10 @@ fun EditSchedaScreen(
 
             OutlinedTextField(
                 value = durata,
-                onValueChange = { durata = it },
+                onValueChange = {
+                    durata = it
+                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                },
                 label = { Text("Durata (giorni)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
@@ -126,6 +150,35 @@ fun EditSchedaScreen(
                         if (index < giorniList.size - 1) {
                             giorniList.move(index, index + 1)
                             updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        }
+                    },
+                    onDelete = {
+                        giornoToDeleteIndex = index
+                        showDeleteDialog = true
+                    }
+                )
+            }
+
+            if (showDeleteDialog && giornoToDeleteIndex >= 0) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Conferma Eliminazione") },
+                    text = { Text("Sei sicuro di voler eliminare questo giorno?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                giorniList.removeAt(giornoToDeleteIndex)
+                                updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                                showDeleteDialog = false
+                                giornoToDeleteIndex = -1
+                            }
+                        ) {
+                            Text("Elimina", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Annulla")
                         }
                     }
                 )
@@ -154,7 +207,13 @@ fun EditSchedaScreen(
 }
 
 @Composable
-fun GiornoItem(giorno: Giorno, onEdit: () -> Unit, onMoveUp: () -> Unit, onMoveDown: () -> Unit) {
+fun GiornoItem(
+    giorno: Giorno,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -175,12 +234,16 @@ fun GiornoItem(giorno: Giorno, onEdit: () -> Unit, onMoveUp: () -> Unit, onMoveD
                 IconButton(onClick = onMoveDown) {
                     Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
                 }
+                IconButton(onClick = onDelete) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Elimina Giorno")
+                }
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "Gruppi Muscolari: ${giorno.gruppiMuscolari.size}", style = MaterialTheme.typography.headlineSmall)
         }
     }
 }
+
 
 fun <T> MutableList<T>.move(fromIndex: Int, toIndex: Int) {
     val item = removeAt(fromIndex)
@@ -194,11 +257,14 @@ fun updateScheda(
     dataInizio: String,
     durata: String
 ) {
-    val updatedGiorni = giorniList.mapIndexed { index, entry -> "giorno${index + 1}" to entry.second }.toMap()
-    val updatedScheda = Scheda(dataInizio, durata.toInt(), updatedGiorni)
-    gymViewModel.saveScheda(updatedScheda, utenteCode)
+    val durataInt = durata.toIntOrNull()
+    if (durataInt != null) {
+        val formattedDataInizio = formatToSaveDate(dataInizio)
+        val updatedGiorni = giorniList.mapIndexed { index, entry -> "giorno${index + 1}" to entry.second }.toMap()
+        val updatedScheda = Scheda(formattedDataInizio, durataInt, updatedGiorni)
+        gymViewModel.saveScheda(updatedScheda, utenteCode)
+    }
 }
-
 
 @Composable
 fun AddGiornoDialog(
