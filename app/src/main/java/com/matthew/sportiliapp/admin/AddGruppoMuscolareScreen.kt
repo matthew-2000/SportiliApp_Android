@@ -44,7 +44,7 @@ fun AddGruppoMuscolareScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Gruppi Muscolari - ${giorno.name}") },
+                title = { Text("Giorno ${giorno.name}") },
                 actions = {
                     IconButton(onClick = {
                         showAddGruppoMuscolareDialog = true
@@ -70,7 +70,7 @@ fun AddGruppoMuscolareScreen(
                     GruppoMuscolareItem(
                         gruppo = gruppo.second,
                         onEdit = {
-                            navController.navigate("addEsercizioScreen/${gruppo.second.nome}")
+                            navController.navigate("editGruppoMuscolareScreen/${gruppo.second.nome}")
                         },
                         onMoveUp = {
                             if (index > 0) {
@@ -177,7 +177,6 @@ fun GruppoMuscolareItem(
         }
     }
 }
-
 
 
 @Composable

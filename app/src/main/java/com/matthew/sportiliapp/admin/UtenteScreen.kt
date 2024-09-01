@@ -199,6 +199,107 @@ fun UtenteNavHost(
                     gymViewModel.saveScheda(scheda, utenteCode)
                 })
             }
+            composable("editGruppoMuscolareScreen/{nomeGruppo}") { backStackEntry ->
+                val nomeGruppo = backStackEntry.arguments?.getString("nomeGruppo") ?: return@composable
+
+                // Cerca il gruppo muscolare all'interno della scheda dell'utente
+                val gruppo = scheda.giorni.values
+                    .flatMap { it.gruppiMuscolari.values }
+                    .firstOrNull { it.nome == nomeGruppo }
+
+                if (gruppo != null) {
+                    EditGruppoMuscolareScreen(
+                        navController = internalNavController,
+                        gruppoMuscolare = gruppo,
+                        onEsercizioAdded = { newEsercizio ->
+                            // Aggiungi l'esercizio al gruppo muscolare
+                            val updatedEsercizi = gruppo.esercizi.toMutableMap()
+                            updatedEsercizi["esercizio${gruppo.esercizi.size}"] = newEsercizio
+                            gruppo.esercizi = updatedEsercizi
+
+                            // Aggiorna la scheda dell'utente con il nuovo gruppo muscolare
+                            scheda.giorni.forEach { (giornoName, giorno) ->
+                                if (giorno.gruppiMuscolari.containsKey(nomeGruppo)) {
+                                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                                    updatedGruppiMuscolari[nomeGruppo] = gruppo
+                                    giorno.gruppiMuscolari = updatedGruppiMuscolari
+                                    val updatedGiorni = scheda.giorni.toMutableMap()
+                                    updatedGiorni[giornoName] = giorno
+                                    scheda.giorni = updatedGiorni
+                                }
+                            }
+
+                            // Salva la scheda aggiornata
+                            gymViewModel.saveScheda(scheda, utenteCode)
+                        },
+                        onEsercizioMoved = { oldIndex, newIndex ->
+                            // Sposta l'esercizio all'interno del gruppo muscolare
+                            val updatedEsercizi = gruppo.esercizi.toList().toMutableList()
+                            val movedItem = updatedEsercizi.removeAt(oldIndex)
+                            updatedEsercizi.add(newIndex, movedItem)
+                            val updatedEserciziMap = updatedEsercizi.mapIndexed { index, entry -> "esercizio${index + 1}" to entry.second }.toMap()
+                            gruppo.esercizi = updatedEserciziMap
+
+                            // Aggiorna la scheda dell'utente con il nuovo gruppo muscolare
+                            scheda.giorni.forEach { (giornoName, giorno) ->
+                                if (giorno.gruppiMuscolari.containsKey(nomeGruppo)) {
+                                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                                    updatedGruppiMuscolari[nomeGruppo] = gruppo
+                                    giorno.gruppiMuscolari = updatedGruppiMuscolari
+                                    val updatedGiorni = scheda.giorni.toMutableMap()
+                                    updatedGiorni[giornoName] = giorno
+                                    scheda.giorni = updatedGiorni
+                                }
+                            }
+
+                            // Salva la scheda aggiornata
+                            gymViewModel.saveScheda(scheda, utenteCode)
+                        },
+                        onEsercizioDeleted = { index ->
+                            // Rimuovi l'esercizio dal gruppo muscolare
+                            val updatedEsercizi = gruppo.esercizi.toMutableMap()
+                            updatedEsercizi.remove("esercizio$index")
+                            gruppo.esercizi = updatedEsercizi
+
+                            // Aggiorna la scheda dell'utente con il nuovo gruppo muscolare
+                            scheda.giorni.forEach { (giornoName, giorno) ->
+                                if (giorno.gruppiMuscolari.containsKey(nomeGruppo)) {
+                                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                                    updatedGruppiMuscolari[nomeGruppo] = gruppo
+                                    giorno.gruppiMuscolari = updatedGruppiMuscolari
+                                    val updatedGiorni = scheda.giorni.toMutableMap()
+                                    updatedGiorni[giornoName] = giorno
+                                    scheda.giorni = updatedGiorni
+                                }
+                            }
+
+                            // Salva la scheda aggiornata
+                            gymViewModel.saveScheda(scheda, utenteCode)
+                        },
+                        onEsercizioEdited = { index, esercizio ->
+                            // Modifica l'esercizio esistente nel gruppo muscolare
+                            val updatedEsercizi = gruppo.esercizi.toMutableMap()
+                            updatedEsercizi["esercizio$index"] = esercizio
+                            gruppo.esercizi = updatedEsercizi
+
+                            // Aggiorna la scheda dell'utente con il nuovo gruppo muscolare
+                            scheda.giorni.forEach { (giornoName, giorno) ->
+                                if (giorno.gruppiMuscolari.containsKey(nomeGruppo)) {
+                                    val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
+                                    updatedGruppiMuscolari[nomeGruppo] = gruppo
+                                    giorno.gruppiMuscolari = updatedGruppiMuscolari
+                                    val updatedGiorni = scheda.giorni.toMutableMap()
+                                    updatedGiorni[giornoName] = giorno
+                                    scheda.giorni = updatedGiorni
+                                }
+                            }
+
+                            // Salva la scheda aggiornata
+                            gymViewModel.saveScheda(scheda, utenteCode)
+                        }
+                    )
+                }
+            }
 
         }
     }
