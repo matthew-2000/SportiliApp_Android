@@ -29,11 +29,15 @@ class MainActivity : ComponentActivity() {
 
                 val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
                 val savedCode = sharedPreferences.getString("code", "") ?: ""
+                val isAdmin = sharedPreferences.getBoolean("isAdmin", false)
 
                 if (isLoggedIn && savedCode.isNotEmpty()) {
                     startDestination.value = "content"
                 } else {
                     startDestination.value = "login"
+                }
+                if (isAdmin) {
+                    startDestination.value = "admin"
                 }
                 AppNavHost(navController = navController, startDestination = startDestination.value)
             }

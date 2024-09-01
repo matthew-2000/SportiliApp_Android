@@ -48,20 +48,30 @@ data class Scheda(
         }
     }
 
-    fun getDurataScheda(): Int? {
-//        val calendar = Calendar.getInstance()
-//        calendar.time = dataInizio
-//        calendar.add(Calendar.WEEK_OF_YEAR, durata)
-//
-//        val endDate = calendar.time
-//        val currentDate = Date()
-//
-//        if (currentDate >= endDate) {
-//            return null
-//        }
-//
-//        val weeksDifference = (endDate.time - currentDate.time) / (1000 * 60 * 60 * 24 * 7)
-//        return weeksDifference.toInt()
-        return 1
+    fun isSchedaValida(): Boolean {
+        // Definisci il formato della data che ricevi
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+
+        // Prova a parsare la stringa `dataInizio` in un oggetto Date
+        val startDate: Date = try {
+            dateFormat.parse(dataInizio) ?: return false
+        } catch (e: Exception) {
+            return false  // Se la parsing fallisce, restituisce false
+        }
+
+        // Ottieni l'istanza del calendario e imposta la data di inizio
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+
+        // Aggiungi la durata (in settimane) alla data di inizio per ottenere la data di fine
+        calendar.add(Calendar.WEEK_OF_YEAR, durata)
+
+        // Ottieni la data di fine della scheda
+        val endDate = calendar.time
+        // Ottieni la data corrente
+        val currentDate = Date()
+
+        // Restituisci `true` se la scheda è ancora valida, `false` altrimenti
+        return currentDate < endDate
     }
 }

@@ -99,6 +99,18 @@ fun SchedaScreen(navController: NavHostController) {
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                        Divider(color = Color.LightGray, thickness = 1.dp)
+                    }
+
+                    if (!scheda!!.isSchedaValida()) {
+                        item {
+                            Text(
+                                "Scheda scaduta!",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
                     items(scheda!!.giorni.entries.toList()) { (key, giorno) ->

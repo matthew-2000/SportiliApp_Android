@@ -97,7 +97,7 @@ fun EsercizioScreen(esercizio: Esercizio) {
                     )
                     esercizio.riposo?.let {
                         if (it.isNotEmpty()) {
-                            Text(text = "$it riposo", style = MaterialTheme.typography.headlineSmall)
+                            Text(text = "$it recupero", style = MaterialTheme.typography.headlineSmall)
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))

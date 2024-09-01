@@ -164,7 +164,6 @@ fun LoginScreen(navController: NavHostController) {
     }
 }
 
-
 private suspend fun register(
     codice: String,
     context: Context, // Aggiunto il parametro del contesto
@@ -175,6 +174,14 @@ private suspend fun register(
         val db = FirebaseDatabase.getInstance().getReference("users")
         val snapshot = db.get().await()
         val authUsers = snapshot.value as? Map<String, Map<String, Any>>
+
+        val isAdmin = codice == FirebaseDatabase.getInstance().getReference("fausto").get().await().value
+        salvaIsAdminInSharedPreferences(context, isAdmin)  // Salva lo stato di admin nelle SharedPreferences
+
+        if (isAdmin) {
+            navController.navigate("admin")
+            return
+        }
 
         if (authUsers != null && authUsers[codice] != null) {
             FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
@@ -198,6 +205,13 @@ private suspend fun register(
     } catch (e: Exception) {
         onError("Errore durante il processo di registrazione: ${e.message}")
     }
+}
+
+fun salvaIsAdminInSharedPreferences(context: Context, isAdmin: Boolean) {
+    val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+    val editor = sharedPreferences.edit()
+    editor.putBoolean("isAdmin", isAdmin)
+    editor.apply()
 }
 
 fun salvaCodeInSharedPreferences(context: Context, code: String) {

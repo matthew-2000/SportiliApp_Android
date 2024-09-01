@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 
 import androidx.compose.ui.tooling.preview.Preview
@@ -23,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
 import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Utente
+import com.matthew.sportiliapp.resetSharedPref
 import com.matthew.sportiliapp.scheda.convertDateTime
 import com.matthew.sportiliapp.scheda.navigate
 
@@ -35,6 +39,9 @@ fun AdminHomeScreen(navController: NavHostController) {
     val users by gymViewModel.users.observeAsState(initial = emptyList())
     var searchText by remember { mutableStateOf("") }
     var showAddUserView by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var isLoggedOut by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -43,6 +50,9 @@ fun AdminHomeScreen(navController: NavHostController) {
                 actions = {
                     IconButton(onClick = { showAddUserView = true }) {
                         Icon(Icons.Filled.Add, contentDescription = "Add User")
+                    }
+                    IconButton(onClick = { showLogoutDialog = true }) {
+                        Icon(Icons.Filled.ExitToApp, contentDescription = "Logout")
                     }
                 }
             )
@@ -57,7 +67,42 @@ fun AdminHomeScreen(navController: NavHostController) {
     if (showAddUserView) {
         AddUserView(gymViewModel = gymViewModel, onDismiss = { showAddUserView = false })
     }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // Esegui il logout
+                        FirebaseAuth.getInstance().signOut()
+                        resetSharedPref(context)
+                        isLoggedOut = true
+                        showLogoutDialog = false
+                    }
+                ) {
+                    Text("Conferma")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Annulla")
+                }
+            },
+            title = { Text("Logout") },
+            text = { Text("Sei sicuro di voler effettuare il logout?") }
+        )
+    }
+
+    if (isLoggedOut) {
+        navController.navigate("login") {
+            popUpTo(navController.graph.startDestinationId) {
+                inclusive = true
+            }
+        }
+    }
 }
+
 
 @Composable
 fun SearchBar(text: String, onTextChange: (String) -> Unit) {
@@ -108,7 +153,7 @@ fun UserRow(utente: Utente, onClick: () -> Unit) {
                 Text("Scheda mancante!", color = MaterialTheme.colorScheme.error)
             } else {
                 // Assume this is implemented within Utente class
-                if (utente.scheda?.getDurataScheda() == null) {
+                if (!utente.scheda?.isSchedaValida()!!) {
                     Text("Scheda scaduta!", color = MaterialTheme.colorScheme.error)
                 }
             }
