@@ -190,36 +190,6 @@ fun UtenteNavHost(
                     }
                 )
             }
-
-
-            composable("addEsercizioScreen/{gruppoName}") { backStackEntry ->
-                val gruppoName = backStackEntry.arguments?.getString("gruppoName") ?: "Nome"
-                val gruppo = scheda.giorni.values
-                    .flatMap { it.gruppiMuscolari.values }
-                    .firstOrNull { it.nome == gruppoName }
-                    ?: GruppoMuscolare(gruppoName ?: "")
-
-                AddEsercizioScreen(internalNavController, gruppo, onEsercizioAdded = { newEsercizio ->
-                    // Converti la mappa esistente in una mappa mutabile
-                    val updatedEsercizi = gruppo.esercizi.toMutableMap()
-                    // Aggiungi o aggiorna l'esercizio
-                    updatedEsercizi["esercizio${gruppo.esercizi.size+1}"] = newEsercizio
-                    // Riassegna la mappa aggiornata
-                    gruppo.esercizi = updatedEsercizi
-                    // Aggiorna il gruppo muscolare nella scheda
-                    scheda.giorni.forEach { (giornoName, giorno) ->
-                        if (giorno.gruppiMuscolari.containsKey(gruppoName)) {
-                            val updatedGruppiMuscolari = giorno.gruppiMuscolari.toMutableMap()
-                            updatedGruppiMuscolari[gruppoName] = gruppo
-                            giorno.gruppiMuscolari = updatedGruppiMuscolari
-                            val updatedGiorni = scheda.giorni.toMutableMap()
-                            updatedGiorni[giornoName] = giorno
-                            scheda.giorni = updatedGiorni
-                        }
-                    }
-                    gymViewModel.saveScheda(scheda, utenteCode)
-                })
-            }
             composable("editGruppoMuscolareScreen/{nomeGruppo}") { backStackEntry ->
                 val nomeGruppo = backStackEntry.arguments?.getString("nomeGruppo") ?: return@composable
 
