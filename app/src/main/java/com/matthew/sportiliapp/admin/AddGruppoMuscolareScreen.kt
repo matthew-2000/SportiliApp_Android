@@ -33,6 +33,7 @@ fun AddGruppoMuscolareScreen(
     navController: NavController,
     giorno: Giorno,
     onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit,
+    onGruppoMuscolareDeleted: (index: Int) -> Unit,
     onGruppoMuscolareMoved: (oldIndex: Int, newIndex: Int) -> Unit
 ) {
     var showAddGruppoMuscolareDialog by remember { mutableStateOf(false) }
@@ -120,6 +121,7 @@ fun AddGruppoMuscolareScreen(
                         TextButton(
                             onClick = {
                                 gruppiMuscolariList.removeAt(gruppoToDeleteIndex)
+                                onGruppoMuscolareDeleted(gruppoToDeleteIndex)
                                 showDeleteDialog = false
                                 gruppoToDeleteIndex = -1
                             }
@@ -194,30 +196,72 @@ fun EsercizioItem(esercizio: Esercizio) {
     }
 }
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddGruppoMuscolareDialog(
     onDismiss: () -> Unit,
     onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit
 ) {
-    var gruppoName by remember { mutableStateOf("") }
+    val gruppiMuscolari = listOf(
+        "Addominali e Lombari",
+        "Gambe e Glutei",
+        "Polpacci",
+        "Pettorali",
+        "Spalle e Trapezio",
+        "Dorsali",
+        "Tricipiti",
+        "Bicipiti",
+        "Riscaldamento",
+        "Defaticamento",
+        "Cardio"
+    )
+
+    var expanded by remember { mutableStateOf(false) }
+    var selectedGruppo by remember { mutableStateOf(gruppiMuscolari[0]) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aggiungi Gruppo Muscolare") },
         text = {
-            OutlinedTextField(
-                value = gruppoName,
-                onValueChange = { gruppoName = it },
-                label = { Text("Nome Gruppo Muscolare") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    TextField(
+                        value = selectedGruppo,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Gruppo Muscolare") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        gruppiMuscolari.forEach { gruppo ->
+                            DropdownMenuItem(
+                                text = { Text(gruppo) },
+                                onClick = {
+                                    selectedGruppo = gruppo
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (gruppoName.isNotBlank()) {
-                        onGruppoMuscolareAdded(GruppoMuscolare(gruppoName))
+                    if (selectedGruppo.isNotBlank()) {
+                        onGruppoMuscolareAdded(GruppoMuscolare(selectedGruppo))
                     }
                 }
             ) {
@@ -231,3 +275,4 @@ fun AddGruppoMuscolareDialog(
         }
     )
 }
+

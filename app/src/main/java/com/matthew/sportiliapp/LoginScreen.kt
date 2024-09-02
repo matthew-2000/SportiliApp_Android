@@ -179,28 +179,34 @@ private suspend fun register(
         salvaIsAdminInSharedPreferences(context, isAdmin)  // Salva lo stato di admin nelle SharedPreferences
 
         if (isAdmin) {
-            navController.navigate("admin")
-            return
-        }
-
-        if (authUsers != null && authUsers[codice] != null) {
             FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val user = task.result?.user
-                    val profileUpdates = userProfileChangeRequest {
-                        displayName = authUsers[codice]?.get("nome") as? String
-                    }
-                    user?.updateProfile(profileUpdates)
-                    salvaCodeInSharedPreferences(context, code = codice)
-                    navController.navigate("content")
+                    navController.navigate("admin")
                 } else {
                     // Errore durante l'accesso
                     onError("Errore durante l'accesso. Riprova più tardi.")
                 }
             }.await() // Aggiunto await per attendere il completamento dell'operazione
         } else {
-            // Codice non autorizzato
-            onError("Codice non autorizzato.")
+            if (authUsers != null && authUsers[codice] != null) {
+                FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val user = task.result?.user
+                        val profileUpdates = userProfileChangeRequest {
+                            displayName = authUsers[codice]?.get("nome") as? String
+                        }
+                        user?.updateProfile(profileUpdates)
+                        salvaCodeInSharedPreferences(context, code = codice)
+                        navController.navigate("content")
+                    } else {
+                        // Errore durante l'accesso
+                        onError("Errore durante l'accesso. Riprova più tardi.")
+                    }
+                }.await() // Aggiunto await per attendere il completamento dell'operazione
+            } else {
+                // Codice non autorizzato
+                onError("Codice non autorizzato.")
+            }
         }
     } catch (e: Exception) {
         onError("Errore durante il processo di registrazione: ${e.message}")
