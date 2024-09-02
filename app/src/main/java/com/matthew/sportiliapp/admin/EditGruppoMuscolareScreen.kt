@@ -15,6 +15,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
 import com.matthew.sportiliapp.model.Esercizio
+import com.matthew.sportiliapp.model.EsercizioPredefinito
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 
@@ -35,7 +38,8 @@ fun EditGruppoMuscolareScreen(
     onEsercizioAdded: (Esercizio) -> Unit,
     onEsercizioMoved: (oldIndex: Int, newIndex: Int) -> Unit,
     onEsercizioDeleted: (index: Int) -> Unit,
-    onEsercizioEdited: (index: Int, esercizio: Esercizio) -> Unit
+    onEsercizioEdited: (index: Int, esercizio: Esercizio) -> Unit,
+    viewModel: EserciziPredefinitiViewModel = EserciziPredefinitiViewModel() // Pass the ViewModel
 ) {
     var showAddEsercizioDialog by remember { mutableStateOf(false) }
     var showEditEsercizioDialog by remember { mutableStateOf(false) }
@@ -43,6 +47,9 @@ fun EditGruppoMuscolareScreen(
     var esercizioToDeleteIndex by remember { mutableStateOf(-1) }
     var esercizioToEditIndex by remember { mutableStateOf(-1) }
     val eserciziList = remember { gruppoMuscolare.esercizi.toList().toMutableStateList() }
+
+    val predefiniti by viewModel.gruppiMuscolariPredefiniti.observeAsState(emptyList())
+    val predefinitiGruppo = predefiniti.firstOrNull { it.nome == gruppoMuscolare.nome }?.esercizi ?: emptyList()
 
     Scaffold(
         topBar = {
@@ -107,6 +114,7 @@ fun EditGruppoMuscolareScreen(
 
             if (showAddEsercizioDialog) {
                 AddEsercizioDialog(
+                    eserciziPredefiniti = predefinitiGruppo,
                     onDismiss = { showAddEsercizioDialog = false },
                     onEsercizioAdded = { newEsercizio ->
                         eserciziList.add("esercizio${eserciziList.size + 1}" to newEsercizio)
@@ -188,8 +196,10 @@ fun EsercizioItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEsercizioDialog(
+    eserciziPredefiniti: List<EsercizioPredefinito>,
     onDismiss: () -> Unit,
     onEsercizioAdded: (Esercizio) -> Unit
 ) {
@@ -200,11 +210,50 @@ fun AddEsercizioDialog(
     var riposo by remember { mutableStateOf("") }
     var notePT by remember { mutableStateOf("") }
 
+    var expanded by remember { mutableStateOf(false) }
+    var selectedEsercizio by remember { mutableStateOf(eserciziPredefiniti[0]) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aggiungi Esercizio") },
         text = {
             Column {
+                if (esercizioName.isEmpty()) {
+                    Column {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            TextField(
+                                value = selectedEsercizio.nome,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Gruppo Muscolare") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                eserciziPredefiniti.forEach { esercizio ->
+                                    DropdownMenuItem(
+                                        text = { Text(esercizio.nome) },
+                                        onClick = {
+                                            selectedEsercizio = esercizio
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
                 OutlinedTextField(
                     value = esercizioName,
                     onValueChange = { esercizioName = it },
@@ -254,8 +303,8 @@ fun AddEsercizioDialog(
             TextButton(
                 onClick = {
                     val newEsercizio = Esercizio(
-                        name = esercizioName,
-                        serie = "$serie x $ripetizioni",
+                        name = esercizioName.ifEmpty { selectedEsercizio.nome },
+                        serie = serieDescrizione.ifEmpty { "$serie x $ripetizioni" },
                         riposo = riposo,
                         notePT = notePT
                     )
@@ -351,7 +400,7 @@ fun EditEsercizioDialog(
                 onClick = {
                     val newEsercizio = Esercizio(
                         name = esercizioName,
-                        serie = "$serie x $ripetizioni",
+                        serie = serieDescrizione.ifEmpty { "$serie x $ripetizioni" },
                         riposo = riposo,
                         notePT = notePT
                     )
