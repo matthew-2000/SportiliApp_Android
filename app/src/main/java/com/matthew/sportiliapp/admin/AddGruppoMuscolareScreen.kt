@@ -71,7 +71,7 @@ fun AddGruppoMuscolareScreen(
                     GruppoMuscolareItem(
                         gruppo = gruppo.second,
                         onEdit = {
-                            navController.navigate("editGruppoMuscolareScreen/${gruppiMuscolariList[index].first}")
+                            navController.navigate("editGruppoMuscolareScreen/${gruppo.second.nome}")
                         },
                         onMoveUp = {
                             if (index > 0) {
