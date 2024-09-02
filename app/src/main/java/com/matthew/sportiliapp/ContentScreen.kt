@@ -38,7 +38,6 @@ fun ContentScreen(navController: NavHostController) {
     // Bottom navigation items
     val items = listOf(
         BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
-        BottomNavItem("Home", Icons.Filled.Home, "admin"),
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
