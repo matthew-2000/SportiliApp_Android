@@ -99,9 +99,8 @@ fun EditGruppoMuscolareScreen(
                     esercizio = eserciziList.get(esercizioToEditIndex).second,
                     onDismiss = { showEditEsercizioDialog = false },
                     onEsercizioEdited = { newEsercizio ->
-                        eserciziList.add("esercizio${eserciziList.size + 1}" to newEsercizio)
-                        onEsercizioAdded(newEsercizio)
-                        showAddEsercizioDialog = false
+                        onEsercizioEdited(esercizioToEditIndex, newEsercizio)
+                        showEditEsercizioDialog = false
                     }
                 )
             }
@@ -359,7 +358,7 @@ fun EditEsercizioDialog(
                     onEsercizioEdited(newEsercizio)
                 }
             ) {
-                Text("Aggiungi")
+                Text("Salva")
             }
         },
         dismissButton = {
