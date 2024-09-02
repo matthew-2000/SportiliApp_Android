@@ -38,6 +38,7 @@ fun ContentScreen(navController: NavHostController) {
     // Bottom navigation items
     val items = listOf(
         BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
+        BottomNavItem("Home", Icons.Filled.Home, "admin"),
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
@@ -106,21 +107,6 @@ fun ContentScreen(navController: NavHostController) {
                     }
                     if (esercizio != null) {
                         EsercizioScreen(esercizio = esercizio)
-                    }
-                }
-                composable(
-                    route = "utenteNavHost?utenteCode={utenteCode}",
-                    arguments = listOf(
-                        navArgument(
-                            name = "utente"
-                        ) {
-                            type = NavType.StringType
-                            defaultValue = ""
-                        },
-                    )) {
-                    val utenteCode = it.arguments?.getString("utenteCode")
-                    if (utenteCode != null) {
-                        UtenteNavHost(navController = navController2, utenteCode = utenteCode)
                     }
                 }
             }
