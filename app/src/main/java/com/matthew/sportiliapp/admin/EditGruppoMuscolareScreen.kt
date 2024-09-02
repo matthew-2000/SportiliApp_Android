@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
@@ -379,4 +381,42 @@ fun parseSerie(serie: String): Triple<Int?, Int?, String> {
         }
     }
     return Triple(null, null, serie)
+}
+
+@Composable
+fun Stepper(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange,
+    label: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = label)
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = {
+                if (value > range.first) {
+                    onValueChange(value - 1)
+                }
+            }) {
+                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Decrement")
+            }
+
+            Text(text = value.toString(), style = MaterialTheme.typography.bodyLarge)
+
+            IconButton(onClick = {
+                if (value < range.last) {
+                    onValueChange(value + 1)
+                }
+            }) {
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Increment")
+            }
+        }
+    }
 }

@@ -71,7 +71,7 @@ fun AddGruppoMuscolareScreen(
                     GruppoMuscolareItem(
                         gruppo = gruppo.second,
                         onEdit = {
-                            navController.navigate("editGruppoMuscolareScreen/${gruppo.second.nome}")
+                            navController.navigate("editGruppoMuscolareScreen/${gruppiMuscolariList[index].first}")
                         },
                         onMoveUp = {
                             if (index > 0) {
@@ -203,11 +203,11 @@ fun AddGruppoMuscolareDialog(
     onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit
 ) {
     val gruppiMuscolari = listOf(
-        "Addominali e Lombari",
+        "Addominali",
         "Gambe e Glutei",
         "Polpacci",
         "Pettorali",
-        "Spalle e Trapezio",
+        "Spalle",
         "Dorsali",
         "Tricipiti",
         "Bicipiti",

@@ -33,6 +33,11 @@ fun formatToSaveDate(dateString: String): String {
     return formatter.format(parser.parse(dateString) ?: Date())
 }
 
+fun getCurrentFormattedDate(): String {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+    return dateFormat.format(Date())
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditSchedaScreen(
@@ -43,7 +48,7 @@ fun EditSchedaScreen(
 ) {
     val users by gymViewModel.users.observeAsState(emptyList())
     val utente = users.firstOrNull { it.code == utenteCode } ?: return
-    val scheda = utente.scheda ?: Scheda("", 0)
+    val scheda = utente.scheda ?: Scheda(dataInizio = getCurrentFormattedDate(), 0)
     if (scheda.giorni.isEmpty()) {
         val updatedGiorni = scheda.giorni.toMutableMap()
         updatedGiorni["giorno1"] = Giorno("A")
@@ -127,7 +132,7 @@ fun EditSchedaScreen(
             giorniList.forEachIndexed { index, (dayName, giorno) ->
                 GiornoItem(
                     giorno = giorno,
-                    onEdit = { navController.navigate("addGruppoMuscolareScreen/$dayName") },
+                    onEdit = { navController.navigate("addGruppoMuscolareScreen/${giorniList[index].first}") },
                     onMoveUp = {
                         if (index > 0) {
                             giorniList.move(index, index - 1)
