@@ -55,7 +55,7 @@ fun LoginScreen(navController: NavHostController) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.frame_1),
+                    painter = painterResource(id = R.drawable.icon),
                     contentDescription = null,
                     modifier = Modifier.size(200.dp)
                 )

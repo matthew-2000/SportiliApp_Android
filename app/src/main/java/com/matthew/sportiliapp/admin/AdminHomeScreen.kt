@@ -18,6 +18,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.font.FontWeight
 
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,6 +32,8 @@ import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.resetSharedPref
 import com.matthew.sportiliapp.scheda.convertDateTime
 import com.matthew.sportiliapp.scheda.navigate
+import java.util.Locale
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +152,11 @@ fun UserRow(utente: Utente, onClick: () -> Unit) {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold
             )
+            Text(
+                utente.code,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Medium
+            )
             if (utente.scheda == null) {
                 Text("Scheda mancante!", color = MaterialTheme.colorScheme.error)
             } else {
@@ -173,15 +181,19 @@ fun AddUserView(gymViewModel: GymViewModel, onDismiss: () -> Unit) {
         title = { Text("Aggiungi utente") },
         text = {
             Column {
-                TextField(value = code, onValueChange = { code = it }, label = { Text("Codice") })
                 TextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome") })
                 TextField(value = cognome, onValueChange = { cognome = it }, label = { Text("Cognome") })
             }
         },
         confirmButton = {
             Button(onClick = {
-                gymViewModel.addUser(code, cognome, nome)
-                onDismiss()
+                if (nome.isNotEmpty() && cognome.isNotEmpty()) {
+                    cognome = cognome.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                    nome = nome.trim().replaceFirstChar {  if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                    code = nome.substring(0,3) + cognome.substring(0,3) + (0..999).random()
+                    gymViewModel.addUser(code, cognome, nome)
+                    onDismiss()
+                }
             }) {
                 Text("Salva")
             }
