@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.Esercizio
@@ -167,8 +168,12 @@ fun GruppoMuscolareItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = gruppo.nome, style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.weight(1f))
+                Text(text = gruppo.nome,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
                 IconButton(onClick = onMoveUp) {
                     Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
                 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.Giorno
@@ -243,8 +244,13 @@ fun GiornoItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = giorno.name, style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = giorno.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f),  // Questo permette al testo di espandersi ma non di occupare tutto lo spazio
+                    maxLines = 3,  // Limita il testo a una sola linea
+                    overflow = TextOverflow.Ellipsis  // Mostra "..." se il testo è troppo lungo
+                )
 
                 // Menu a comparsa
                 IconButton(onClick = { expanded = true }) {
@@ -330,8 +336,7 @@ fun AddGiornoDialog(
                 value = giornoName,
                 onValueChange = { it ->
                     giornoName =
-                        it.trim()
-                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
                 },
                 label = { Text("Nome del Giorno") },
                 modifier = Modifier.fillMaxWidth()

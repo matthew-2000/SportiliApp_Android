@@ -24,6 +24,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.capitalize
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
@@ -109,6 +110,7 @@ fun EditGruppoMuscolareScreen(
                     esercizio = eserciziList.get(esercizioToEditIndex).second,
                     onDismiss = { showEditEsercizioDialog = false },
                     onEsercizioEdited = { newEsercizio ->
+                        eserciziList[esercizioToEditIndex] = eserciziList[esercizioToEditIndex].first to newEsercizio
                         onEsercizioEdited(esercizioToEditIndex, newEsercizio)
                         showEditEsercizioDialog = false
                     }
@@ -175,8 +177,12 @@ fun EsercizioItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = esercizio.name, style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.weight(1f))
+                Text(text = esercizio.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
                 IconButton(onClick = onMoveUp) {
                     Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
                 }
