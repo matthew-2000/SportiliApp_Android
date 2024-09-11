@@ -26,17 +26,7 @@ data class Scheda(
 
     constructor() : this("", 0, mapOf())
 
-//    fun description(): String {
-//        val giorniDesc = giorni.joinToString(separator = "\n    ") { it.description() }
-//
-//        return """
-//        Scheda {
-//            dataInizio: $dataInizio
-//            durata: $durata
-//            giorni: $giorniDesc
-//        }
-//        """.trimIndent()
-//    }
+
 
     fun sortAll() {
         giorni = giorni.toSortedMap()
@@ -73,5 +63,9 @@ data class Scheda(
 
         // Restituisci `true` se la scheda è ancora valida, `false` altrimenti
         return currentDate < endDate
+    }
+
+    override fun toString(): String {
+        return "Scheda(dataInizio='$dataInizio', durata=$durata, giorni=$giorni)"
     }
 }

@@ -60,10 +60,12 @@ fun EditSchedaScreen(
     var dataInizio by remember { mutableStateOf(formatToDisplayDate(scheda.dataInizio)) }
     var durata by remember { mutableStateOf(scheda.durata.toString()) }
     var showAddGiornoDialog by remember { mutableStateOf(false) }
+    var showRenameGiornoDialog by remember { mutableStateOf(false) }
     val giorniList = remember { scheda.giorni.toList().toMutableStateList() }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var giornoToDeleteIndex by remember { mutableStateOf(-1) }
+    var giornoToRenameIndex by remember { mutableStateOf(-1) }
 
     Scaffold(
         topBar = {
@@ -148,6 +150,10 @@ fun EditSchedaScreen(
                     onDelete = {
                         giornoToDeleteIndex = index
                         showDeleteDialog = true
+                    },
+                    onNameEdit = {
+                        giornoToRenameIndex = index
+                        showRenameGiornoDialog = true
                     }
                 )
             }
@@ -195,6 +201,17 @@ fun EditSchedaScreen(
                     }
                 )
             }
+
+            if (showRenameGiornoDialog) {
+                RenameGiornoDialog(giorno = giorniList[giornoToRenameIndex].second,
+                    onDismiss = { showRenameGiornoDialog = false },
+                    onGiornoRenamed = { newGiornoName ->
+                        giorniList[giornoToRenameIndex].second.name = newGiornoName
+                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        showRenameGiornoDialog = false
+                    }
+                )
+            }
         }
     }
 }
@@ -203,10 +220,13 @@ fun EditSchedaScreen(
 fun GiornoItem(
     giorno: Giorno,
     onEdit: () -> Unit,
+    onNameEdit: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) } // Stato per mostrare o nascondere il menu a tendina
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -221,14 +241,44 @@ fun GiornoItem(
             ) {
                 Text(text = giorno.name, style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onMoveUp) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
+
+                // Menu a comparsa
+                IconButton(onClick = { expanded = true }) {
+                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Opzioni")
                 }
-                IconButton(onClick = onMoveDown) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Elimina Giorno")
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Sposta Su") },
+                        onClick = {
+                            onMoveUp()
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Sposta Giù") },
+                        onClick = {
+                            onMoveDown()
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Modifica nome") },
+                        onClick = {
+                            onNameEdit()
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Elimina Giorno") },
+                        onClick = {
+                            onDelete()
+                            expanded = false
+                        }
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -236,6 +286,7 @@ fun GiornoItem(
         }
     }
 }
+
 
 fun <T> MutableList<T>.move(fromIndex: Int, toIndex: Int) {
     val item = removeAt(fromIndex)
@@ -289,6 +340,34 @@ fun AddGiornoDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
+                Text("Annulla")
+            }
+        }
+    )
+}
+
+@Composable
+fun RenameGiornoDialog(giorno: Giorno ,onDismiss: () -> Unit, onGiornoRenamed: (String) -> Unit) {
+    var nome by remember { mutableStateOf(giorno.name) }
+
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        title = { Text("Rinomina Giorno") },
+        text = {
+            Column {
+                TextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome giorno") })
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                giorno.name = nome
+                onGiornoRenamed(nome)
+            }) {
+                Text("Salva")
+            }
+        },
+        dismissButton = {
+            Button(onClick = { onDismiss() }) {
                 Text("Annulla")
             }
         }

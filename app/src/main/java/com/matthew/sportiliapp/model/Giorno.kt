@@ -33,6 +33,10 @@ data class Giorno(
         return 0
     }
 
+    override fun toString(): String {
+        return "Giorno(name='$name', gruppiMuscolari=$gruppiMuscolari)"
+    }
+
     companion object CREATOR : Parcelable.Creator<Giorno> {
         override fun createFromParcel(parcel: Parcel): Giorno {
             return Giorno(parcel)

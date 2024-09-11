@@ -8,12 +8,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,7 +27,9 @@ import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
+import com.matthew.sportiliapp.model.GymViewModel
 import okhttp3.internal.notify
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +75,7 @@ fun AddGruppoMuscolareScreen(
                     GruppoMuscolareItem(
                         gruppo = gruppo.second,
                         onEdit = {
-                            navController.navigate("editGruppoMuscolareScreen/${gruppiMuscolariList[index].second.nome}")
+                            navController.navigate("editGruppoMuscolareScreen/${gruppiMuscolariList[index].second.nome}/${giorno.name}")
                         },
                         onMoveUp = {
                             if (index > 0) {
@@ -104,11 +108,14 @@ fun AddGruppoMuscolareScreen(
             if (showAddGruppoMuscolareDialog) {
                 AddGruppoMuscolareDialog(
                     onDismiss = { showAddGruppoMuscolareDialog = false },
-                    onGruppoMuscolareAdded = { newGruppo ->
-                        gruppiMuscolariList.add("gruppo${gruppiMuscolariList.size + 1}" to newGruppo)
-                        onGruppoMuscolareAdded(newGruppo)
+                    onGruppoMuscolariAdded = { gruppiList ->
+                        for (newGruppo in gruppiList) {
+                            gruppiMuscolariList.add("gruppo${gruppiMuscolariList.size + 1}" to newGruppo)
+                            onGruppoMuscolareAdded(newGruppo)
+                        }
                         showAddGruppoMuscolareDialog = false
-                    }
+                    },
+                    giorno = giorno
                 )
             }
 
@@ -200,9 +207,11 @@ fun EsercizioItem(esercizio: Esercizio) {
 @Composable
 fun AddGruppoMuscolareDialog(
     onDismiss: () -> Unit,
-    onGruppoMuscolareAdded: (GruppoMuscolare) -> Unit
+    onGruppoMuscolariAdded: (List<GruppoMuscolare>) -> Unit,
+    giorno: Giorno
 ) {
-    val gruppiMuscolari = listOf(
+    // Lista dei gruppi muscolari disponibili
+    val gruppiMuscolari = mutableListOf(
         "Addominali",
         "Gambe e Glutei",
         "Polpacci",
@@ -216,43 +225,36 @@ fun AddGruppoMuscolareDialog(
         "Cardio"
     )
 
-    var expanded by remember { mutableStateOf(false) }
-    var selectedGruppo by remember { mutableStateOf(gruppiMuscolari[0]) }
+    for (gruppo in giorno.gruppiMuscolari) {
+        gruppiMuscolari.removeAt(gruppiMuscolari.indexOf(gruppo.value.nome))
+    }
+
+    // Stato per mantenere traccia dei gruppi muscolari selezionati
+    val selectedGruppi = remember { mutableStateMapOf<String, Boolean>().apply {
+        gruppiMuscolari.forEach { put(it, false) }
+    }}
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Aggiungi Gruppo Muscolare") },
+        title = { Text("Aggiungi Gruppi Muscolari") },
         text = {
             Column {
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    TextField(
-                        value = selectedGruppo,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Gruppo Muscolare") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                        },
+                // Lista di Checkbox per i gruppi muscolari
+                gruppiMuscolari.forEach { gruppo ->
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        gruppiMuscolari.forEach { gruppo ->
-                            DropdownMenuItem(
-                                text = { Text(gruppo) },
-                                onClick = {
-                                    selectedGruppo = gruppo
-                                    expanded = false
-                                }
-                            )
-                        }
+                        Checkbox(
+                            checked = selectedGruppi[gruppo] == true,
+                            onCheckedChange = { isChecked ->
+                                selectedGruppi[gruppo] = isChecked
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(gruppo)
                     }
                 }
             }
@@ -260,8 +262,13 @@ fun AddGruppoMuscolareDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (selectedGruppo.isNotBlank()) {
-                        onGruppoMuscolareAdded(GruppoMuscolare(selectedGruppo))
+                    // Crea una lista di GruppoMuscolare per quelli selezionati
+                    val gruppiMuscolariSelezionati = selectedGruppi.filter { it.value }
+                        .map { GruppoMuscolare(it.key) }
+
+                    // Passa la lista dei gruppi muscolari selezionati
+                    if (gruppiMuscolariSelezionati.isNotEmpty()) {
+                        onGruppoMuscolariAdded(gruppiMuscolariSelezionati)
                     }
                 }
             ) {
@@ -275,4 +282,3 @@ fun AddGruppoMuscolareDialog(
         }
     )
 }
-

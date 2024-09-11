@@ -33,6 +33,10 @@ data class GruppoMuscolare(
         return 0
     }
 
+    override fun toString(): String {
+        return "GruppoMuscolare(nome='$nome', esercizi=$esercizi)"
+    }
+
     companion object CREATOR : Parcelable.Creator<GruppoMuscolare> {
         override fun createFromParcel(parcel: Parcel): GruppoMuscolare {
             return GruppoMuscolare(parcel)

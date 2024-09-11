@@ -52,6 +52,10 @@ data class Esercizio(
         return result
     }
 
+    override fun toString(): String {
+        return "Esercizio(name='$name', serie='$serie', priorita=$priorita, riposo=$riposo, notePT=$notePT, noteUtente=$noteUtente, ordine=$ordine)"
+    }
+
     companion object CREATOR : Parcelable.Creator<Esercizio> {
         override fun createFromParcel(parcel: Parcel): Esercizio {
             return Esercizio(parcel)
