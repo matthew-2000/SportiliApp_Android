@@ -95,7 +95,7 @@ fun SchedaScreen(navController: NavHostController) {
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Divider(color = Color.LightGray, thickness = 1.dp)
+                        Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(vertical = 16.dp))
                     }
 
                     if (!scheda!!.isSchedaValida()) {
@@ -132,8 +132,8 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
     Column(modifier = Modifier
         .fillMaxWidth()
         .clickable { onClick() }
-        .padding(vertical = 32.dp)) {
-        Text("Giorno: ${giorno.name}", style = MaterialTheme.typography.titleMedium)
+        .padding(vertical = 16.dp)) {
+        Text(giorno.name, style = MaterialTheme.typography.titleMedium)
         Text(getGruppiString(giorno), style = MaterialTheme.typography.labelLarge, color = Color.Gray)
         Divider(color = Color.LightGray, thickness = 1.dp)
     }
