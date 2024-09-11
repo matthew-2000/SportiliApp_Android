@@ -11,7 +11,9 @@ import androidx.lifecycle.ViewModelProvider
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
     private val _scheda = MutableLiveData<Scheda?>()
+    private val _name = MutableLiveData<String?>()
     val scheda: LiveData<Scheda?> = _scheda
+    val name: LiveData<String?> = _name
 
     init {
         loadScheda()
@@ -22,13 +24,25 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
             val savedCode = sharedPreferences.getString("code", "") ?: ""
             val database = FirebaseDatabase.getInstance()
-            val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
 
+            val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
             schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val data = snapshot.getValue(Scheda::class.java)
                     data?.sortAll()
                     _scheda.postValue(data)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Handle error
+                }
+            })
+
+            val nameRef = database.reference.child("users").child(savedCode).child("nome")
+            nameRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val data = snapshot.getValue(String::class.java)
+                    _name.postValue(data)
                 }
 
                 override fun onCancelled(error: DatabaseError) {

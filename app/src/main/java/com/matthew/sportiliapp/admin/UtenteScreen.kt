@@ -1,6 +1,7 @@
 package com.matthew.sportiliapp.admin
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material3.*
@@ -8,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +22,7 @@ import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Utente
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,12 +32,9 @@ fun UtenteScreen(
     gymViewModel: GymViewModel = viewModel() // Utilizziamo viewModel() per ottenere l'istanza
 ) {
     val users by gymViewModel.users.observeAsState(initial = emptyList())
+    val context = LocalContext.current
 
     val utente = users.firstOrNull { utente -> utente.code == utenteCode }
-
-    if (utente != null) {
-        Log.e("UTENTE", utente.scheda.toString())
-    }
 
     if (utente != null) {
         var editedNome by remember { mutableStateOf(utente.nome) }
@@ -72,8 +72,13 @@ fun UtenteScreen(
                         .align(Alignment.CenterHorizontally)
                 ) {
                     TextButton(onClick = {
+                        editedCognome = editedCognome.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(
+                            Locale.ROOT) else it.toString() }
+                        editedNome = editedNome.trim().replaceFirstChar {  if (it.isLowerCase()) it.titlecase(
+                            Locale.ROOT) else it.toString() }
                         val updatedUtente = Utente(code = utente.code, cognome = editedCognome, nome = editedNome, scheda = utente.scheda)
                         gymViewModel.updateUser(utente = updatedUtente)
+                        Toast.makeText(context, "Utente aggiornato", Toast.LENGTH_SHORT).show()
                     }) {
                         Text("Salva modifiche")
                     }
@@ -95,6 +100,7 @@ fun UtenteScreen(
                             Button(onClick = {
                                 gymViewModel.removeUser(code = utente.code)
                                 showEliminaAlert = false
+                                navController.popBackStack()
                             }) {
                                 Text("Elimina")
                             }
