@@ -14,6 +14,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -327,7 +328,11 @@ fun AddGiornoDialog(
         text = {
             OutlinedTextField(
                 value = giornoName,
-                onValueChange = { giornoName = it },
+                onValueChange = { it ->
+                    giornoName =
+                        it.trim()
+                            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                },
                 label = { Text("Nome del Giorno") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -360,7 +365,12 @@ fun RenameGiornoDialog(giorno: Giorno ,onDismiss: () -> Unit, onGiornoRenamed: (
         title = { Text("Rinomina Giorno") },
         text = {
             Column {
-                TextField(value = nome, onValueChange = { nome = it }, label = { Text("Nome giorno") })
+                TextField(value = nome,
+                    onValueChange = { it ->
+                        nome =
+                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                    },
+                    label = { Text("Nome giorno") })
             }
         },
         confirmButton = {

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
@@ -30,6 +31,7 @@ import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.EsercizioPredefinito
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -257,7 +259,10 @@ fun AddEsercizioDialog(
                 }
                 OutlinedTextField(
                     value = esercizioName,
-                    onValueChange = { esercizioName = it },
+                    onValueChange = { it ->
+                        esercizioName =
+                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                    },
                     label = { Text("Nome Esercizio") },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -349,7 +354,10 @@ fun EditEsercizioDialog(
             Column {
                 OutlinedTextField(
                     value = esercizioName,
-                    onValueChange = { esercizioName = it },
+                    onValueChange = { it ->
+                        esercizioName =
+                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                    },
                     label = { Text("Nome Esercizio") },
                     modifier = Modifier.fillMaxWidth()
                 )
