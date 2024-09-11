@@ -56,11 +56,7 @@ fun SchedaScreen(navController: NavHostController) {
     val context = LocalContext.current
     val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
     val scheda by viewModel.scheda.observeAsState()
-    var nomeUtente by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        nomeUtente = FirebaseAuth.getInstance().currentUser?.displayName
-    }
+    val nomeUtente by viewModel.name.observeAsState()
 
     Scaffold(
         topBar = {

@@ -1,5 +1,7 @@
 package com.matthew.sportiliapp.admin
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -67,6 +69,8 @@ fun EditSchedaScreen(
     var giornoToDeleteIndex by remember { mutableStateOf(-1) }
     var giornoToRenameIndex by remember { mutableStateOf(-1) }
 
+    val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,14 +87,13 @@ fun EditSchedaScreen(
         ) {
 
             // DatePicker Field per la Data Inizio
-            val context = LocalContext.current
             val calendar = Calendar.getInstance()
             val datePickerDialog = android.app.DatePickerDialog(
                 context,
                 { _, year, month, dayOfMonth ->
                     val selectedDate = "$dayOfMonth/${month + 1}/$year"
                     dataInizio = selectedDate
-                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                 },
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
@@ -118,7 +121,7 @@ fun EditSchedaScreen(
                 value = durata,
                 onValueChange = {
                     durata = it
-                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                    updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                 },
                 label = { Text("Durata (settimane)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -138,13 +141,13 @@ fun EditSchedaScreen(
                     onMoveUp = {
                         if (index > 0) {
                             giorniList.move(index, index - 1)
-                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                         }
                     },
                     onMoveDown = {
                         if (index < giorniList.size - 1) {
                             giorniList.move(index, index + 1)
-                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                            updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                         }
                     },
                     onDelete = {
@@ -167,7 +170,7 @@ fun EditSchedaScreen(
                         TextButton(
                             onClick = {
                                 giorniList.removeAt(giornoToDeleteIndex)
-                                updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                                updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                                 showDeleteDialog = false
                                 giornoToDeleteIndex = -1
                             }
@@ -196,7 +199,7 @@ fun EditSchedaScreen(
                     onDismiss = { showAddGiornoDialog = false },
                     onGiornoAdded = { newGiorno ->
                         giorniList.add("giorno${giorniList.size + 1}" to newGiorno)
-                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                         showAddGiornoDialog = false
                     }
                 )
@@ -207,7 +210,7 @@ fun EditSchedaScreen(
                     onDismiss = { showRenameGiornoDialog = false },
                     onGiornoRenamed = { newGiornoName ->
                         giorniList[giornoToRenameIndex].second.name = newGiornoName
-                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata)
+                        updateScheda(giorniList, gymViewModel, utenteCode, dataInizio, durata, context)
                         showRenameGiornoDialog = false
                     }
                 )
@@ -298,7 +301,8 @@ fun updateScheda(
     gymViewModel: GymViewModel,
     utenteCode: String,
     dataInizio: String,
-    durata: String
+    durata: String,
+    context: Context
 ) {
     val durataInt = durata.toIntOrNull()
     if (durataInt != null) {
@@ -306,6 +310,7 @@ fun updateScheda(
         val updatedGiorni = giorniList.mapIndexed { index, entry -> "giorno${index + 1}" to entry.second }.toMap()
         val updatedScheda = Scheda(formattedDataInizio, durataInt, updatedGiorni)
         gymViewModel.saveScheda(updatedScheda, utenteCode)
+        Toast.makeText(context, "Scheda aggiornata", Toast.LENGTH_SHORT).show()
     }
 }
 
