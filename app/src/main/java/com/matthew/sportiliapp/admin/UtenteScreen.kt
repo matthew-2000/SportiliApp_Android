@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.admin
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material3.*
@@ -32,6 +33,10 @@ fun UtenteScreen(
     val utente = users.firstOrNull { utente -> utente.code == utenteCode }
 
     if (utente != null) {
+        Log.e("UTENTE", utente.scheda.toString())
+    }
+
+    if (utente != null) {
         var editedNome by remember { mutableStateOf(utente.nome) }
         var editedCognome by remember { mutableStateOf(utente.cognome) }
         var showEliminaAlert by remember { mutableStateOf(false) }
@@ -53,7 +58,7 @@ fun UtenteScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = {
+                Button(onClick = {
                     navController.navigate("editScheda")
                 }) {
                     Text(if (utente.scheda != null) "Modifica scheda" else "Aggiungi scheda")
@@ -66,14 +71,14 @@ fun UtenteScreen(
                         .fillMaxWidth()
                         .align(Alignment.CenterHorizontally)
                 ) {
-                    Button(onClick = {
+                    TextButton(onClick = {
                         val updatedUtente = Utente(code = utente.code, cognome = editedCognome, nome = editedNome, scheda = utente.scheda)
                         gymViewModel.updateUser(utente = updatedUtente)
                     }) {
                         Text("Salva modifiche")
                     }
 
-                    Button(
+                    TextButton(
                         onClick = { showEliminaAlert = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -142,7 +147,7 @@ fun UtenteNavHost(
                 }
             }
             composable("addGruppoMuscolareScreen/{giornoName}") { backStackEntry ->
-                val giornoName = backStackEntry.arguments?.getString("giornoName") ?: "A"
+                val giornoName = backStackEntry.arguments?.getString("giornoName") ?: return@composable
                 val giorno = scheda.giorni[giornoName] ?: Giorno(giornoName)
 
                 AddGruppoMuscolareScreen(
@@ -190,12 +195,19 @@ fun UtenteNavHost(
                     }
                 )
             }
-            composable("editGruppoMuscolareScreen/{nomeGruppo}") { backStackEntry ->
+            composable("editGruppoMuscolareScreen/{nomeGruppo}/{nomeGiorno}") { backStackEntry ->
                 val nomeGruppo = backStackEntry.arguments?.getString("nomeGruppo") ?: return@composable
+                val nomeGiorno = backStackEntry.arguments?.getString("nomeGiorno") ?: return@composable
 
                 // Cerca il gruppo muscolare all'interno della scheda dell'utente
-                val gruppo = scheda.giorni.values
-                    .flatMap { it.gruppiMuscolari.values }
+
+                val giorno = scheda.giorni.values.firstOrNull { it.name == nomeGiorno }
+
+                if (giorno == null) {
+                    return@composable
+                }
+
+                val gruppo = giorno.gruppiMuscolari.values
                     .firstOrNull { it.nome == nomeGruppo }
 
                 if (gruppo != null) {

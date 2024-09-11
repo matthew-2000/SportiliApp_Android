@@ -67,7 +67,7 @@ class GymViewModel : ViewModel() {
     }
 
     fun saveScheda(scheda: Scheda, userCode: String) {
-        val schedaDict = scheda.toMap() // Assicurati di avere un metodo `toMap()` nella tua classe Scheda
+        val schedaDict = scheda.toMap()
         val dbRef = FirebaseDatabase.getInstance().getReference("users").child(userCode).child("scheda")
         dbRef.setValue(schedaDict)
             .addOnSuccessListener {
@@ -75,6 +75,147 @@ class GymViewModel : ViewModel() {
             }
             .addOnFailureListener { exception ->
                 // Gestisci gli errori qui
+            }
+    }
+
+    fun addGruppoMuscolare(
+        userCode: String,
+        giornoName: String,
+        gruppoMuscolare: GruppoMuscolare,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val gruppoMuscolareDict = gruppoMuscolare.toMap()
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoMuscolare.nome)
+
+        dbRef.setValue(gruppoMuscolareDict)
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
+            }
+    }
+
+    fun removeGruppoMuscolare(
+        userCode: String,
+        giornoName: String,
+        gruppoName: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoName)
+
+        dbRef.removeValue()
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
+            }
+    }
+
+    fun updateGruppoMuscolare(
+        userCode: String,
+        giornoName: String,
+        gruppoName: String,
+        nuovoGruppoMuscolare: GruppoMuscolare,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val nuovoGruppoMuscolareDict = nuovoGruppoMuscolare.toMap()
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoName)
+
+        dbRef.setValue(nuovoGruppoMuscolareDict)
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
+            }
+    }
+
+    fun addEsercizio(
+        userCode: String,
+        giornoName: String,
+        gruppoName: String,
+        esercizio: Esercizio,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val esercizioDict = esercizio.toMap()
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoName).child("esercizi").child(esercizio.name)
+
+        dbRef.setValue(esercizioDict)
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
+            }
+    }
+
+    fun removeEsercizio(
+        userCode: String,
+        giornoName: String,
+        gruppoName: String,
+        esercizioName: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoName).child("esercizi").child(esercizioName)
+
+        dbRef.removeValue()
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
+            }
+    }
+
+    fun updateEsercizio(
+        userCode: String,
+        giornoName: String,
+        gruppoName: String,
+        esercizioName: String,
+        nuovoEsercizio: Esercizio,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val nuovoEsercizioDict = nuovoEsercizio.toMap()
+        val dbRef = FirebaseDatabase.getInstance().getReference("users")
+            .child(userCode).child("scheda").child("giorni").child(giornoName)
+            .child("gruppiMuscolari").child(gruppoName).child("esercizi").child(esercizioName)
+
+        dbRef.setValue(nuovoEsercizioDict)
+            .addOnSuccessListener {
+                // Successo
+                onSuccess()
+            }
+            .addOnFailureListener { exception ->
+                // Gestione dell'errore
+                onFailure(exception)
             }
     }
 
