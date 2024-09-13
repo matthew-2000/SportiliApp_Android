@@ -1,6 +1,5 @@
 package com.matthew.sportiliapp.admin
 
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,14 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.EsercizioPredefinito
-import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import java.util.Locale
 
@@ -216,11 +213,14 @@ fun AddEsercizioDialog(
     var serie by remember { mutableStateOf(3) }
     var ripetizioni by remember { mutableStateOf(10) }
     var serieDescrizione by remember { mutableStateOf("") }
-    var riposo by remember { mutableStateOf("") }
     var notePT by remember { mutableStateOf("") }
 
     var expanded by remember { mutableStateOf(false) }
     var selectedEsercizio by remember { mutableStateOf(eserciziPredefiniti[0]) }
+
+    // Nuovi stepper per il riposo
+    var minutiRiposo by remember { mutableStateOf(0) }
+    var secondiRiposo by remember { mutableStateOf(0) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -267,7 +267,7 @@ fun AddEsercizioDialog(
                     value = esercizioName,
                     onValueChange = { it ->
                         esercizioName =
-                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                            it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
                     },
                     label = { Text("Nome Esercizio") },
                     modifier = Modifier.fillMaxWidth()
@@ -295,13 +295,24 @@ fun AddEsercizioDialog(
                     label = { Text("Serie o minuti") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Stepper per il riposo (Minuti e Secondi)
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = riposo,
-                    onValueChange = { riposo = it },
-                    label = { Text("Recupero") },
-                    modifier = Modifier.fillMaxWidth()
+                Text("Riposo", style = MaterialTheme.typography.bodyLarge)
+                Stepper(
+                    value = minutiRiposo,
+                    onValueChange = { minutiRiposo = it },
+                    range = 0..10,  // Intervallo normale per i minuti
+                    label = "Minuti"
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Stepper(
+                    value = secondiRiposo,
+                    onValueChange = { secondiRiposo = it },
+                    range = 0..55 step 5,  // Incremento di 5 secondi
+                    label = "Secondi"
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = notePT,
@@ -314,6 +325,12 @@ fun AddEsercizioDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    val riposo = if (minutiRiposo == 0 && secondiRiposo == 0) {
+                        ""
+                    } else {
+                        "${minutiRiposo}'${secondiRiposo}\""
+                    }
+
                     val newEsercizio = Esercizio(
                         name = esercizioName.ifEmpty { selectedEsercizio.nome },
                         serie = serieDescrizione.ifEmpty { "$serie x $ripetizioni" },
@@ -344,14 +361,18 @@ fun EditEsercizioDialog(
     var serie by remember { mutableStateOf<Int?>(3) }
     var ripetizioni by remember { mutableStateOf<Int?>(10) }
     var serieDescrizione by remember { mutableStateOf("") }
-    var riposo by remember { mutableStateOf("") }
-    var notePT by remember { mutableStateOf("") }
+    var notePT by remember { mutableStateOf(esercizio.notePT ?: "") }
 
     // Analisi della serie
     val (parsedSerie, parsedRipetizioni, parsedDescrizione) = parseSerie(esercizio.serie)
     serie = parsedSerie
     ripetizioni = parsedRipetizioni
     serieDescrizione = parsedDescrizione
+
+    // Estrai i minuti e secondi dal riposo
+    val (minutiRiposoIniziale, secondiRiposoIniziale) = parseRiposo(esercizio.riposo ?: "")
+    var minutiRiposo by remember { mutableStateOf(minutiRiposoIniziale) }
+    var secondiRiposo by remember { mutableStateOf(secondiRiposoIniziale) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -362,7 +383,7 @@ fun EditEsercizioDialog(
                     value = esercizioName,
                     onValueChange = { it ->
                         esercizioName =
-                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                            it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
                     },
                     label = { Text("Nome Esercizio") },
                     modifier = Modifier.fillMaxWidth()
@@ -394,13 +415,24 @@ fun EditEsercizioDialog(
                     label = { Text("Serie o minuti") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Stepper per il riposo (Minuti e Secondi)
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = riposo,
-                    onValueChange = { riposo = it },
-                    label = { Text("Recupero") },
-                    modifier = Modifier.fillMaxWidth()
+                Text("Riposo", style = MaterialTheme.typography.bodyLarge)
+                Stepper(
+                    value = minutiRiposo,
+                    onValueChange = { minutiRiposo = it },
+                    range = 0..10,  // Intervallo normale per i minuti
+                    label = "Minuti"
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Stepper(
+                    value = secondiRiposo,
+                    onValueChange = { secondiRiposo = it },
+                    range = 0..55 step 5,  // Incremento di 5 secondi
+                    label = "Secondi"
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = notePT,
@@ -413,6 +445,12 @@ fun EditEsercizioDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    val riposo = if (minutiRiposo == 0 && secondiRiposo == 0) {
+                        ""
+                    } else {
+                        "${minutiRiposo}'${secondiRiposo}\""
+                    }
+
                     val newEsercizio = Esercizio(
                         name = esercizioName,
                         serie = serieDescrizione.ifEmpty { "$serie x $ripetizioni" },
@@ -433,6 +471,19 @@ fun EditEsercizioDialog(
     )
 }
 
+// Funzione per estrarre i minuti e i secondi dal formato "M'S" del riposo
+fun parseRiposo(riposo: String): Pair<Int, Int> {
+    val regex = Regex("""(\d+)'(\d+)\"""")
+    val match = regex.find(riposo)
+    return if (match != null) {
+        val minuti = match.groupValues[1].toIntOrNull() ?: 0
+        val secondi = match.groupValues[2].toIntOrNull() ?: 0
+        Pair(minuti, secondi)
+    } else {
+        Pair(0, 0)
+    }
+}
+
 fun parseSerie(serie: String): Triple<Int?, Int?, String> {
     // Controlla il formato NxN
     val partsNxN = serie.split("x", "X", " x ", " X ")
@@ -450,9 +501,11 @@ fun parseSerie(serie: String): Triple<Int?, Int?, String> {
 fun Stepper(
     value: Int,
     onValueChange: (Int) -> Unit,
-    range: IntRange,
+    range: IntProgression,  // range ora include l'incremento
     label: String
 ) {
+    val step = range.step  // ottieni l'incremento dal range
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -464,8 +517,8 @@ fun Stepper(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = {
-                if (value > range.first) {
-                    onValueChange(value - 1)
+                if (value - step >= range.first) {
+                    onValueChange(value - step)  // Decrementa del valore dello step
                 }
             }) {
                 Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Decrement")
@@ -474,8 +527,8 @@ fun Stepper(
             Text(text = value.toString(), style = MaterialTheme.typography.bodyLarge)
 
             IconButton(onClick = {
-                if (value < range.last) {
-                    onValueChange(value + 1)
+                if (value + step <= range.last) {
+                    onValueChange(value + step)  // Incrementa del valore dello step
                 }
             }) {
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Increment")
