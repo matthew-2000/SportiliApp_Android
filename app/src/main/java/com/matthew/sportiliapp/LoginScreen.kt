@@ -1,6 +1,8 @@
 package com.matthew.sportiliapp
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -126,7 +128,8 @@ fun LoginScreen(navController: NavHostController) {
 
                 TextButton(
                     onClick = {
-                        // Azione per gestire il caso in cui l'utente non ha il codice
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/sportiliacentrofitness"))
+                        context.startActivity(intent)
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.secondary
