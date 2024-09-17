@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -20,19 +22,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EsercizioScreen(esercizio: Esercizio) {
+fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
     val notaState = remember { mutableStateOf(TextFieldValue(esercizio.noteUtente ?: "")) }
     val showingAlertState = remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = esercizio.name) }
+                title = {},
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
+                    }
+                }
             )
         },
         content = { padding ->
@@ -42,6 +50,12 @@ fun EsercizioScreen(esercizio: Esercizio) {
                     .padding(16.dp)
                     .fillMaxSize()
             ) {
+                Text(
+                    text = esercizio.name,
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(bottom = 16.dp) // Padding per distanziare dal resto del contenuto
+                )
+
                 val painter = rememberAsyncImagePainter(
                     model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
                 )
