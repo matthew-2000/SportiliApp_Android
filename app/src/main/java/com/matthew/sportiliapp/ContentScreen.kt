@@ -4,6 +4,13 @@ import android.os.Build
 import android.util.Log
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -53,12 +60,17 @@ fun ContentScreen(navController: NavHostController) {
                         label = { Text(item.title) },
                         selected = currentRoute == item.route,
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor= MaterialTheme.colorScheme.background,
+                            selectedIconColor = MaterialTheme.colorScheme.background,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
                             indicatorColor = MaterialTheme.colorScheme.primary,
                         ),
                         onClick = {
-                            navController2.navigate(item.route)
+                            navController2.navigate(item.route) {
+                                // Prevents building a large back stack
+                                popUpTo(navController2.graph.startDestinationId) { saveState = true }
+                                restoreState = true
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
@@ -71,44 +83,40 @@ fun ContentScreen(navController: NavHostController) {
                 startDestination = "scheda",
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-                enterTransition = {
-                    EnterTransition.None
-                },
-                exitTransition = {
-                    ExitTransition.None
-                }
+                    .padding(padding)
             ) {
-                composable("scheda") { SchedaScreen(navController = navController2) }
-                composable("impostazioni") { ImpostazioniScreen(navController) }
-                composable("giorno") {
-                    val bundle = it.arguments
-                    val giorno = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        bundle?.getParcelable("giorno", Giorno::class.java)
-                    } else {
-                        bundle?.getParcelable("giorno") as? Giorno
-                    }
+                composable("scheda") {
+                    SchedaScreen(navController = navController2)
+                }
+                composable(
+                    "impostazioni",
+//                    enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+//                    exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
+                ) {
+                    ImpostazioniScreen(navController)
+                }
+                composable(
+                    "giorno",
+                    enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+                    exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
+                ) { backStackEntry ->
+                    val giorno = backStackEntry.arguments?.getParcelable<Giorno>("giorno")
                     if (giorno != null) {
                         GiornoScreen(navController = navController2, giorno = giorno)
                     }
                 }
-                composable("esercizio") {
-                    val bundle = it.arguments
-                    val esercizio = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        bundle?.getParcelable("esercizio", Esercizio::class.java)
-                    } else {
-                        bundle?.getParcelable("esercizio") as? Esercizio
-                    }
+                composable(
+                    "esercizio",
+                    enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+                    exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
+                ) { backStackEntry ->
+                    val esercizio = backStackEntry.arguments?.getParcelable<Esercizio>("esercizio")
                     if (esercizio != null) {
-                        Log.e("AAAA", esercizio.name)
-                    } else {
-                        Log.e("AAAA", "NOOOOOOO")
-                    }
-                    if (esercizio != null) {
-                        EsercizioScreen(esercizio = esercizio)
+                        EsercizioScreen(esercizio = esercizio, navController = navController2)
                     }
                 }
             }
+
         }
     )
 }

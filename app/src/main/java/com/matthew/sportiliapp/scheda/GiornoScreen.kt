@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -47,18 +48,33 @@ fun GiornoScreen(navController: NavHostController, giorno: Giorno) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = giorno.name) }
+                title = {},
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
+                    }
+                }
             )
         },
         content = { padding ->
-            LazyColumn(modifier = Modifier.padding(padding)) {
-                items(giorno.gruppiMuscolari.entries.toList()) { (_, gruppo) ->
-                    GruppoSection(gruppo = gruppo, navController)
+            Column(modifier = Modifier.padding(padding)) {
+                // Il tuo Text personalizzato qui
+                Text(
+                    text = giorno.name,
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(16.dp) // Padding per distanziare dal bordo
+                )
+
+                LazyColumn {
+                    items(giorno.gruppiMuscolari.entries.toList()) { (_, gruppo) ->
+                        GruppoSection(gruppo = gruppo, navController)
+                    }
                 }
             }
         }
     )
 }
+
 
 @Composable
 fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController) {

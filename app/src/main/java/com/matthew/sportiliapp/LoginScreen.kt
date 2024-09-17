@@ -28,14 +28,13 @@ import kotlinx.coroutines.tasks.await
 import com.matthew.sportiliapp.R
 import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavHostController) {
     var code by remember { mutableStateOf("") }
     var showAlert by remember { mutableStateOf(false) }
     var alertMessage by remember { mutableStateOf("") }
 
-    val context = LocalContext.current  // Ottieni il contesto dal LocalContext
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     Box(
@@ -47,7 +46,7 @@ fun LoginScreen(navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp)
-                .background(MaterialTheme.colorScheme.background), // Aggiunto background dal tema
+                .background(MaterialTheme.colorScheme.background),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -64,7 +63,7 @@ fun LoginScreen(navController: NavHostController) {
                 Text(
                     text = "SportiliApp",
                     style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground // Colore dal tema
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
@@ -128,8 +127,9 @@ fun LoginScreen(navController: NavHostController) {
 
                 TextButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/sportiliacentrofitness"))
-                        context.startActivity(intent)
+                        alertMessage =
+                            "Per accedere è necessario avere un codice fornito dal personal trainer. Ti preghiamo di contattarlo per assistenza."
+                        showAlert = true
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.secondary
@@ -150,7 +150,7 @@ fun LoginScreen(navController: NavHostController) {
     if (showAlert) {
         AlertDialog(
             onDismissRequest = { showAlert = false },
-            title = { Text("Attenzione", color = MaterialTheme.colorScheme.onBackground) },
+            title = { Text("Attenzione!", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium) },
             text = { Text(alertMessage, color = MaterialTheme.colorScheme.onBackground) },
             confirmButton = {
                 Button(
