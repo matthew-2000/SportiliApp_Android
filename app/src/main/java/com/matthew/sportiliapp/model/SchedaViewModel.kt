@@ -14,6 +14,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     private val _name = MutableLiveData<String?>()
     val scheda: LiveData<Scheda?> = _scheda
     val name: LiveData<String?> = _name
+    val isLoading = MutableLiveData(true) // Stato di caricamento
 
     init {
         loadScheda()
@@ -21,6 +22,9 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
     private fun loadScheda() {
         viewModelScope.launch {
+            // Imposta lo stato di caricamento a true
+            isLoading.postValue(true)
+
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
             val savedCode = sharedPreferences.getString("code", "") ?: ""
             val database = FirebaseDatabase.getInstance()
@@ -31,10 +35,13 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                     val data = snapshot.getValue(Scheda::class.java)
                     data?.sortAll()
                     _scheda.postValue(data)
+                    // Caricamento completato, imposta isLoading a false
+                    isLoading.postValue(false)
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    // Handle error
+                    // In caso di errore, imposta isLoading a false
+                    isLoading.postValue(false)
                 }
             })
 
@@ -46,12 +53,52 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    // Handle error
+                    // Gestione errori
                 }
             })
         }
     }
+
+    // Funzione per aggiornare le note utente di un esercizio
+    fun updateEsercizioNotes(
+        giornoId: String,
+        gruppoMuscolareId: String,
+        esercizioId: String,
+        noteUtente: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            val database = FirebaseDatabase.getInstance()
+
+            val esercizioRef = database.reference
+                .child("users")
+                .child(savedCode)
+                .child("scheda")
+                .child("giorni")
+                .child(giornoId)
+                .child("gruppiMuscolari")
+                .child(gruppoMuscolareId)
+                .child("esercizi")
+                .child(esercizioId)
+
+            val updates = hashMapOf<String, Any?>(
+                "noteUtente" to noteUtente
+            )
+
+            esercizioRef.updateChildren(updates)
+                .addOnSuccessListener {
+                    onSuccess()  // Callback di successo
+                }
+                .addOnFailureListener { error ->
+                    onFailure(error.message ?: "Errore sconosciuto")  // Callback di fallimento
+                }
+        }
+    }
 }
+
 
 class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {

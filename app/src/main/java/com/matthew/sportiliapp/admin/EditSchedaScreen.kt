@@ -283,7 +283,7 @@ fun GiornoItem(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Elimina Giorno") },
+                        text = { Text("Elimina") },
                         onClick = {
                             onDelete()
                             expanded = false

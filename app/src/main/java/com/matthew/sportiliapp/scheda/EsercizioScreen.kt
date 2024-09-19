@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -25,12 +27,38 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
+import com.matthew.sportiliapp.model.SchedaViewModel
+
+import android.widget.Toast
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.matthew.sportiliapp.model.SchedaViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
-    val notaState = remember { mutableStateOf(TextFieldValue(esercizio.noteUtente ?: "")) }
+fun EsercizioScreen(
+    navController: NavHostController,
+    giornoId: String,
+    gruppoMuscolareId: String,
+    esercizioId: String,
+) {
+    val context = LocalContext.current
+    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
+    val esercizio = viewModel.scheda.value?.giorni?.get(giornoId)
+        ?.gruppiMuscolari?.get(gruppoMuscolareId)?.esercizi?.get(esercizioId)
+
+    // Usa LaunchedEffect per aggiornare notaState quando esercizio cambia
+    var notaState by remember { mutableStateOf(esercizio?.noteUtente ?: "") }
     val showingAlertState = remember { mutableStateOf(false) }
+
+    // Sincronizzare lo stato della nota con l'oggetto esercizio quando cambia
+    LaunchedEffect(esercizio?.noteUtente) {
+        notaState = esercizio?.noteUtente ?: ""
+    }
 
     Scaffold(
         topBar = {
@@ -44,21 +72,24 @@ fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
             )
         },
         content = { padding ->
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .padding(16.dp)
-                    .fillMaxSize()
-            ) {
-                Text(
-                    text = esercizio.name,
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(bottom = 16.dp) // Padding per distanziare dal resto del contenuto
-                )
+            if (esercizio != null) {
+                Column(
+                    modifier = Modifier
+                        .padding(padding)
+                        .padding(16.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = esercizio.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
 
-                val painter = rememberAsyncImagePainter(
-                    model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
-                )
+                    // Immagine dell'esercizio
+                    val painter = rememberAsyncImagePainter(
+                        model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
+                    )
 
                 Box(
                     modifier = Modifier
@@ -71,7 +102,8 @@ fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
                         painter = painter,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
                             .clip(RoundedCornerShape(10.dp))
                     )
 
@@ -99,37 +131,120 @@ fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .padding(vertical = 16.dp)
-                ) {
-                    Text(
-                        text = esercizio.serie,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    esercizio.riposo?.let {
-                        if (it.isNotEmpty()) {
-                            Text(text = "$it recupero", style = MaterialTheme.typography.headlineSmall)
+                    // Dati dell'esercizio e note utente
+                    Column(
+                        modifier = Modifier
+                            .padding(vertical = 16.dp)
+                    ) {
+                        Text(
+                            text = esercizio.serie,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        esercizio.riposo?.let {
+                            if (it.isNotEmpty()) {
+                                Text(
+                                    text = "$it recupero",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Note PT:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = esercizio.notePT?.takeIf { it.isNotEmpty() } ?: "Nessuna nota.",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Sezione per le note utente
+                        Text(
+                            text = "Note personali:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Visualizza la nota utente attuale o un messaggio se non ci sono note
+                        Text(
+                            text = notaState.ifEmpty { "Nessuna nota." },
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+
+                        // Pulsante per aprire l'AlertDialog per modificare le note
+                        Button(
+                            onClick = { showingAlertState.value = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Aggiungi/Modifica Note")
+                        }
+
+                        // AlertDialog per inserire/modificare le note personali
+                        if (showingAlertState.value) {
+                            var tempNote by remember { mutableStateOf(notaState) }
+
+                            AlertDialog(
+                                onDismissRequest = { showingAlertState.value = false },
+                                title = { Text("Modifica le tue note") },
+                                text = {
+                                    Column {
+                                        OutlinedTextField(
+                                            value = tempNote,
+                                            onValueChange = { tempNote = it },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            label = { Text("Inserisci le tue note") },
+                                            maxLines = 5,
+                                            singleLine = false
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(onClick = {
+                                        notaState = tempNote  // Aggiorna le note personali
+                                        viewModel.updateEsercizioNotes(
+                                            giornoId = giornoId,
+                                            gruppoMuscolareId = gruppoMuscolareId,
+                                            esercizioId = esercizioId,
+                                            noteUtente = tempNote,
+                                            onSuccess = {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Note aggiornate con successo",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                showingAlertState.value = false
+                                            },
+                                            onFailure = { errorMessage ->
+                                                Toast.makeText(
+                                                    context,
+                                                    "Errore: $errorMessage",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        )
+                                    }) {
+                                        Text("Salva")
+                                    }
+                                },
+                                dismissButton = {
+                                    Button(onClick = { showingAlertState.value = false }) {
+                                        Text("Annulla")
+                                    }
+                                }
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Note:",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = esercizio.notePT?.takeIf { it.isNotEmpty() } ?: "Nessuna nota.",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
             }
         }
     )
 }
-

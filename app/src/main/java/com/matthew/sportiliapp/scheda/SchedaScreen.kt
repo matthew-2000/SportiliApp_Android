@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +18,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
@@ -38,25 +40,15 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 
-fun NavController.navigate(
-    route: String,
-    args: Bundle,
-    navOptions: NavOptions? = null,
-    navigatorExtras: Navigator.Extras? = null
-) {
-    val nodeId = graph.findNode(route = route)?.id
-    if (nodeId != null) {
-        navigate(nodeId, args, navOptions, navigatorExtras)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchedaScreen(navController: NavHostController) {
     val context = LocalContext.current
     val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
+
     val scheda by viewModel.scheda.observeAsState()
     val nomeUtente by viewModel.name.observeAsState()
+    val isLoading by viewModel.isLoading.observeAsState(true) // Osserviamo lo stato di caricamento
 
     Scaffold(
         topBar = {
@@ -65,59 +57,66 @@ fun SchedaScreen(navController: NavHostController) {
             )
         },
         content = { padding ->
-            if (scheda == null) {
-                Text(
-                    "No",
-                    modifier = Modifier.fillMaxSize(),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            } else {
-                LazyColumn(
+            if (isLoading) {
+                // Mostra l'indicatore di caricamento
+                Box(
                     modifier = Modifier
-                        .padding(padding)
-                        .padding(all = 16.dp)
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                        ) {
-                            Text(
-                                "Inizio: ${convertDateTime(scheda!!.dataInizio)} ",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "x${scheda!!.durata} sett.",
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(vertical = 16.dp))
-                    }
-
-                    if (!scheda!!.isSchedaValida()) {
+                    //CircularProgressIndicator()
+                }
+            } else {
+                // Mostra la scheda o la schermata "non disponibile"
+                if (scheda == null || scheda!!.giorni.isEmpty()) {
+                    SchedaNonDisponibileScreen()
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .padding(padding)
+                            .padding(all = 16.dp)
+                    ) {
                         item {
-                            Text(
-                                "Scheda scaduta!",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                            ) {
+                                Text(
+                                    "Inizio: ${convertDateTime(scheda!!.dataInizio)} ",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "x${scheda!!.durata} sett.",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Divider(
+                                color = Color.LightGray,
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(vertical = 16.dp)
                             )
                         }
-                    }
 
-                    items(scheda!!.giorni.entries.toList()) { (key, giorno) ->
-                        GiornoItem(giorno) {
-                            val bundle = Bundle().apply {
-                                putParcelable("giorno", giorno)
+                        if (!scheda!!.isSchedaValida()) {
+                            item {
+                                Text(
+                                    "Scheda scaduta!",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
-                            navController.navigate(
-                                route = "giorno",
-                                args = bundle
-                            )
+                        }
+
+                        items(scheda!!.giorni.entries.toList()) { (key, giorno) ->
+                            GiornoItem(giorno) {
+                                navController.navigate("giorno/$key")
+                            }
                         }
                     }
                 }
@@ -125,6 +124,32 @@ fun SchedaScreen(navController: NavHostController) {
         }
     )
 }
+
+@Composable
+fun SchedaNonDisponibileScreen() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "La tua scheda di allenamento non è ancora disponibile.",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        Text(
+            text = "Il personal trainer deve ancora caricare la tua scheda. Ti preghiamo di attendere o contattare il personal trainer per ulteriori informazioni.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+    }
+}
+
 
 
 @Composable
