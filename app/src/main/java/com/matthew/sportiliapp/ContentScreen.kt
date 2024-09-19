@@ -96,24 +96,28 @@ fun ContentScreen(navController: NavHostController) {
                     ImpostazioniScreen(navController)
                 }
                 composable(
-                    "giorno",
+                    "giorno/{giornoId}",
                     enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
                     exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
                 ) { backStackEntry ->
-                    val giorno = backStackEntry.arguments?.getParcelable<Giorno>("giorno")
-                    if (giorno != null) {
-                        GiornoScreen(navController = navController2, giorno = giorno)
-                    }
+                    val giornoId = backStackEntry.arguments?.getString("giornoId") ?: return@composable
+                    GiornoScreen(navController = navController2, giornoId = giornoId)
                 }
                 composable(
-                    "esercizio",
+                    "esercizio/{giornoId}/{gruppoMuscolareId}/{esercizioId}",
                     enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
                     exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
                 ) { backStackEntry ->
-                    val esercizio = backStackEntry.arguments?.getParcelable<Esercizio>("esercizio")
-                    if (esercizio != null) {
-                        EsercizioScreen(esercizio = esercizio, navController = navController2)
-                    }
+                    val giornoId = backStackEntry.arguments?.getString("giornoId") ?: return@composable
+                    val gruppoMuscolareId = backStackEntry.arguments?.getString("gruppoMuscolareId") ?: return@composable
+                    val esercizioId = backStackEntry.arguments?.getString("esercizioId") ?: return@composable
+
+                    EsercizioScreen(
+                        navController = navController2,
+                        giornoId = giornoId,
+                        gruppoMuscolareId = gruppoMuscolareId,
+                        esercizioId = esercizioId,
+                    )
                 }
             }
 

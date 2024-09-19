@@ -456,7 +456,8 @@ fun EditEsercizioDialog(
                         name = esercizioName,
                         serie = serieDescrizione.ifEmpty { "$serie x $ripetizioni" },
                         riposo = riposo,
-                        notePT = notePT
+                        notePT = notePT,
+                        noteUtente = esercizio.noteUtente
                     )
                     onEsercizioEdited(newEsercizio)
                 }

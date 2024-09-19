@@ -32,19 +32,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
+import com.matthew.sportiliapp.model.SchedaViewModel
+import com.matthew.sportiliapp.model.SchedaViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GiornoScreen(navController: NavHostController, giorno: Giorno) {
+fun GiornoScreen(navController: NavHostController, giornoId: String) {
+    val context = LocalContext.current
+    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
+    val giorno = viewModel.scheda.value?.giorni?.get(giornoId)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -58,26 +66,30 @@ fun GiornoScreen(navController: NavHostController, giorno: Giorno) {
         },
         content = { padding ->
             Column(modifier = Modifier.padding(padding)) {
-                // Il tuo Text personalizzato qui
-                Text(
-                    text = giorno.name,
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(16.dp) // Padding per distanziare dal bordo
-                )
+                if (giorno != null) {
+                    // Mostra il giorno
+                    Text(
+                        text = giorno.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(16.dp)
+                    )
 
-                LazyColumn {
-                    items(giorno.gruppiMuscolari.entries.toList()) { (_, gruppo) ->
-                        GruppoSection(gruppo = gruppo, navController)
+                    LazyColumn {
+                        items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
+                            GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
+                        }
                     }
+                } else {
+                    // Se il giorno non esiste, mostra un messaggio di errore
+                    //Text("Giorno non trovato")
                 }
             }
         }
     )
 }
 
-
 @Composable
-fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController) {
+fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gruppoId: String, giornoId: String) {
     Column(
         modifier = Modifier.padding(16.dp)
     ) {
@@ -88,14 +100,10 @@ fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Column {
-            gruppo.esercizi.forEach { esercizio ->
-                EsercizioRow(esercizio = esercizio.value) {
-                    val bundle = Bundle()
-                    bundle.putParcelable("esercizio", esercizio.value)
-                    navController.navigate(
-                        route = "esercizio",
-                        args = bundle
-                    )
+            gruppo.esercizi.forEach { (esercizioId, esercizio) ->
+                EsercizioRow(esercizio = esercizio) {
+                    // Passa solo gli ID nella route
+                    navController.navigate("esercizio/$giornoId/$gruppoId/$esercizioId")
                 }
             }
         }

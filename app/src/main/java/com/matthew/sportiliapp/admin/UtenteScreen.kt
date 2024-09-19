@@ -3,7 +3,11 @@ package com.matthew.sportiliapp.admin
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -29,12 +33,12 @@ import java.util.Locale
 fun UtenteScreen(
     navController: NavController,
     utenteCode: String,
-    gymViewModel: GymViewModel = viewModel() // Utilizziamo viewModel() per ottenere l'istanza
+    gymViewModel: GymViewModel = viewModel()
 ) {
     val users by gymViewModel.users.observeAsState(initial = emptyList())
     val context = LocalContext.current
 
-    val utente = users.firstOrNull { utente -> utente.code == utenteCode }
+    val utente = users.firstOrNull { it.code == utenteCode }
 
     if (utente != null) {
         var editedNome by remember { mutableStateOf(utente.nome) }
@@ -49,45 +53,96 @@ fun UtenteScreen(
             Column(
                 modifier = Modifier
                     .padding(padding)
-                    .padding(8.dp)
+                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
-                FormSection(title = "Codice", content = utente.code)
-                Spacer(modifier = Modifier.height(16.dp))
-                CustomTextField("Nome", editedNome) { editedNome = it }
-                CustomTextField("Cognome", editedCognome) { editedCognome = it }
+                // Sezione per i dettagli dell'utente
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text("Dettagli Utente", style = MaterialTheme.typography.titleMedium)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                Button(onClick = {
-                    navController.navigate("editScheda")
-                }) {
-                    Text(if (utente.scheda != null) "Modifica scheda" else "Aggiungi scheda")
+                        FormSection(title = "Codice", content = utente.code)
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                        CustomTextField("Nome", editedNome) { editedNome = it }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CustomTextField("Cognome", editedCognome) { editedCognome = it }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.CenterHorizontally)
+                // Sezione per la gestione della scheda
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    TextButton(onClick = {
-                        editedCognome = editedCognome.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(
-                            Locale.ROOT) else it.toString() }
-                        editedNome = editedNome.trim().replaceFirstChar {  if (it.isLowerCase()) it.titlecase(
-                            Locale.ROOT) else it.toString() }
-                        val updatedUtente = Utente(code = utente.code, cognome = editedCognome, nome = editedNome, scheda = utente.scheda)
-                        gymViewModel.updateUser(utente = updatedUtente)
-                        Toast.makeText(context, "Utente aggiornato", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Text("Salva modifiche")
-                    }
-
-                    TextButton(
-                        onClick = { showEliminaAlert = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Text("Elimina", color = MaterialTheme.colorScheme.onError)
+                        Text("Gestione Scheda", style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { navController.navigate("editScheda") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (utente.scheda != null) "Modifica scheda" else "Aggiungi scheda")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Sezione per le azioni sugli utenti
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(
+                            onClick = {
+                                // Gestisce la modifica e il salvataggio dell'utente
+                                editedCognome = editedCognome.trim().replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString()
+                                }
+                                editedNome = editedNome.trim().replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString()
+                                }
+                                val updatedUtente = Utente(
+                                    code = utente.code,
+                                    cognome = editedCognome,
+                                    nome = editedNome,
+                                    scheda = utente.scheda
+                                )
+                                gymViewModel.updateUser(utente = updatedUtente)
+                                Toast.makeText(context, "Utente aggiornato", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Salva modifiche")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { showEliminaAlert = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Elimina Utente", color = MaterialTheme.colorScheme.onError)
+                        }
                     }
                 }
 
@@ -98,7 +153,7 @@ fun UtenteScreen(
                         text = { Text("Sei sicuro di voler eliminare questo utente?") },
                         confirmButton = {
                             Button(onClick = {
-                                gymViewModel.removeUser(code = utente.code)
+                                gymViewModel.removeUser(utente.code)
                                 showEliminaAlert = false
                                 navController.popBackStack()
                             }) {
@@ -116,7 +171,12 @@ fun UtenteScreen(
         }
     } else {
         // Gestione del caso in cui l'utente non viene trovato o la lista è vuota
-        Text("Utente non trovato")
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Utente non trovato", style = MaterialTheme.typography.titleLarge)
+        }
     }
 }
 

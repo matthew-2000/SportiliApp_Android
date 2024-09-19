@@ -31,7 +31,6 @@ import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.resetSharedPref
 import com.matthew.sportiliapp.scheda.convertDateTime
-import com.matthew.sportiliapp.scheda.navigate
 import java.util.Locale
 import kotlin.random.Random
 
