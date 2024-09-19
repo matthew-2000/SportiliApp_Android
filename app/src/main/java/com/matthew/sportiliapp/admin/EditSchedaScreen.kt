@@ -139,7 +139,7 @@ fun EditSchedaScreen(
             giorniList.forEachIndexed { index, (dayName, giorno) ->
                 GiornoItem(
                     giorno = giorno,
-                    onEdit = { navController.navigate("addGruppoMuscolareScreen/${giorniList[index].first}") },
+                    onEdit = { navController.navigate("addGruppoMuscolareScreen/$dayName") },
                     onMoveUp = {
                         if (index > 0) {
                             giorniList.move(index, index - 1)
