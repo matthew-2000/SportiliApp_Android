@@ -178,7 +178,7 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
             esercizio.riposo?.let { riposo ->
                 if (riposo.isNotEmpty()) {
                     Text(
-                        text = "$riposo riposo",
+                        text = "$riposo recupero",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

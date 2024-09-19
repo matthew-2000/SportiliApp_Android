@@ -63,7 +63,7 @@ fun EsercizioScreen(esercizio: Esercizio, navController: NavHostController) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(250.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.background)
                 ) {

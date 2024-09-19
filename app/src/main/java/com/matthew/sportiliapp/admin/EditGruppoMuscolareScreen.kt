@@ -357,20 +357,21 @@ fun EditEsercizioDialog(
     onDismiss: () -> Unit,
     onEsercizioEdited: (Esercizio) -> Unit
 ) {
+    // Usa remember per evitare la riassegnazione continua
     var esercizioName by remember { mutableStateOf(esercizio.name) }
-    var serie by remember { mutableStateOf<Int?>(3) }
-    var ripetizioni by remember { mutableStateOf<Int?>(10) }
-    var serieDescrizione by remember { mutableStateOf("") }
+    val (parsedSerie, parsedRipetizioni, parsedDescrizione) = remember {
+        parseSerie(esercizio.serie)
+    }
+
+    var serie by remember { mutableStateOf(parsedSerie) }
+    var ripetizioni by remember { mutableStateOf(parsedRipetizioni) }
+    var serieDescrizione by remember { mutableStateOf(parsedDescrizione) }
     var notePT by remember { mutableStateOf(esercizio.notePT ?: "") }
 
-    // Analisi della serie
-    val (parsedSerie, parsedRipetizioni, parsedDescrizione) = parseSerie(esercizio.serie)
-    serie = parsedSerie
-    ripetizioni = parsedRipetizioni
-    serieDescrizione = parsedDescrizione
-
     // Estrai i minuti e secondi dal riposo
-    val (minutiRiposoIniziale, secondiRiposoIniziale) = parseRiposo(esercizio.riposo ?: "")
+    val (minutiRiposoIniziale, secondiRiposoIniziale) = remember {
+        parseRiposo(esercizio.riposo ?: "")
+    }
     var minutiRiposo by remember { mutableStateOf(minutiRiposoIniziale) }
     var secondiRiposo by remember { mutableStateOf(secondiRiposoIniziale) }
 
@@ -422,14 +423,14 @@ fun EditEsercizioDialog(
                 Stepper(
                     value = minutiRiposo,
                     onValueChange = { minutiRiposo = it },
-                    range = 0..10,  // Intervallo normale per i minuti
+                    range = 0..10,
                     label = "Minuti"
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Stepper(
                     value = secondiRiposo,
                     onValueChange = { secondiRiposo = it },
-                    range = 0..55 step 5,  // Incremento di 5 secondi
+                    range = 0..55 step 5,
                     label = "Secondi"
                 )
 
@@ -470,6 +471,7 @@ fun EditEsercizioDialog(
         }
     )
 }
+
 
 // Funzione per estrarre i minuti e i secondi dal formato "M'S" del riposo
 fun parseRiposo(riposo: String): Pair<Int, Int> {

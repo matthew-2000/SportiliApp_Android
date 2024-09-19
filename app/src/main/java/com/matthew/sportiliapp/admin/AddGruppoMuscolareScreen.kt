@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -50,7 +52,7 @@ fun AddGruppoMuscolareScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Giorno ${giorno.name}") },
+                title = { Text(giorno.name) },
                 actions = {
                     IconButton(onClick = {
                         showAddGruppoMuscolareDialog = true
@@ -227,7 +229,10 @@ fun AddGruppoMuscolareDialog(
         "Bicipiti",
         "Riscaldamento",
         "Defaticamento",
-        "Cardio"
+        "Cardio",
+        "Prova",
+        "Prova1",
+        "Prova2"
     )
 
     for (gruppo in giorno.gruppiMuscolari) {
@@ -243,7 +248,12 @@ fun AddGruppoMuscolareDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aggiungi Gruppi Muscolari") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 350.dp)  // Imposta un'altezza massima e abilita lo scrolling
+                    .verticalScroll(rememberScrollState()) // Scroll verticale
+            ) {
                 // Lista di Checkbox per i gruppi muscolari
                 gruppiMuscolari.forEach { gruppo ->
                     Row(
