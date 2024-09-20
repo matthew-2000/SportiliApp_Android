@@ -34,9 +34,11 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.SchedaViewModelFactory
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,11 +53,12 @@ fun EsercizioScreen(
     val esercizio = viewModel.scheda.value?.giorni?.get(giornoId)
         ?.gruppiMuscolari?.get(gruppoMuscolareId)?.esercizi?.get(esercizioId)
 
-    // Usa LaunchedEffect per aggiornare notaState quando esercizio cambia
     var notaState by remember { mutableStateOf(esercizio?.noteUtente ?: "") }
     val showingAlertState = remember { mutableStateOf(false) }
 
-    // Sincronizzare lo stato della nota con l'oggetto esercizio quando cambia
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(esercizio?.noteUtente) {
         notaState = esercizio?.noteUtente ?: ""
     }
@@ -91,45 +94,45 @@ fun EsercizioScreen(
                         model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
                     )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.background)
-                ) {
-                    Image(
-                        painter = painter,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .height(250.dp)
                             .clip(RoundedCornerShape(10.dp))
-                    )
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
+                        Image(
+                            painter = painter,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(10.dp))
+                        )
 
-                    when (painter.state) {
-                        is AsyncImagePainter.State.Loading -> {
-                            // Display a placeholder while the image loads
-                        }
-                        is AsyncImagePainter.State.Error -> {
-                            // Display a placeholder or error icon if the image fails to load
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
-                            ) {
-                                Text(
-                                    text = "Immagine non ancora disponibile",
-                                    modifier = Modifier.align(Alignment.Center),
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
+                        when (painter.state) {
+                            is AsyncImagePainter.State.Loading -> {
+                                // Display a placeholder while the image loads
+                            }
+                            is AsyncImagePainter.State.Error -> {
+                                // Display a placeholder or error icon if the image fails to load
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
+                                ) {
+                                    Text(
+                                        text = "Immagine non disponibile",
+                                        modifier = Modifier.align(Alignment.Center),
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+                            else -> {
+                                // Do nothing, the image will be displayed
                             }
                         }
-                        else -> {
-                            // Do nothing, the image will be displayed
-                        }
                     }
-                }
 
                     // Dati dell'esercizio e note utente
                     Column(
@@ -187,6 +190,17 @@ fun EsercizioScreen(
                             Text("Aggiungi/Modifica Note")
                         }
 
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    sheetState.show()  // Open the bottom sheet
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Avvia Timer di Recupero")
+                        }
+
                         // AlertDialog per inserire/modificare le note personali
                         if (showingAlertState.value) {
                             var tempNote by remember { mutableStateOf(notaState) }
@@ -240,6 +254,19 @@ fun EsercizioScreen(
                                     }
                                 }
                             )
+                        }
+
+                        if (sheetState.isVisible) {
+                            ModalBottomSheet(
+                                onDismissRequest = {
+                                    scope.launch {
+                                        sheetState.hide()  // Close the bottom sheet
+                                    }
+                                },
+                                sheetState = sheetState
+                            ) {
+                                TimerSheet(riposo = esercizio.riposo ?: "")
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
