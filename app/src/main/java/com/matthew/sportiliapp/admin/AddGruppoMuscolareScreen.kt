@@ -229,10 +229,7 @@ fun AddGruppoMuscolareDialog(
         "Bicipiti",
         "Riscaldamento",
         "Defaticamento",
-        "Cardio",
-        "Prova",
-        "Prova1",
-        "Prova2"
+        "Cardio"
     )
 
     for (gruppo in giorno.gruppiMuscolari) {

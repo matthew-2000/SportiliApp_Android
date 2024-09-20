@@ -66,7 +66,11 @@ class GymViewModel : ViewModel() {
         dbRef.child(utente.code).setValue(userDict)
     }
 
-    fun saveScheda(scheda: Scheda, userCode: String) {
+    fun saveScheda(
+        scheda: Scheda,
+        userCode: String,
+        onFailure: (Exception) -> Unit
+    ) {
         val schedaDict = scheda.toMap()
         val dbRef = FirebaseDatabase.getInstance().getReference("users").child(userCode).child("scheda")
         dbRef.setValue(schedaDict)
@@ -74,7 +78,7 @@ class GymViewModel : ViewModel() {
                 // Operazione completata con successo
             }
             .addOnFailureListener { exception ->
-                // Gestisci gli errori qui
+                onFailure(exception)
             }
     }
 

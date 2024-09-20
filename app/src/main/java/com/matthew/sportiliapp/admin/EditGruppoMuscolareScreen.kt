@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -222,11 +224,17 @@ fun AddEsercizioDialog(
     var minutiRiposo by remember { mutableStateOf(0) }
     var secondiRiposo by remember { mutableStateOf(0) }
 
+    // Stato per decidere se includere il riposo
+    var includeRiposo by remember { mutableStateOf(true) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aggiungi Esercizio") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState()) // Scroll verticale
+            ) {
                 if (esercizioName.isEmpty()) {
                     Column {
                         ExposedDropdownMenuBox(
@@ -237,7 +245,7 @@ fun AddEsercizioDialog(
                                 value = selectedEsercizio.nome,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Gruppo Muscolare") },
+                                label = { Text("Esercizi Predefiniti") },
                                 trailingIcon = {
                                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                                 },
@@ -296,22 +304,37 @@ fun AddEsercizioDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Stepper per il riposo (Minuti e Secondi)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Riposo", style = MaterialTheme.typography.bodyLarge)
-                Stepper(
-                    value = minutiRiposo,
-                    onValueChange = { minutiRiposo = it },
-                    range = 0..10,  // Intervallo normale per i minuti
-                    label = "Minuti"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Stepper(
-                    value = secondiRiposo,
-                    onValueChange = { secondiRiposo = it },
-                    range = 0..55 step 5,  // Incremento di 5 secondi
-                    label = "Secondi"
-                )
+
+                // Checkbox per includere o meno il riposo
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = includeRiposo,
+                        onCheckedChange = { includeRiposo = it }
+                    )
+                    Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
+                }
+
+                // Stepper per il riposo (Minuti e Secondi) solo se l'opzione è attiva
+                if (includeRiposo) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Riposo", style = MaterialTheme.typography.bodyLarge)
+                    Stepper(
+                        value = minutiRiposo,
+                        onValueChange = { minutiRiposo = it },
+                        range = 0..10,
+                        label = "Minuti"
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Stepper(
+                        value = secondiRiposo,
+                        onValueChange = { secondiRiposo = it },
+                        range = 0..55 step 5,
+                        label = "Secondi"
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -325,10 +348,13 @@ fun AddEsercizioDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val riposo = if (minutiRiposo == 0 && secondiRiposo == 0) {
-                        ""
+                    val riposo = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
+                        ""  // Riposo è una stringa vuota se non è incluso o se è 0
                     } else {
-                        "${minutiRiposo}'${secondiRiposo}\""
+                        if (secondiRiposo<10)
+                            "${minutiRiposo}'0${secondiRiposo}\""
+                        else
+                            "${minutiRiposo}'${secondiRiposo}\""
                     }
 
                     val newEsercizio = Esercizio(
@@ -375,11 +401,17 @@ fun EditEsercizioDialog(
     var minutiRiposo by remember { mutableStateOf(minutiRiposoIniziale) }
     var secondiRiposo by remember { mutableStateOf(secondiRiposoIniziale) }
 
+    // Stato per decidere se includere il riposo
+    var includeRiposo by remember { mutableStateOf(esercizio.riposo?.isNotEmpty() == true) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Modifica Esercizio") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState()) // Scroll verticale
+            ) {
                 OutlinedTextField(
                     value = esercizioName,
                     onValueChange = { it ->
@@ -417,22 +449,37 @@ fun EditEsercizioDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Stepper per il riposo (Minuti e Secondi)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Riposo", style = MaterialTheme.typography.bodyLarge)
-                Stepper(
-                    value = minutiRiposo,
-                    onValueChange = { minutiRiposo = it },
-                    range = 0..10,
-                    label = "Minuti"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Stepper(
-                    value = secondiRiposo,
-                    onValueChange = { secondiRiposo = it },
-                    range = 0..55 step 5,
-                    label = "Secondi"
-                )
+
+                // Checkbox per includere o meno il riposo
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = includeRiposo,
+                        onCheckedChange = { includeRiposo = it }
+                    )
+                    Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
+                }
+
+                // Stepper per il riposo (Minuti e Secondi) solo se l'opzione è attiva
+                if (includeRiposo) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Riposo", style = MaterialTheme.typography.bodyLarge)
+                    Stepper(
+                        value = minutiRiposo,
+                        onValueChange = { minutiRiposo = it },
+                        range = 0..10,
+                        label = "Minuti"
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Stepper(
+                        value = secondiRiposo,
+                        onValueChange = { secondiRiposo = it },
+                        range = 0..55 step 5,
+                        label = "Secondi"
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -446,10 +493,14 @@ fun EditEsercizioDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val riposo = if (minutiRiposo == 0 && secondiRiposo == 0) {
-                        ""
+                    // Se il riposo non è incluso o è zero, impostiamo una stringa vuota
+                    val riposo = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
+                        ""  // Riposo è una stringa vuota se non è incluso o se è 0
                     } else {
-                        "${minutiRiposo}'${secondiRiposo}\""
+                        if (secondiRiposo<10)
+                            "${minutiRiposo}'0${secondiRiposo}\""
+                        else
+                            "${minutiRiposo}'${secondiRiposo}\""
                     }
 
                     val newEsercizio = Esercizio(
@@ -472,7 +523,6 @@ fun EditEsercizioDialog(
         }
     )
 }
-
 
 // Funzione per estrarre i minuti e i secondi dal formato "M'S" del riposo
 fun parseRiposo(riposo: String): Pair<Int, Int> {

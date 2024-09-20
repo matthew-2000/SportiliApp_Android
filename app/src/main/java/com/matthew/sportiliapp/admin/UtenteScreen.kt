@@ -193,6 +193,8 @@ fun UtenteNavHost(
     // Controlla se la lista users è vuota o se contiene l'utente cercato
     val utente = users.firstOrNull { utente -> utente.code == utenteCode }
 
+    val context = LocalContext.current
+
     if (utente != null) {
         val scheda = utente.scheda ?: Scheda()
 
@@ -226,7 +228,9 @@ fun UtenteNavHost(
                         val updatedGiorni = scheda.giorni.toMutableMap()
                         updatedGiorni[giornoName] = giorno
                         scheda.giorni = updatedGiorni
-                        gymViewModel.saveScheda(scheda, utenteCode)
+                        gymViewModel.saveScheda(scheda, utenteCode) { exception ->
+                            Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onGruppoMuscolareMoved = { oldIndex, newIndex ->
                         val updatedGruppiMuscolari = giorno.gruppiMuscolari.toList().toMutableList()
@@ -239,7 +243,9 @@ fun UtenteNavHost(
                         val updatedGiorni = scheda.giorni.toMutableMap()
                         updatedGiorni[giornoName] = giorno
                         scheda.giorni = updatedGiorni
-                        gymViewModel.saveScheda(scheda, utenteCode)
+                        gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                            Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onGruppoMuscolareDeleted = { index ->
                         val updatedGruppiMuscolari = giorno.gruppiMuscolari.toList().toMutableList()
@@ -257,7 +263,9 @@ fun UtenteNavHost(
                         val updatedGiorni = scheda.giorni.toMutableMap()
                         updatedGiorni[giornoName] = giorno
                         scheda.giorni = updatedGiorni
-                        gymViewModel.saveScheda(scheda, utenteCode)
+                        gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                            Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }
@@ -299,7 +307,9 @@ fun UtenteNavHost(
                             }
 
                             // Salva la scheda aggiornata
-                            gymViewModel.saveScheda(scheda, utenteCode)
+                            gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                                Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         onEsercizioMoved = { oldIndex, newIndex ->
                             // Sposta l'esercizio all'interno del gruppo muscolare
@@ -322,7 +332,9 @@ fun UtenteNavHost(
                             }
 
                             // Salva la scheda aggiornata
-                            gymViewModel.saveScheda(scheda, utenteCode)
+                            gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                                Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         onEsercizioDeleted = { index ->
                             // Rimuovi l'esercizio dal gruppo muscolare
@@ -343,7 +355,9 @@ fun UtenteNavHost(
                             }
 
                             // Salva la scheda aggiornata
-                            gymViewModel.saveScheda(scheda, utenteCode)
+                            gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                                Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         onEsercizioEdited = { index, esercizio ->
                             // Modifica l'esercizio esistente nel gruppo muscolare
@@ -364,7 +378,9 @@ fun UtenteNavHost(
                             }
 
                             // Salva la scheda aggiornata
-                            gymViewModel.saveScheda(scheda, utenteCode)
+                            gymViewModel.saveScheda(scheda, utenteCode)  { exception ->
+                                Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
                 }
