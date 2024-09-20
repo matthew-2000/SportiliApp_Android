@@ -316,7 +316,9 @@ fun updateScheda(
         val formattedDataInizio = formatToSaveDate(dataInizio)
         val updatedGiorni = giorniList.mapIndexed { index, entry -> "giorno${index + 1}" to entry.second }.toMap()
         val updatedScheda = Scheda(formattedDataInizio, durataInt, updatedGiorni)
-        gymViewModel.saveScheda(updatedScheda, utenteCode)
+        gymViewModel.saveScheda(updatedScheda, utenteCode) { exception ->
+            Toast.makeText(context, "ERRORE: ${exception.message} ", Toast.LENGTH_SHORT).show()
+        }
         Toast.makeText(context, "Scheda aggiornata", Toast.LENGTH_SHORT).show()
     }
 }
