@@ -156,3 +156,12 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 }
+class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(SchedaViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return SchedaViewModel(context) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
