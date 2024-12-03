@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.*
 import kotlinx.coroutines.launch
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModelProvider
 import com.google.gson.Gson
 import java.security.MessageDigest
@@ -32,12 +33,17 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 isLoading.postValue(false)
                 return@launch
             }
+
             val localScheda = loadSchedaFromLocal()
-            if (localScheda != null) {
+            val localSchedaHash = getLocalSchedaHash()
+
+            // Se la scheda esiste localmente e l'hash è lo stesso, carica dalla memoria locale
+            if (localScheda != null && localSchedaHash != null) {
                 _scheda.postValue(localScheda)  // Carica la scheda locale
                 isLoading.postValue(false)
                 return@launch
             }
+
             // Carica i dati dal database solo se la scheda non è disponibile localmente
             val database = FirebaseDatabase.getInstance()
             val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
@@ -46,7 +52,10 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                     val data = snapshot.getValue(Scheda::class.java)
                     if (data != null) {
                         val remoteHash = hashString(data.toString())
-                        saveSchedaToLocal(data, remoteHash)  // Salva la scheda localmente
+                        // Salva la scheda solo se il suo hash è diverso da quello salvato
+                        if (localSchedaHash != remoteHash) {
+                            saveSchedaToLocal(data, remoteHash)  // Salva la scheda localmente
+                        }
                         _scheda.postValue(data)
                     }
                     isLoading.postValue(false)
@@ -58,7 +67,6 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             })
         }
     }
-
 
     // Salva la scheda in locale
     fun saveSchedaToLocal(scheda: Scheda, hash: String) {
@@ -77,7 +85,6 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         val json = sharedPreferences.getString("scheda_data", null)
         return json?.let { gson.fromJson(it, Scheda::class.java) }
     }
-
 
     // Recupera l'hash locale della scheda
     private fun getLocalSchedaHash(): String? {
@@ -115,9 +122,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 .child(gruppoMuscolareId)
                 .child("esercizi")
                 .child(esercizioId)
-            val updates = hashMapOf<String, Any?>(
-                "noteUtente" to noteUtente
-            )
+            val updates = hashMapOf<String, Any?>( "noteUtente" to noteUtente )
             esercizioRef.updateChildren(updates)
                 .addOnSuccessListener {
                     onSuccess()  // Callback di successo
@@ -128,6 +133,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 }
+
 
 class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
