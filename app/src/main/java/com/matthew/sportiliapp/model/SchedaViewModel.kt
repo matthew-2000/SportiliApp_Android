@@ -1,15 +1,17 @@
 package com.matthew.sportiliapp.model
 
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.google.firebase.database.*
-import kotlinx.coroutines.launch
-import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.gson.Gson
+import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
