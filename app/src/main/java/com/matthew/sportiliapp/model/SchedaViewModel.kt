@@ -25,74 +25,48 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     private fun loadScheda() {
         viewModelScope.launch {
             isLoading.postValue(true)
-
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
             val savedCode = sharedPreferences.getString("code", "") ?: ""
+            // Se il codice dell'utente è vuoto, non possiamo procedere
+            if (savedCode.isEmpty()) {
+                isLoading.postValue(false)
+                return@launch
+            }
+            val localScheda = loadSchedaFromLocal()
+            if (localScheda != null) {
+                _scheda.postValue(localScheda)  // Carica la scheda locale
+                isLoading.postValue(false)
+                return@launch
+            }
+            // Carica i dati dal database solo se la scheda non è disponibile localmente
             val database = FirebaseDatabase.getInstance()
-
-            // Riferimento all'hash remoto
-            val hashRef = database.reference.child("users").child(savedCode).child("scheda_hash")
-            hashRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
+            schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val remoteHash = snapshot.getValue(String::class.java)
-                    val localHash = getLocalSchedaHash()
-
-                    if (remoteHash != null && remoteHash == localHash) {
-                        // Carica la scheda dalla memoria locale
-                        val localScheda = loadSchedaFromLocal()
-                        _scheda.postValue(localScheda)
-                        isLoading.postValue(false)
-                    } else {
-                        // Scarica la scheda dal database remoto
-                        val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
-                        schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                            override fun onDataChange(snapshot: DataSnapshot) {
-                                val data = snapshot.getValue(Scheda::class.java)
-                                data?.sortAll()
-                                _scheda.postValue(data)
-
-                                // Salva la scheda e l'hash in locale
-                                data?.let { saveSchedaToLocal(it) }
-                                isLoading.postValue(false)
-                            }
-
-                            override fun onCancelled(error: DatabaseError) {
-                                isLoading.postValue(false)
-                            }
-                        })
+                    val data = snapshot.getValue(Scheda::class.java)
+                    if (data != null) {
+                        val remoteHash = hashString(data.toString())
+                        saveSchedaToLocal(data, remoteHash)  // Salva la scheda localmente
+                        _scheda.postValue(data)
                     }
+                    isLoading.postValue(false)
                 }
 
                 override fun onCancelled(error: DatabaseError) {
                     isLoading.postValue(false)
                 }
             })
-
-            // Carica il nome utente
-            val nameRef = database.reference.child("users").child(savedCode).child("nome")
-            nameRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val data = snapshot.getValue(String::class.java)
-                    _name.postValue(data)
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    // Gestione errori
-                }
-            })
         }
     }
 
+
     // Salva la scheda in locale
-    private fun saveSchedaToLocal(scheda: Scheda) {
+    fun saveSchedaToLocal(scheda: Scheda, hash: String) {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
-        val gson = Gson()
-        val json = gson.toJson(scheda)
-        val hash = hashString(json)
-
-        editor.putString("scheda", json)
         editor.putString("scheda_hash", hash)
+        // Salva i dati della scheda come JSON
+        editor.putString("scheda_data", Gson().toJson(scheda))
         editor.apply()
     }
 
@@ -100,9 +74,10 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     private fun loadSchedaFromLocal(): Scheda? {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
         val gson = Gson()
-        val json = sharedPreferences.getString("scheda", null)
+        val json = sharedPreferences.getString("scheda_data", null)
         return json?.let { gson.fromJson(it, Scheda::class.java) }
     }
+
 
     // Recupera l'hash locale della scheda
     private fun getLocalSchedaHash(): String? {
@@ -130,7 +105,6 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
             val savedCode = sharedPreferences.getString("code", "") ?: ""
             val database = FirebaseDatabase.getInstance()
-
             val esercizioRef = database.reference
                 .child("users")
                 .child(savedCode)
@@ -141,11 +115,9 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 .child(gruppoMuscolareId)
                 .child("esercizi")
                 .child(esercizioId)
-
             val updates = hashMapOf<String, Any?>(
                 "noteUtente" to noteUtente
             )
-
             esercizioRef.updateChildren(updates)
                 .addOnSuccessListener {
                     onSuccess()  // Callback di successo
@@ -156,6 +128,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 }
+
 class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SchedaViewModel::class.java)) {

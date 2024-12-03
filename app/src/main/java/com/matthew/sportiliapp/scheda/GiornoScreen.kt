@@ -27,6 +27,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,8 +53,9 @@ import com.matthew.sportiliapp.model.SchedaViewModelFactory
 fun GiornoScreen(navController: NavHostController, giornoId: String) {
     val context = LocalContext.current
     val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
-    val giorno = viewModel.scheda.value?.giorni?.get(giornoId)
-
+    // Osserviamo il LiveData 'scheda' dal ViewModel
+    val scheda by viewModel.scheda.observeAsState()
+    val giorno = scheda?.giorni?.get(giornoId)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,7 +76,6 @@ fun GiornoScreen(navController: NavHostController, giornoId: String) {
                         style = MaterialTheme.typography.headlineLarge,
                         modifier = Modifier.padding(16.dp)
                     )
-
                     LazyColumn {
                         items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
                             GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
@@ -81,12 +83,13 @@ fun GiornoScreen(navController: NavHostController, giornoId: String) {
                     }
                 } else {
                     // Se il giorno non esiste, mostra un messaggio di errore
-                    //Text("Giorno non trovato")
+                    Text("Giorno non trovato", modifier = Modifier.padding(16.dp))
                 }
             }
         }
     )
 }
+
 
 @Composable
 fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gruppoId: String, giornoId: String) {
@@ -122,7 +125,6 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
         val painter = rememberAsyncImagePainter(
             model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
         )
-
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -136,7 +138,6 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxSize()
                     .clip(RoundedCornerShape(10.dp))
             )
-
             when (painter.state) {
                 is AsyncImagePainter.State.Loading -> {
                     // Display a placeholder while the image loads
@@ -163,9 +164,7 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                 }
             }
         }
-
         Spacer(modifier = Modifier.width(16.dp))
-
         Column(
             modifier = Modifier.weight(1f)
         ) {
