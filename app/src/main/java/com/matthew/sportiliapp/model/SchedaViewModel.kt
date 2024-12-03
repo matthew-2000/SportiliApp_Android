@@ -80,14 +80,54 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         editor.apply()
     }
 
-    // Carica la scheda dalla memoria locale
     private fun loadSchedaFromLocal(): Scheda? {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
         val gson = Gson()
         val json = sharedPreferences.getString("scheda_data", null)
-        return json?.let { gson.fromJson(it, Scheda::class.java) }
+        //json?.let { logJson(it) }
+        // Deserializza il JSON
+        val scheda = gson.fromJson(json, Scheda::class.java)
+        // Invertire gruppi muscolari ed esercizi
+        scheda?.giorni?.forEach { (_, giorno) ->
+            // Invertire i gruppi muscolari
+            val gruppiMuscolariInvertiti = giorno.gruppiMuscolari.toList().reversed().toMap()
+            giorno.gruppiMuscolari = gruppiMuscolariInvertiti
+            // Iterare sui gruppi muscolari invertiti per invertire gli esercizi
+            giorno.gruppiMuscolari.forEach { (_, gruppoMuscolare) ->
+                val eserciziInvertiti = gruppoMuscolare.esercizi.toList().reversed().toMap()
+                gruppoMuscolare.esercizi = eserciziInvertiti
+            }
+        }
+        // Ritorna la scheda modificata
+        return scheda
     }
+    /*
+    private fun logJson(json: String) {
+        // Stampa il JSON nel log come tale
+        Log.d("JSON_LOG", json)
 
+        // Converti di nuovo il JSON in oggetto Kotlin per modifiche se necessarie
+        val jsonObject = JSONObject(json)
+
+        // Inverti solo l'ordine delle chiavi delle "giorni"
+        val giorniInverted = invertMapOrder(jsonObject.getJSONObject("giorni"))
+
+        // Sostituisci la parte del JSON con la mappa invertita
+        jsonObject.put("giorni", giorniInverted)
+
+        // Logga il nuovo JSON
+        Log.d("JSON_LOG_INVERTED", jsonObject.toString())
+    }
+    // Funzione per invertire l'ordine delle chiavi
+    private fun invertMapOrder(json: JSONObject): JSONObject {
+        val invertedJson = JSONObject()
+        val keys = json.keys().asSequence().toList().reversed() // Inverte le chiavi
+        for (key in keys) {
+            invertedJson.put(key, json.get(key))
+        }
+        return invertedJson
+    }
+*/
     // Recupera l'hash locale della scheda
     private fun getLocalSchedaHash(): String? {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
