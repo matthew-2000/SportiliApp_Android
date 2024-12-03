@@ -74,32 +74,33 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     fun saveSchedaToLocal(scheda: Scheda, hash: String) {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
+        // Inverti i gruppi muscolari e gli esercizi prima di salvare
+        val schedaModificata = scheda.apply {
+            giorni.forEach { (_, giorno) ->
+                // Inverti i gruppi muscolari
+                val gruppiMuscolariInvertiti = giorno.gruppiMuscolari.toList().reversed().toMap()
+                giorno.gruppiMuscolari = gruppiMuscolariInvertiti
+                // Inverti gli esercizi per ogni gruppo muscolare
+                giorno.gruppiMuscolari.forEach { (_, gruppoMuscolare) ->
+                    val eserciziInvertiti = gruppoMuscolare.esercizi.toList().reversed().toMap()
+                    gruppoMuscolare.esercizi = eserciziInvertiti
+                }
+            }
+        }
+        // Salva l'hash della scheda
         editor.putString("scheda_hash", hash)
         // Salva i dati della scheda come JSON
-        editor.putString("scheda_data", Gson().toJson(scheda))
+        editor.putString("scheda_data", Gson().toJson(schedaModificata))
         editor.apply()
     }
 
+    // Carica la scheda dalla memoria locale
     private fun loadSchedaFromLocal(): Scheda? {
         val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
         val gson = Gson()
         val json = sharedPreferences.getString("scheda_data", null)
-        //json?.let { logJson(it) }
-        // Deserializza il JSON
-        val scheda = gson.fromJson(json, Scheda::class.java)
-        // Invertire gruppi muscolari ed esercizi
-        scheda?.giorni?.forEach { (_, giorno) ->
-            // Invertire i gruppi muscolari
-            val gruppiMuscolariInvertiti = giorno.gruppiMuscolari.toList().reversed().toMap()
-            giorno.gruppiMuscolari = gruppiMuscolariInvertiti
-            // Iterare sui gruppi muscolari invertiti per invertire gli esercizi
-            giorno.gruppiMuscolari.forEach { (_, gruppoMuscolare) ->
-                val eserciziInvertiti = gruppoMuscolare.esercizi.toList().reversed().toMap()
-                gruppoMuscolare.esercizi = eserciziInvertiti
-            }
-        }
-        // Ritorna la scheda modificata
-        return scheda
+        // Deserializza il JSON in un oggetto Scheda
+        return gson.fromJson(json, Scheda::class.java)
     }
     /*
     private fun logJson(json: String) {
