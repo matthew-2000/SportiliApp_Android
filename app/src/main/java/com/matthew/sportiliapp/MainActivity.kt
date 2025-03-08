@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
+import com.matthew.sportiliapp.newadmin.ui.navigation.AdminNavGraph
 import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,15 +32,16 @@ class MainActivity : ComponentActivity() {
                 val savedCode = sharedPreferences.getString("code", "") ?: ""
                 val isAdmin = sharedPreferences.getBoolean("isAdmin", false)
 
-                if (isLoggedIn && savedCode.isNotEmpty()) {
-                    startDestination.value = "content"
-                } else {
-                    startDestination.value = "login"
-                }
                 if (isAdmin) {
-                    startDestination.value = "admin"
+                    AdminNavGraph(navController = navController)
+                } else {
+                    if (isLoggedIn && savedCode.isNotEmpty()) {
+                        startDestination.value = "content"
+                    } else {
+                        startDestination.value = "login"
+                    }
+                    AppNavHost(navController = navController, startDestination = startDestination.value)
                 }
-                AppNavHost(navController = navController, startDestination = startDestination.value)
             }
         }
     }
