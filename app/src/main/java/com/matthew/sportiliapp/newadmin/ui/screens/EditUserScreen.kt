@@ -1,8 +1,13 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.matthew.sportiliapp.model.Giorno
@@ -42,8 +47,65 @@ fun EditUserScreen(
     var cognome by remember { mutableStateOf(initialUser?.cognome ?: "") }
     val isEditMode = initialUser != null
 
+    // Stato per mostrare il dialog di rimozione
+    var showRemoveDialog by remember { mutableStateOf(false) }
+    // Stato per mostrare il bottom sheet con i dettagli della scheda
+    var showScheduleSheet by remember { mutableStateOf(false) }
+
+    if (showRemoveDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveDialog = false
+                    onRemove?.invoke()
+                }) { Text("Conferma") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+            },
+            title = { Text("Conferma Rimozione") },
+            text = { Text("Sei sicuro di voler rimuovere l'utente?") },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+
+    // BottomSheet per mostrare i dettagli della scheda
+    if (showScheduleSheet && initialUser?.scheda != null) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { showScheduleSheet = false },
+            sheetState = sheetState,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Dettagli Scheda", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "Durata: ${initialUser.scheda!!.durata} giorni", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "Giorni:", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(initialUser.scheda!!.giorni.toList()) { (dayKey, day) ->
+                        Column(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)) {
+                            Text(text = day.name, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { showScheduleSheet = false },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Chiudi")
+                }
+            }
+        }
+    }
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (isEditMode) "Edit User" else "Add User") }) }
+        topBar = { TopAppBar(title = { Text(if (isEditMode) "Modifica Utente" else "Aggiungi Utente") }) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -54,23 +116,50 @@ fun EditUserScreen(
             OutlinedTextField(
                 value = nome,
                 onValueChange = { nome = it },
-                label = { Text("First Name") },
+                label = { Text("Nome") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = cognome,
                 onValueChange = { cognome = it },
-                label = { Text("Last Name") },
+                label = { Text("Cognome") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Button(onClick = onCancel) { Text("Cancel") }
+            // Se l'utente ha già una scheda, visualizza il riepilogo in una Card cliccabile per mostrare i dettagli
+            if (initialUser?.scheda != null) {
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = CardDefaults.cardElevation(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showScheduleSheet = true }
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "Scheda di Allenamento", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Durata: ${initialUser.scheda!!.durata} giorni",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
-                    val userCode = initialUser?.code
-                        ?: ((nome.take(3) + cognome.take(3)).uppercase() + (0..999).random())
-                    val scheda = initialUser?.scheda ?: Scheda(dataInizio = getCurrentFormattedDate(), 7)
+                    val userCode = initialUser?.code ?: ((nome.take(3) + cognome.take(3)).uppercase() + (0..999).random())
+                    val scheda = initialUser?.scheda ?: Scheda(dataInizio = getCurrentFormattedDate(), durata = 7)
                     if (scheda.giorni.isEmpty()) {
                         val updatedGiorni = scheda.giorni.toMutableMap()
                         updatedGiorni["giorno1"] = Giorno("A")
@@ -80,15 +169,23 @@ fun EditUserScreen(
                     }
                     val user = Utente(code = userCode, nome = nome, cognome = cognome, scheda = scheda)
                     onSave(user)
-                }) { Text("Save") }
+                }, modifier = Modifier.weight(1f)) { Text("Salva") }
             }
             if (isEditMode) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Button(onClick = { onEditWorkoutCard(initialUser!!.code) }) { Text("Edit Workout Card") }
-                    onRemove?.let {
-                        Button(onClick = it) { Text("Remove User") }
-                    }
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = { onEditWorkoutCard(initialUser!!.code) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Modifica Scheda") }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = { showRemoveDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Rimuovi Utente") }
                 }
             }
         }
