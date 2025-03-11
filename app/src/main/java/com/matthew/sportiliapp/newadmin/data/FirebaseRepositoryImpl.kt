@@ -47,7 +47,8 @@ class FirebaseRepositoryImpl(
             userRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (!snapshot.exists()) {
-                        val userDict = mapOf("cognome" to utente.cognome, "nome" to utente.nome)
+                        val userDict = mapOf("cognome" to utente.cognome, "nome" to utente.nome, "scheda" to (utente.scheda?.toMap()
+                            ?: Scheda()))
                         userRef.setValue(userDict)
                             .addOnSuccessListener { cont.resume(Result.success(Unit)) }
                             .addOnFailureListener { e -> cont.resume(Result.failure(e)) }

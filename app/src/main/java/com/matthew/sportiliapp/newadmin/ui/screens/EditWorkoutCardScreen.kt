@@ -20,7 +20,7 @@ fun EditWorkoutCardScreen(
     onSave: (Scheda) -> Unit,
     onCancel: () -> Unit
 ) {
-    var startDate by remember { mutableStateOf(scheda.dataInizio) }
+    var startDate by remember { mutableStateOf(formatToDisplayDate(scheda.dataInizio)) }
     var duration by remember { mutableStateOf(scheda.durata.toString()) }
     // Convertiamo la mappa dei giorni in una lista
     val daysList = scheda.giorni.toList()

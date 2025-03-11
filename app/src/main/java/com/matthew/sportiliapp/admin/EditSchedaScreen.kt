@@ -22,25 +22,11 @@ import androidx.navigation.NavController
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GymViewModel
 import com.matthew.sportiliapp.model.Scheda
+import com.matthew.sportiliapp.newadmin.ui.screens.formatToDisplayDate
+import com.matthew.sportiliapp.newadmin.ui.screens.formatToSaveDate
+import com.matthew.sportiliapp.newadmin.ui.screens.getCurrentFormattedDate
 import java.text.SimpleDateFormat
 import java.util.*
-
-fun formatToDisplayDate(dateString: String): String {
-    val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    return formatter.format(parser.parse(dateString) ?: Date())
-}
-
-fun formatToSaveDate(dateString: String): String {
-    val parser = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    return formatter.format(parser.parse(dateString) ?: Date())
-}
-
-fun getCurrentFormattedDate(): String {
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    return dateFormat.format(Date())
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
