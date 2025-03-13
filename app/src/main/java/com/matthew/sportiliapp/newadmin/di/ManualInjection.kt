@@ -15,6 +15,7 @@ object ManualInjection {
     val getWorkoutCardUseCase: GetWorkoutCardUseCase by lazy { GetWorkoutCardUseCase(firebaseRepository) }
     val getDayUseCase: GetDayUseCase by lazy { GetDayUseCase(firebaseRepository) }
     val updateDayUseCase: UpdateDayUseCase by lazy { UpdateDayUseCase(firebaseRepository) }
+    val getMuscleGroupUseCase: GetMuscleGroupUseCase by lazy { GetMuscleGroupUseCase(firebaseRepository) }
     val addMuscleGroupUseCase: AddMuscleGroupUseCase by lazy { AddMuscleGroupUseCase(firebaseRepository) }
     val updateMuscleGroupUseCase: UpdateMuscleGroupUseCase by lazy { UpdateMuscleGroupUseCase(firebaseRepository) }
     val removeMuscleGroupUseCase: RemoveMuscleGroupUseCase by lazy { RemoveMuscleGroupUseCase(firebaseRepository) }

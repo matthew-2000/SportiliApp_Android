@@ -25,6 +25,7 @@ interface FirebaseRepository {
     suspend fun removeDay(userCode: String, dayKey: String): Result<Unit>
 
     // Gestione dei gruppi muscolari (Muscle Group)
+    suspend fun getMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Flow<GruppoMuscolare>
     suspend fun addMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit>
     suspend fun updateMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit>
     suspend fun removeMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Result<Unit>

@@ -162,6 +162,35 @@ class FirebaseRepositoryImpl(
         }
 
     // --- Gestione dei Gruppi Muscolari (Muscle Group) ---
+    override suspend fun getMuscleGroup(
+        userCode: String,
+        dayKey: String,
+        muscleGroupKey: String
+    ): Flow<GruppoMuscolare> = callbackFlow {
+        val groupRef = firebaseDatabase.getReference("users")
+            .child(userCode)
+            .child("scheda")
+            .child("giorni")
+            .child(dayKey)
+            .child("gruppiMuscolari")
+            .child(muscleGroupKey)
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                println("Snapshot per $userCode/$dayKey/$muscleGroupKey: exists=${snapshot.exists()}")
+                val gruppo = snapshot.getValue(GruppoMuscolare::class.java)
+                println("GruppoMuscolare parsed: $gruppo")
+                if (gruppo != null) {
+                    trySend(gruppo)
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {
+                close(Exception(error.message))
+            }
+        }
+        groupRef.addValueEventListener(listener)
+        awaitClose { groupRef.removeEventListener(listener) }
+    }
+
     override suspend fun addMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit> =
         suspendCancellableCoroutine { cont ->
             val groupDict = gruppo.toMap()

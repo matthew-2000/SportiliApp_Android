@@ -13,6 +13,7 @@ class MuscleGroupViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MuscleGroupViewModel::class.java)) {
             return MuscleGroupViewModel(
+                getMuscleGroupUseCase = ManualInjection.getMuscleGroupUseCase,
                 addMuscleGroupUseCase = ManualInjection.addMuscleGroupUseCase,
                 updateMuscleGroupUseCase = ManualInjection.updateMuscleGroupUseCase,
                 removeMuscleGroupUseCase = ManualInjection.removeMuscleGroupUseCase

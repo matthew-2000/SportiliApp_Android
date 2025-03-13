@@ -132,6 +132,7 @@ fun AdminNavGraph(navController: NavHostController) {
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val groupKey = backStackEntry.arguments?.getString("groupKey") ?: ""
             val muscleGroupViewModel: MuscleGroupViewModel = viewModel(factory = MuscleGroupViewModelFactory(userCode, dayKey, groupKey))
+            muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
             when (val state = muscleGroupViewModel.state.collectAsState().value) {
                 is MuscleGroupUiState.Loading -> { Text(text = "Loading Muscle Group...") }
                 is MuscleGroupUiState.Error -> { Text(text = "Error: ${state.exception.localizedMessage}") }
@@ -139,7 +140,7 @@ fun AdminNavGraph(navController: NavHostController) {
                     EditMuscleGroupScreen(
                         userCode = userCode,
                         dayKey = dayKey,
-                        groupKey = groupKey,
+                        group = state.group,
                         onSave = { updatedGroup ->
                             muscleGroupViewModel.updateMuscleGroup(userCode, dayKey, groupKey, updatedGroup)
                             navController.popBackStack()
@@ -147,18 +148,7 @@ fun AdminNavGraph(navController: NavHostController) {
                         onCancel = { navController.popBackStack() }
                     )
                 }
-                MuscleGroupUiState.Idle -> {
-                    EditMuscleGroupScreen(
-                        userCode = userCode,
-                        dayKey = dayKey,
-                        groupKey = groupKey,
-                        onSave = { updatedGroup ->
-                            muscleGroupViewModel.addMuscleGroup(userCode, dayKey, groupKey, updatedGroup)
-                            navController.popBackStack()
-                        },
-                        onCancel = { navController.popBackStack() }
-                    )
-                }
+                MuscleGroupUiState.Idle -> {Text(text = "[IDLE] Loading Muscle Group...")}
             }
         }
         composable(Screen.EditExercise.route) { backStackEntry ->
