@@ -37,7 +37,7 @@ fun UserListScreen(
     val uiState by gymAdminViewModel.usersState.collectAsState()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("User List") }) },
+        topBar = { TopAppBar(title = { Text("Utenti") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddUser) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add User")
@@ -69,6 +69,14 @@ fun UserListScreen(
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(text = "${user.nome} ${user.cognome}", style = MaterialTheme.typography.titleMedium)
                                 Text(text = "Code: ${user.code}", style = MaterialTheme.typography.bodyMedium)
+                                if (user.scheda == null) {
+                                    Text("Scheda mancante!", color = MaterialTheme.colorScheme.error)
+                                } else {
+                                    // Assume this is implemented within Utente class
+                                    if (!user.scheda?.isSchedaValida()!!) {
+                                        Text("Scheda scaduta!", color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
                             }
                         }
                     }

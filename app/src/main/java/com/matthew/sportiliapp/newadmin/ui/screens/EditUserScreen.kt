@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -70,7 +71,7 @@ fun EditUserScreen(
         )
     }
 
-    // BottomSheet per mostrare i dettagli della scheda
+// BottomSheet per mostrare i dettagli della scheda
     if (showScheduleSheet && initialUser?.scheda != null) {
         val sheetState = rememberModalBottomSheetState()
         ModalBottomSheet(
@@ -84,16 +85,38 @@ fun EditUserScreen(
                 Text(text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}", style = MaterialTheme.typography.bodyMedium)
                 Text(text = "Durata: ${initialUser.scheda!!.durata} giorni", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Giorni:", style = MaterialTheme.typography.titleSmall)
+
+                Text(text = "Giorni di Allenamento:", style = MaterialTheme.typography.titleSmall)
+
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(initialUser.scheda!!.giorni.toList()) { (dayKey, day) ->
-                        Column(modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)) {
-                            Text(text = day.name, style = MaterialTheme.typography.bodyMedium)
+                    items(initialUser.scheda!!.giorni.toList()) { (dayKey, giorno) ->
+                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                            Text(
+                                text = "- ${giorno.name}",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            if (giorno.gruppiMuscolari.isEmpty()) {
+                                Text(
+                                    text = "   Nessun gruppo muscolare",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            } else {
+                                giorno.gruppiMuscolari.forEach { (groupKey, gruppo) ->
+                                    val eserciziText = gruppo.esercizi.values.joinToString(separator = ", ") {
+                                        "${it.name} - ${it.serie}"
+                                    }
+                                    Text(
+                                        text = "   - ${gruppo.nome}: $eserciziText",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
                         }
                     }
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = { showScheduleSheet = false },
@@ -113,6 +136,10 @@ fun EditUserScreen(
                 .padding(16.dp)
                 .padding(padding)
         ) {
+            if (initialUser != null) {
+                Text(text = initialUser.code, style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = nome,
                 onValueChange = { nome = it },
@@ -127,30 +154,6 @@ fun EditUserScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
-            // Se l'utente ha già una scheda, visualizza il riepilogo in una Card cliccabile per mostrare i dettagli
-            if (initialUser?.scheda != null) {
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    elevation = CardDefaults.cardElevation(6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showScheduleSheet = true }
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Scheda di Allenamento", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = "Durata: ${initialUser.scheda!!.durata} giorni",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -171,21 +174,53 @@ fun EditUserScreen(
                     onSave(user)
                 }, modifier = Modifier.weight(1f)) { Text("Salva") }
             }
+            Spacer(modifier = Modifier.height(24.dp))
+            // Se l'utente ha già una scheda, visualizza il riepilogo in una Card cliccabile per mostrare i dettagli
+            if (initialUser?.scheda != null) {
+                Text(text = "Gestione scheda", style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    elevation = CardDefaults.cardElevation(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showScheduleSheet = true }
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "Scheda di Allenamento", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Durata: ${initialUser.scheda!!.durata} giorni",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
             if (isEditMode) {
                 Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween, // Spazio tra i pulsanti aumentato
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Button(
                         onClick = { onEditWorkoutCard(initialUser!!.code) },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Modifica Scheda") }
-                    Spacer(modifier = Modifier.width(12.dp))
+                        modifier = Modifier.fillMaxWidth(0.9f) // Il pulsante occupa il 90% della larghezza
+                    ) {
+                        Text("Modifica Scheda")
+                    }
                     Button(
                         onClick = { showRemoveDialog = true },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Rimuovi Utente") }
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), // Bottone rosso
+                        modifier = Modifier.fillMaxWidth(0.9f) // Il pulsante occupa il 90% della larghezza
+                    ) {
+                        Text("Rimuovi Utente", color = MaterialTheme.colorScheme.onError) // Testo bianco per leggibilità
+                    }
                 }
             }
         }
