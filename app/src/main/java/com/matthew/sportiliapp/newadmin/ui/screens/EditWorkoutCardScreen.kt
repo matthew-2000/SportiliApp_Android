@@ -53,7 +53,7 @@ fun EditWorkoutCardScreen(
     )
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Modifica Scheda Allenamento") }) },
+        topBar = { TopAppBar(title = { Text("Modifica Scheda") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDayDialog = true }) {
                 Text("+")
@@ -180,11 +180,32 @@ fun DayItem(
     onRemove: () -> Unit,
     onEdit: () -> Unit
 ) {
+    var showRemoveDialog by remember { mutableStateOf(false) }
+
+    if (showRemoveDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveDialog = false },
+            title = { Text("Conferma Rimozione") },
+            text = { Text("Sei sicuro di voler rimuovere questo giorno?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveDialog = false
+                    onRemove()
+                }) { Text("Conferma") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+            },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+
     Card(
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            .clickable { onEdit() },
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
@@ -194,19 +215,19 @@ fun DayItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f).clickable { onEdit() }) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(text = day.name, style = MaterialTheme.typography.bodyLarge)
                 Text(text = "ID: $dayKey", style = MaterialTheme.typography.bodySmall)
             }
             Row {
                 IconButton(onClick = onMoveUp) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Sposta Su")
+                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")
                 }
                 IconButton(onClick = onMoveDown) {
-                    Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Sposta Giù")
+                    Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")
                 }
-                IconButton(onClick = onRemove) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Rimuovi")
+                IconButton(onClick = { showRemoveDialog = true }) {
+                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Rimuovi")
                 }
             }
         }
