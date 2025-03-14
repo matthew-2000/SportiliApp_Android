@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +28,7 @@ fun EditDayScreen(
     day: Giorno,
     onSave: (Giorno) -> Unit,
     onCancel: () -> Unit,
-    onMuscleGroupSelected: (String, GruppoMuscolare) -> Unit
+    onMuscleGroupSelected: (String, GruppoMuscolare, Giorno) -> Unit
 ) {
     var dayName by remember { mutableStateOf(day.name) }
     // Creiamo una lista modificabile dei gruppi muscolari (preservando l'ordine)
@@ -35,7 +36,6 @@ fun EditDayScreen(
 
     // Stato per il dialog per aggiungere un nuovo gruppo
     var showAddGroupDialog by remember { mutableStateOf(false) }
-    var newGroupName by remember { mutableStateOf("") }
 
     // Lista dei gruppi muscolari disponibili
     val gruppiMuscolari = mutableListOf(
@@ -60,6 +60,15 @@ fun EditDayScreen(
     val selectedGruppi = remember { mutableStateMapOf<String, Boolean>().apply {
         gruppiMuscolari.forEach { put(it, false) }
     }}
+
+    BackHandler {
+        val updatedDay = day.copy(
+            name = dayName,
+            gruppiMuscolari = LinkedHashMap(groupsList.toMap())
+        )
+        onSave(updatedDay)
+        onCancel()
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Modifica Giorno") }) } ,
@@ -87,7 +96,6 @@ fun EditDayScreen(
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(groupsList) { (groupKey, muscleGroup) ->
                     MuscleGroupItem(
-                        groupKey = groupKey,
                         muscleGroup = muscleGroup,
                         onMoveUp = {
                             val index = groupsList.indexOfFirst { it.first == groupKey }
@@ -114,7 +122,13 @@ fun EditDayScreen(
                             groupsList = groupsList.mapIndexed { i, pair -> "gruppo${i + 1}" to pair.second }
                                 .toMutableStateList()
                         },
-                        onEdit = { onMuscleGroupSelected(groupKey, muscleGroup) }
+                        onEdit = {
+                            val updatedDay = day.copy(
+                                name = dayName,
+                                gruppiMuscolari = LinkedHashMap(groupsList.toMap())
+                            )
+                            onMuscleGroupSelected(groupKey, muscleGroup, updatedDay)
+                        }
                     )
                 }
             }
@@ -184,7 +198,6 @@ fun EditDayScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MuscleGroupItem(
-    groupKey: String,
     muscleGroup: GruppoMuscolare,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,

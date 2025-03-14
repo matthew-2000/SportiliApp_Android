@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,7 +26,7 @@ import java.util.LinkedHashMap
 @Composable
 fun EditWorkoutCardScreen(
     scheda: Scheda,
-    onDaySelected: (String, Giorno) -> Unit,
+    onDaySelected: (String, Giorno, Scheda) -> Unit,
     onSave: (Scheda) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -38,6 +39,16 @@ fun EditWorkoutCardScreen(
     // Stato per mostrare il dialog per aggiungere un nuovo giorno
     var showAddDayDialog by remember { mutableStateOf(false) }
     var newDayName by remember { mutableStateOf("") }
+
+    BackHandler {
+        val updatedScheda = scheda.copy(
+            dataInizio = formatToSaveDate(startDate),
+            durata = duration.toIntOrNull() ?: scheda.durata,
+            giorni = LinkedHashMap(daysList.toMap())
+        )
+        onSave(updatedScheda)
+        onCancel()
+    }
 
     // DatePickerDialog per selezionare la data
     val calendar = Calendar.getInstance()
@@ -121,7 +132,14 @@ fun EditWorkoutCardScreen(
                             daysList = daysList.mapIndexed { i, pair -> "giorno${i + 1}" to pair.second }
                                 .toMutableStateList()
                         },
-                        onEdit = { onDaySelected(dayKey, giorno) }
+                        onEdit = {
+                            val updatedScheda = scheda.copy(
+                                dataInizio = formatToSaveDate(startDate),
+                                durata = duration.toIntOrNull() ?: scheda.durata,
+                                giorni = LinkedHashMap(daysList.toMap())
+                            )
+                            onDaySelected(dayKey, giorno, updatedScheda)
+                        }
                     )
                 }
             }

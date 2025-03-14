@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.matthew.sportiliapp.admin.updateScheda
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
 import com.matthew.sportiliapp.newadmin.ui.screens.*
 import com.matthew.sportiliapp.newadmin.ui.screens.UserListScreen
@@ -91,10 +92,12 @@ fun AdminNavGraph(navController: NavHostController) {
                 is WorkoutCardUiState.Success -> {
                     EditWorkoutCardScreen(
                         scheda = state.scheda,
-                        onDaySelected = { dayKey, day -> navController.navigate(Screen.EditDay.createRoute(userCode, dayKey)) },
+                        onDaySelected = { dayKey, day, scheda ->
+                            workoutCardViewModel.updateWorkoutCard(userCode, scheda)
+                            navController.navigate(Screen.EditDay.createRoute(userCode, dayKey))
+                        },
                         onSave = { updatedScheda ->
                             workoutCardViewModel.updateWorkoutCard(userCode, updatedScheda)
-                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -114,12 +117,12 @@ fun AdminNavGraph(navController: NavHostController) {
                     EditDayScreen(
                         dayKey = dayKey,
                         day = state.day,
-                        onMuscleGroupSelected = { groupKey, muscleGroup ->
+                        onMuscleGroupSelected = { groupKey, muscleGroup, updatedDay ->
+                            dayViewModel.updateDay(userCode, dayKey, updatedDay)
                             navController.navigate(Screen.EditMuscleGroup.createRoute(userCode, dayKey, groupKey))
                         },
                         onSave = { updatedDay ->
                             dayViewModel.updateDay(userCode, dayKey, updatedDay)
-                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -143,7 +146,6 @@ fun AdminNavGraph(navController: NavHostController) {
                         group = state.group,
                         onSave = { updatedGroup ->
                             muscleGroupViewModel.updateMuscleGroup(userCode, dayKey, groupKey, updatedGroup)
-                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -168,7 +170,6 @@ fun AdminNavGraph(navController: NavHostController) {
                         exerciseKey = exerciseKey,
                         onSave = { updatedExercise ->
                             exerciseViewModel.updateExercise(userCode, dayKey, groupKey, exerciseKey, updatedExercise)
-                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -181,7 +182,6 @@ fun AdminNavGraph(navController: NavHostController) {
                         exerciseKey = exerciseKey,
                         onSave = { updatedExercise ->
                             exerciseViewModel.addExercise(userCode, dayKey, groupKey, exerciseKey, updatedExercise)
-                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
