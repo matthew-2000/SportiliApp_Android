@@ -40,17 +40,17 @@ fun EditDayScreen(
     // Lista dei gruppi muscolari disponibili
     val gruppiMuscolari = mutableListOf(
         "Addominali",
+        "Bicipiti",
+        "Cardio",
+        "Defaticamento",
+        "Dorsali",
         "Gambe e Glutei",
         "Polpacci",
         "Pettorali",
-        "Spalle",
-        "Dorsali",
-        "Tricipiti",
-        "Bicipiti",
         "Riscaldamento",
-        "Defaticamento",
-        "Cardio"
-    )
+        "Spalle",
+        "Tricipiti",
+        )
 
     for (gruppo in day.gruppiMuscolari) {
         gruppiMuscolari.removeAt(gruppiMuscolari.indexOf(gruppo.value.nome))

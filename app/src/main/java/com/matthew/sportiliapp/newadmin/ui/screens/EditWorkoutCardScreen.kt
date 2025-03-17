@@ -235,7 +235,7 @@ fun DayItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = day.name, style = MaterialTheme.typography.bodyLarge)
-                Text(text = "ID: $dayKey", style = MaterialTheme.typography.bodySmall)
+                Text(text = "Gruppi Muscolari: ${day.gruppiMuscolari.size}", style = MaterialTheme.typography.bodySmall)
             }
             Row {
                 IconButton(onClick = onMoveUp) {

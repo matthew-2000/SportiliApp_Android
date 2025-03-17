@@ -17,11 +17,12 @@ class EserciziPredefinitiViewModel : ViewModel() {
 
     private val ref: DatabaseReference = FirebaseDatabase.getInstance().reference.child("esercizi")
 
-    init {
-        fetchWorkoutData()
-    }
+    private var isDataLoaded = false // ✅ Flag per bloccare richiami multipli
 
-    private fun fetchWorkoutData() {
+    fun fetchWorkoutData() {
+        if (isDataLoaded) return // ✅ Blocca chiamate ripetute
+        isDataLoaded = true
+
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val gruppi = mutableListOf<GruppoMuscolarePredefinito>()
@@ -33,28 +34,30 @@ class EserciziPredefinitiViewModel : ViewModel() {
 
                     val esercizi = eserciziArray.mapNotNull { dict ->
                         val nome = dict["nome"] as? String ?: return@mapNotNull null
-                        EsercizioPredefinito(id = UUID.randomUUID().toString(), nome = nome, imageurl = "")
+                        val esercizioId = dict["id"] as? String ?: UUID.nameUUIDFromBytes(nome.toByteArray()).toString()
+                        EsercizioPredefinito(id = esercizioId, nome = nome, imageurl = "")
                     }.sortedBy { it.nome }
 
-                    val gruppo = GruppoMuscolarePredefinito(id = UUID.randomUUID().toString(), nome = key, esercizi = esercizi)
+                    val gruppo = GruppoMuscolarePredefinito(
+                        id = key, // ✅ Manteniamo ID stabile
+                        nome = key,
+                        esercizi = esercizi
+                    )
                     gruppi.add(gruppo)
                 }
 
-                _gruppiMuscolariPredefiniti.value = gruppi
+                // ✅ Aggiorna solo se i dati sono diversi per evitare cicli infiniti
+                if (_gruppiMuscolariPredefiniti.value != gruppi) {
+                    _gruppiMuscolariPredefiniti.value = gruppi
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Log or handle the database error
                 error.toException().printStackTrace()
             }
         })
     }
-
-    fun getGruppoMuscolare(name: String): GruppoMuscolarePredefinito? {
-        return _gruppiMuscolariPredefiniti.value?.firstOrNull { it.nome == name }
-    }
 }
-
 
 data class EsercizioPredefinito(
     val id: String,
