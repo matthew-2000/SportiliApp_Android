@@ -153,40 +153,5 @@ fun AdminNavGraph(navController: NavHostController) {
                 MuscleGroupUiState.Idle -> {Text(text = "[IDLE] Loading Muscle Group...")}
             }
         }
-        composable(Screen.EditExercise.route) { backStackEntry ->
-            val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
-            val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
-            val groupKey = backStackEntry.arguments?.getString("groupKey") ?: ""
-            val exerciseKey = backStackEntry.arguments?.getString("exerciseKey") ?: ""
-            val exerciseViewModel: ExerciseViewModel = viewModel(factory = ExerciseViewModelFactory(userCode, dayKey, groupKey, exerciseKey))
-            when (val state = exerciseViewModel.state.collectAsState().value) {
-                is ExerciseUiState.Loading -> { Text(text = "Loading Exercise...") }
-                is ExerciseUiState.Error -> { Text(text = "Error: ${state.exception.localizedMessage}") }
-                is ExerciseUiState.Success -> {
-                    EditExerciseScreen(
-                        userCode = userCode,
-                        dayKey = dayKey,
-                        groupKey = groupKey,
-                        exerciseKey = exerciseKey,
-                        onSave = { updatedExercise ->
-                            exerciseViewModel.updateExercise(userCode, dayKey, groupKey, exerciseKey, updatedExercise)
-                        },
-                        onCancel = { navController.popBackStack() }
-                    )
-                }
-                ExerciseUiState.Idle -> {
-                    EditExerciseScreen(
-                        userCode = userCode,
-                        dayKey = dayKey,
-                        groupKey = groupKey,
-                        exerciseKey = exerciseKey,
-                        onSave = { updatedExercise ->
-                            exerciseViewModel.addExercise(userCode, dayKey, groupKey, exerciseKey, updatedExercise)
-                        },
-                        onCancel = { navController.popBackStack() }
-                    )
-                }
-            }
-        }
     }
 }

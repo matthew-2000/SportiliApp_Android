@@ -134,14 +134,15 @@ fun EditDayScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Button(onClick = onCancel) { Text("Annulla") }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
                     val updatedDay = day.copy(
                         name = dayName,
                         gruppiMuscolari = LinkedHashMap(groupsList.toMap())
                     )
                     onSave(updatedDay)
-                }) { Text("Salva") }
+                }, modifier = Modifier.weight(1f)) { Text("Salva") }
             }
         }
     }
@@ -239,11 +240,13 @@ fun MuscleGroupItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = muscleGroup.nome,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = muscleGroup.nome,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(text = "Esercizi: ${muscleGroup.esercizi.count()}", style = MaterialTheme.typography.bodySmall)
+            }
             Row {
                 IconButton(onClick = onMoveUp) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")

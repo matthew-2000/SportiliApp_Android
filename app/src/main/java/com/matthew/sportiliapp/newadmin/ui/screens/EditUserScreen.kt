@@ -158,10 +158,12 @@ fun EditUserScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
-                    val userCode = initialUser?.code ?: ((nome.take(3) + cognome.take(3)).uppercase() + (0..999).random())
+                    val name = nome.filter { !it.isWhitespace() }
+                    val surname = cognome.filter { !it.isWhitespace() }
+                    val userCode = initialUser?.code ?: ((name.take(3) + surname.take(3)).lowercase() + (0..999).random())
                     val scheda = initialUser?.scheda ?: Scheda(dataInizio = getCurrentFormattedDate(), durata = 7)
                     if (scheda.giorni.isEmpty()) {
                         val updatedGiorni = scheda.giorni.toMutableMap()

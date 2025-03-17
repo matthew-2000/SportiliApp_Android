@@ -88,7 +88,16 @@ fun EditMuscleGroupScreen(
     // BottomSheet con lista esercizi selezionati
     var showSelectedSheet by remember { mutableStateOf(false) }
 
-    BackHandler { onCancel() }
+    BackHandler {
+        // Salva l'ordine
+        val exercisesMap = linkedMapOf<String, Esercizio>()
+        selectedExercises.forEachIndexed { index, entry ->
+            exercisesMap["esercizio${index + 1}"] = entry.exercise
+        }
+        val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
+        onSave(updatedGroup)
+        onCancel()
+    }
 
     Scaffold(
         topBar = {

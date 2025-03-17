@@ -96,7 +96,7 @@ fun EditWorkoutCardScreen(
             OutlinedTextField(
                 value = duration,
                 onValueChange = { duration = it },
-                label = { Text("Durata (giorni)") },
+                label = { Text("Durata (settimane)") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -148,7 +148,8 @@ fun EditWorkoutCardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = onCancel) { Text("Annulla") }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
                     val updatedScheda = scheda.copy(
                         dataInizio = formatToSaveDate(startDate),
@@ -156,7 +157,7 @@ fun EditWorkoutCardScreen(
                         giorni = LinkedHashMap(daysList.toMap())
                     )
                     onSave(updatedScheda)
-                }) { Text("Salva") }
+                }, modifier = Modifier.weight(1f)) { Text("Salva") }
             }
         }
 

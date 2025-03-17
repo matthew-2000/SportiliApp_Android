@@ -1,4 +1,3 @@
-// newadmin/ui/screens/UserListScreen.kt
 package com.matthew.sportiliapp.newadmin.ui.screens
 
 import androidx.compose.foundation.clickable
@@ -8,9 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,59 +34,148 @@ fun UserListScreen(
     )
     val uiState by gymAdminViewModel.usersState.collectAsState()
 
+    // TESTO DI RICERCA
+    var searchText by remember { mutableStateOf("") }
+
+    // STATO DEL FILTRO "SOLO SCADUTE"
+    var onlyExpired by remember { mutableStateOf(false) }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Utenti") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Utenti") }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddUser) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add User")
             }
         }
-    ) { padding ->
+    ) { paddingValues ->
+        // Gestione degli stati
         when (uiState) {
-            is UiState.Loading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) { Text(text = "Caricamento...") }
-            is UiState.Success -> {
-                val users = (uiState as UiState.Success<List<Utente>>).data
-                LazyColumn(
+            is UiState.Loading -> {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(paddingValues),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
                 ) {
-                    items(users) { user ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clickable { onUserSelected(user) },
-                            elevation = CardDefaults.cardElevation(4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = "${user.nome} ${user.cognome}", style = MaterialTheme.typography.titleMedium)
-                                Text(text = "Code: ${user.code}", style = MaterialTheme.typography.bodyMedium)
-                                if (user.scheda == null) {
-                                    Text("Scheda mancante!", color = MaterialTheme.colorScheme.error)
-                                } else {
-                                    // Assume this is implemented within Utente class
-                                    if (!user.scheda?.isSchedaValida()!!) {
-                                        Text("Scheda scaduta!", color = MaterialTheme.colorScheme.error)
-                                    }
-                                }
-                            }
+                    Text(text = "Caricamento...")
+                }
+            }
+            is UiState.Success -> {
+                val allUsers = (uiState as UiState.Success<List<Utente>>).data
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    // CAMPO DI TESTO PER LA RICERCA
+                    OutlinedTextField(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        label = { Text("Cerca utente...") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
+
+                    // CHECKBOX FILTRO "SOLO SCADUTE"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = onlyExpired,
+                            onCheckedChange = { onlyExpired = it }
+                        )
+                        Text(text = "Mostra solo schede scadute")
+                    }
+
+                    // LISTA UTENTI FILTRATA
+                    val filteredUsers = allUsers.filter { user ->
+                        val fullName = "${user.nome} ${user.cognome}".lowercase()
+                        val code = user.code?.lowercase().orEmpty()
+                        val matchSearch = searchText.lowercase() in fullName ||
+                                searchText.lowercase() in code ||
+                                searchText.isBlank()
+
+                        // Logica per considerare la scheda "scaduta"
+                        val isExpired = user.scheda == null || user.scheda?.isSchedaValida() == false
+
+                        // Se onlyExpired == true, mostro solo gli scaduti
+                        // Altrimenti mostro tutti
+                        val matchExpirationFilter = if (onlyExpired) isExpired else true
+
+                        matchSearch && matchExpirationFilter
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(8.dp)
+                    ) {
+                        items(filteredUsers) { user ->
+                            UserCard(
+                                user = user,
+                                onUserClick = { onUserSelected(user) }
+                            )
                         }
                     }
                 }
             }
-            is UiState.Error -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                Text(text = "Error: ${(uiState as UiState.Error).exception.message}")
+            is UiState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    Text(text = "Error: ${(uiState as UiState.Error).exception.message}")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserCard(
+    user: Utente,
+    onUserClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onUserClick() },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "${user.nome} ${user.cognome}",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "Code: ${user.code}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            when {
+                user.scheda == null -> {
+                    Text(
+                        text = "Scheda mancante!",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                user.scheda?.isSchedaValida() == false -> {
+                    Text(
+                        text = "Scheda scaduta!",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                else -> {
+                    // Scheda presente e valida
+                }
             }
         }
     }
