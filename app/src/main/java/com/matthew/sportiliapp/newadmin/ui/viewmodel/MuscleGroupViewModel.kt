@@ -35,6 +35,7 @@ class MuscleGroupViewModel(
             getMuscleGroupUseCase(userCode, dayKey, groupKey)
                 .catch { e -> _state.value = MuscleGroupUiState.Error(e) }
                 .collect { group ->
+                    group.sortAll()
                     _state.value = MuscleGroupUiState.Success(group)
                 }
         }

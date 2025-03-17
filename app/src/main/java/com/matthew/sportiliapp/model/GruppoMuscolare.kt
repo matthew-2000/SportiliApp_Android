@@ -15,6 +15,10 @@ data class GruppoMuscolare(
         return result
     }
 
+    fun sortAll() {
+        esercizi = esercizi.toSortedMap()
+    }
+
     constructor() : this(nome = "", esercizi = mapOf())
 
     constructor(parcel: Parcel) : this(

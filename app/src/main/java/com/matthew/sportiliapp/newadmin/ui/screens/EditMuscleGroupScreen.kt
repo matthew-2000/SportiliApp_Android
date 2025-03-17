@@ -82,7 +82,7 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Dialog per aggiungere esercizio: se non null, indica l'esercizioPredefinito che stiamo inserendo
+    // Dialog per aggiungere esercizio: se non null, indica l'EsercizioPredefinito (o custom) che stiamo inserendo
     var predefinitoToAdd by remember { mutableStateOf<EsercizioPredefinito?>(null) }
 
     // BottomSheet con lista esercizi selezionati
@@ -125,6 +125,20 @@ fun EditMuscleGroupScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 1) Pulsante per aggiungere esercizio personalizzato
+            Button(
+                onClick = {
+                    // Questo creerà un "falso" EsercizioPredefinito senza nome, così da riciclare la stessa Dialog
+                    predefinitoToAdd = EsercizioPredefinito(id = "Custom", nome = "", imageurl = "")
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Aggiungi Esercizio Personalizzato")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2) Lista esercizi predefiniti (filtrati)
             val filteredExercises = remember(searchText, predefinitiGruppo) {
                 if (searchText.isBlank()) predefinitiGruppo
                 else predefinitiGruppo.filter {
@@ -139,13 +153,13 @@ fun EditMuscleGroupScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredExercises) { esercizioPredefinito ->
-                    // Verifichiamo se è già nella lista selezionati
+                    // Verifichiamo se è già nella lista selezionata
                     val isAlreadySelected = selectedExercises.any { it.exercise.name == esercizioPredefinito.nome }
                     PredefinedExerciseCard(
                         esercizioPredefinito = esercizioPredefinito,
                         isSelected = isAlreadySelected,
                         onClick = {
-                            // Apri la dialog con Stepper e campi vari
+                            // Apri la stessa dialog (stavolta per un esercizio predefinito)
                             predefinitoToAdd = esercizioPredefinito
                         }
                     )
@@ -194,10 +208,10 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Dialog Stepper (se cliccato su un esercizio predefinito)
+    // Dialog Stepper (sia per predefinito che custom)
     if (predefinitoToAdd != null) {
         AddEsercizioDialog(
-            esercizioBaseName = predefinitoToAdd!!.nome,
+            esercizioPredefinito = predefinitoToAdd!!,
             onDismiss = { predefinitoToAdd = null },
             onEsercizioAdded = { esercizio ->
                 // Aggiungi a selectedExercises
@@ -323,7 +337,7 @@ fun ExerciseReorderableItem(
                 Text(text = entry.exercise.name, style = MaterialTheme.typography.bodyMedium)
                 Text(text = "Serie: ${entry.exercise.serie}")
                 Text(text = "Riposo: ${entry.exercise.riposo.orEmpty()}")
-                // Se hai note PT o altro, potresti visualizzare qui.
+                // Mostra altre note se desideri
             }
             Row {
                 IconButton(onClick = onMoveUp) {
@@ -340,13 +354,17 @@ fun ExerciseReorderableItem(
     }
 }
 
+// ------------------ ADD / EDIT EXERCISE DIALOG ------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEsercizioDialog(
-    esercizioBaseName: String,           // Nome dell'esercizio predefinito (o una stringa qualunque)
-    onDismiss: () -> Unit,               // Azione da eseguire quando si chiude (senza aggiungere)
-    onEsercizioAdded: (Esercizio) -> Unit // Azione da eseguire quando si conferma la creazione dell'esercizio
+    esercizioPredefinito: EsercizioPredefinito,
+    onDismiss: () -> Unit,
+    onEsercizioAdded: (Esercizio) -> Unit
 ) {
+    // Name can be empty if custom
+    var exerciseName by remember { mutableStateOf(esercizioPredefinito.nome) }
+
     // STEP 1) Serie e Ripetizioni (con Stepper)
     var numeroSerie by remember { mutableStateOf(3) }
     var numeroRipetizioni by remember { mutableStateOf(10) }
@@ -362,12 +380,30 @@ fun AddEsercizioDialog(
     // STEP 4) Note PT
     var notePT by remember { mutableStateOf("") }
 
-    // Creiamo un AlertDialog con i campi necessari
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(esercizioBaseName, style = MaterialTheme.typography.bodyMedium) },
+        title = {
+            // Se il nome è vuoto, stiamo aggiungendo un esercizio personalizzato
+            val dialogTitle = if (exerciseName.isBlank()) {
+                "Aggiungi Esercizio Personalizzato"
+            } else {
+                "Aggiungi/Modifica: $exerciseName"
+            }
+            Text(dialogTitle, style = MaterialTheme.typography.bodyMedium)
+        },
         text = {
             Column {
+                // -- Nome esercizio (sempre modificabile, per flessibilità) --
+                OutlinedTextField(
+                    value = exerciseName,
+                    onValueChange = { exerciseName = it },
+                    label = { Text("Nome Esercizio") },
+                    placeholder = { Text("Panca piana, Trazioni, etc.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // -- Serie e Ripetizioni --
                 if (customSerieText.isEmpty()) {
                     // Mostriamo i due Stepper solo se il campo custom è vuoto
@@ -435,7 +471,7 @@ fun AddEsercizioDialog(
                     val finalSerie = if (customSerieText.isNotBlank()) {
                         customSerieText
                     } else {
-                        // Formato di default: "3 x 10" (se l'utente non ha inserito nulla)
+                        // Formato di default: "3 x 10"
                         "$numeroSerie x $numeroRipetizioni"
                     }
 
@@ -443,7 +479,7 @@ fun AddEsercizioDialog(
                     val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
                         ""
                     } else {
-                        // Esempio: 1'05"  (1 minuto e 5 secondi)
+                        // Esempio: 1'05"
                         if (secondiRiposo < 10) {
                             "${minutiRiposo}'0${secondiRiposo}\""
                         } else {
@@ -453,13 +489,12 @@ fun AddEsercizioDialog(
 
                     // Crea l'oggetto Esercizio
                     val nuovoEsercizio = Esercizio(
-                        name = esercizioBaseName,
+                        name = exerciseName.ifBlank { "Esercizio Personalizzato" },
                         serie = finalSerie,
                         riposo = riposoString,
                         notePT = notePT
                     )
 
-                    // Callback
                     onEsercizioAdded(nuovoEsercizio)
                 }
             ) { Text("Aggiungi") }

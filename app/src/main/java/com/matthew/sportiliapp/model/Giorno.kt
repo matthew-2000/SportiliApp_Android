@@ -15,6 +15,13 @@ data class Giorno(
         return result
     }
 
+    fun sortAll() {
+        gruppiMuscolari = gruppiMuscolari.toSortedMap()
+        gruppiMuscolari.forEach { gruppo ->
+            gruppo.value.esercizi = gruppo.value.esercizi.toSortedMap()
+        }
+    }
+
     constructor() : this(name = "", gruppiMuscolari = mapOf())
 
     constructor(parcel: Parcel) : this(

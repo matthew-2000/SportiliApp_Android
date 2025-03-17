@@ -36,6 +36,7 @@ class WorkoutCardViewModel(
                     _state.value = WorkoutCardUiState.Error(exception)
                 }
                 .collect { scheda ->
+                    scheda.sortAll()
                     _state.value = WorkoutCardUiState.Success(scheda)
                 }
         }

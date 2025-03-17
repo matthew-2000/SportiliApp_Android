@@ -32,6 +32,7 @@ class DayViewModel(
             getDayUseCase(userCode, dayKey)
                 .catch { e -> _state.value = DayUiState.Error(e) }
                 .collect { day ->
+                    day.sortAll()
                     _state.value = DayUiState.Success(day)
                 }
         }
