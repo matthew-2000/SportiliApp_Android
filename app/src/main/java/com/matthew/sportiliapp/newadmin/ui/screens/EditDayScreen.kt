@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -71,12 +72,12 @@ fun EditDayScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Modifica Giorno") }) } ,
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddGroupDialog = true }) {
-                Text("+")
-            }
-        }
+        topBar = { TopAppBar(title = { Text("Modifica Giorno") },
+            actions = {
+                IconButton(onClick = { showAddGroupDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Aggiungi Gruppo")
+                }
+            }) }
     ) { padding ->
         Column(
             modifier = Modifier

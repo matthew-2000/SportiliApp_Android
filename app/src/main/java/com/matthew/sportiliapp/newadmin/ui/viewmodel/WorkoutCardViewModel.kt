@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 sealed class WorkoutCardUiState {
     object Idle : WorkoutCardUiState()
@@ -32,6 +33,7 @@ class WorkoutCardViewModel(
         viewModelScope.launch {
             _state.value = WorkoutCardUiState.Loading
             getWorkoutCardUseCase(userCode)
+                .distinctUntilChanged()
                 .catch { exception ->
                     _state.value = WorkoutCardUiState.Error(exception)
                 }

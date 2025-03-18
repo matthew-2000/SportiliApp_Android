@@ -9,6 +9,7 @@ import com.matthew.sportiliapp.newadmin.domain.UpdateDayUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 sealed class DayUiState {
@@ -30,6 +31,7 @@ class DayViewModel(
         viewModelScope.launch {
             _state.value = DayUiState.Loading
             getDayUseCase(userCode, dayKey)
+                .distinctUntilChanged()
                 .catch { e -> _state.value = DayUiState.Error(e) }
                 .collect { day ->
                     day.sortAll()

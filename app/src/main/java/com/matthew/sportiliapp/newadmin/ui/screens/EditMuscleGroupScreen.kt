@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -103,9 +104,9 @@ fun EditMuscleGroupScreen(
         topBar = {
             TopAppBar(
                 title = { Text(groupName) },
-                navigationIcon = {
-                    IconButton(onClick = onCancel) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                actions = {
+                    IconButton(onClick = { predefinitoToAdd = EsercizioPredefinito(id = "Custom", nome = "", imageurl = "") }) {
+                        Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
                     }
                 }
             )
@@ -124,19 +125,6 @@ fun EditMuscleGroupScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
-
-            // 1) Pulsante per aggiungere esercizio personalizzato
-            Button(
-                onClick = {
-                    // Questo creerà un "falso" EsercizioPredefinito senza nome, così da riciclare la stessa Dialog
-                    predefinitoToAdd = EsercizioPredefinito(id = "Custom", nome = "", imageurl = "")
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Aggiungi Esercizio Personalizzato")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             // 2) Lista esercizi predefiniti (filtrati)
             val filteredExercises = remember(searchText, predefinitiGruppo) {
@@ -374,7 +362,7 @@ fun AddEsercizioDialog(
 
     // STEP 3) Riposo
     var includeRiposo by remember { mutableStateOf(false) }
-    var minutiRiposo by remember { mutableStateOf(0) }
+    var minutiRiposo by remember { mutableStateOf(1) }
     var secondiRiposo by remember { mutableStateOf(0) }
 
     // STEP 4) Note PT

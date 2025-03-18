@@ -10,6 +10,7 @@ import com.matthew.sportiliapp.newadmin.domain.UpdateMuscleGroupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 sealed class MuscleGroupUiState {
@@ -33,6 +34,7 @@ class MuscleGroupViewModel(
         viewModelScope.launch {
             _state.value = MuscleGroupUiState.Loading
             getMuscleGroupUseCase(userCode, dayKey, groupKey)
+                .distinctUntilChanged()
                 .catch { e -> _state.value = MuscleGroupUiState.Error(e) }
                 .collect { group ->
                     group.sortAll()

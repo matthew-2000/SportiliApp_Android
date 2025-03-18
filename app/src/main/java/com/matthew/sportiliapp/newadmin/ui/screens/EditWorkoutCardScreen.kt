@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -64,11 +65,13 @@ fun EditWorkoutCardScreen(
     )
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Modifica Scheda") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDayDialog = true }) {
-                Text("+")
-            }
+        topBar = { TopAppBar(
+            title = { Text("Modifica Scheda")},
+            actions = {
+                IconButton(onClick = { showAddDayDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
+                }
+            })
         }
     ) { padding ->
         Column(
