@@ -33,13 +33,17 @@ class MuscleGroupViewModel(
     fun loadGroup(userCode: String, dayKey: String, groupKey: String) {
         viewModelScope.launch {
             _state.value = MuscleGroupUiState.Loading
-            getMuscleGroupUseCase(userCode, dayKey, groupKey)
-                .distinctUntilChanged()
-                .catch { e -> _state.value = MuscleGroupUiState.Error(e) }
-                .collect { group ->
-                    group.sortAll()
+
+            val result = getMuscleGroupUseCase(userCode, dayKey, groupKey)
+            result.fold(
+                onSuccess = { group ->
+                    group.sortAll() // Se esiste un metodo di ordinamento
                     _state.value = MuscleGroupUiState.Success(group)
+                },
+                onFailure = { e ->
+                    _state.value = MuscleGroupUiState.Error(e)
                 }
+            )
         }
     }
 
@@ -48,8 +52,12 @@ class MuscleGroupViewModel(
             _state.value = MuscleGroupUiState.Loading
             val result = addMuscleGroupUseCase(userCode, dayKey, groupKey, group)
             result.fold(
-                onSuccess = { _state.value = MuscleGroupUiState.Success(group) },
-                onFailure = { _state.value = MuscleGroupUiState.Error(it) }
+                onSuccess = {
+                    _state.value = MuscleGroupUiState.Success(group)
+                },
+                onFailure = { e ->
+                    _state.value = MuscleGroupUiState.Error(e)
+                }
             )
         }
     }
@@ -59,8 +67,12 @@ class MuscleGroupViewModel(
             _state.value = MuscleGroupUiState.Loading
             val result = updateMuscleGroupUseCase(userCode, dayKey, groupKey, group)
             result.fold(
-                onSuccess = { _state.value = MuscleGroupUiState.Success(group) },
-                onFailure = { _state.value = MuscleGroupUiState.Error(it) }
+                onSuccess = {
+                    _state.value = MuscleGroupUiState.Success(group)
+                },
+                onFailure = { e ->
+                    _state.value = MuscleGroupUiState.Error(e)
+                }
             )
         }
     }
@@ -70,8 +82,14 @@ class MuscleGroupViewModel(
             _state.value = MuscleGroupUiState.Loading
             val result = removeMuscleGroupUseCase(userCode, dayKey, groupKey)
             result.fold(
-                onSuccess = { _state.value = MuscleGroupUiState.Idle },
-                onFailure = { _state.value = MuscleGroupUiState.Error(it) }
+                onSuccess = {
+                    // Se vuoi, potresti ritornare alla schermata precedente
+                    // o semplicemente segnalare "Idle" per dire che non c'è più un gruppo.
+                    _state.value = MuscleGroupUiState.Idle
+                },
+                onFailure = { e ->
+                    _state.value = MuscleGroupUiState.Error(e)
+                }
             )
         }
     }

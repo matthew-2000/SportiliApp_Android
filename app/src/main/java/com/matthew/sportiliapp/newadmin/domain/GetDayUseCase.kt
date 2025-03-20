@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 class GetDayUseCase(
     private val repository: FirebaseRepository
 ) {
-    suspend operator fun invoke(userCode: String, dayKey: String): Flow<Giorno> {
+    suspend operator fun invoke(userCode: String, dayKey: String): Result<Giorno> {
         return repository.getDay(userCode, dayKey)
     }
 }

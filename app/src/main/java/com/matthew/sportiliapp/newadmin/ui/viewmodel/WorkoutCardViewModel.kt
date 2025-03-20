@@ -22,36 +22,43 @@ sealed class WorkoutCardUiState {
 class WorkoutCardViewModel(
     private val getWorkoutCardUseCase: GetWorkoutCardUseCase,
     private val updateWorkoutCardUseCase: UpdateWorkoutCardUseCase
-    // Puoi aggiungere altri use case per giorni, gruppi ed esercizi se necessario
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<WorkoutCardUiState>(WorkoutCardUiState.Idle)
     val state: StateFlow<WorkoutCardUiState> = _state
 
-    // Carica la scheda in base al userCode
     fun loadWorkoutCard(userCode: String) {
         viewModelScope.launch {
             _state.value = WorkoutCardUiState.Loading
-            getWorkoutCardUseCase(userCode)
-                .distinctUntilChanged()
-                .catch { exception ->
+            // Ora getWorkoutCardUseCase restituisce Result<Scheda>
+            val result = getWorkoutCardUseCase(userCode)
+
+            result.fold(
+                onSuccess = { scheda ->
+                    // Se la lettura va a buon fine
+                    scheda.sortAll() // se hai un metodo per ordinare
+                    _state.value = WorkoutCardUiState.Success(scheda)
+                },
+                onFailure = { exception ->
+                    // In caso di errore
                     _state.value = WorkoutCardUiState.Error(exception)
                 }
-                .collect { scheda ->
-                    scheda.sortAll()
-                    _state.value = WorkoutCardUiState.Success(scheda)
-                }
+            )
         }
     }
 
-    // Aggiorna la scheda e aggiorna lo stato in base al risultato
     fun updateWorkoutCard(userCode: String, scheda: Scheda) {
         viewModelScope.launch {
             _state.value = WorkoutCardUiState.Loading
             val result = updateWorkoutCardUseCase(userCode, scheda)
             result.fold(
-                onSuccess = { _state.value = WorkoutCardUiState.Success(scheda) },
-                onFailure = { _state.value = WorkoutCardUiState.Error(it) }
+                onSuccess = {
+                    // Aggiorni lo stato locale con la scheda modificata
+                    _state.value = WorkoutCardUiState.Success(scheda)
+                },
+                onFailure = { exception ->
+                    _state.value = WorkoutCardUiState.Error(exception)
+                }
             )
         }
     }

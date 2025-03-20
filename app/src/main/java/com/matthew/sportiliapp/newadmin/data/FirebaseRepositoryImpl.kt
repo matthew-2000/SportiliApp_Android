@@ -92,47 +92,44 @@ class FirebaseRepositoryImpl(
                 .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
         }
 
-    override suspend fun getWorkoutCard(userCode: String): Flow<Scheda> = callbackFlow {
-        val schedaRef = usersRef.child(userCode).child("scheda")
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                // Converte il DataSnapshot in un oggetto Scheda;
-                // se il valore esiste, lo invia nel Flow
-                val scheda = snapshot.getValue(Scheda::class.java)
-                if (scheda != null) {
-                    trySend(scheda)
+    override suspend fun getWorkoutCard(userCode: String): Result<Scheda> {
+        return suspendCancellableCoroutine { cont ->
+            val schedaRef = usersRef.child(userCode).child("scheda")
+            schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    // Converte il DataSnapshot in un oggetto Scheda;
+                    // se il valore esiste, lo invia nel Flow
+                    val scheda = snapshot.getValue(Scheda::class.java)
+                    if (scheda != null) {
+                        cont.resume(Result.success(scheda))
+                    }
                 }
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                close(Exception(error.message))
-            }
+                override fun onCancelled(error: DatabaseError) {
+                    cont.resume(Result.failure(Exception(error.message)))
+                }
+            })
         }
-        schedaRef.addValueEventListener(listener)
-        awaitClose { schedaRef.removeEventListener(listener) }
     }
 
     // --- Gestione dei Giorni (Day) ---
 
-    override suspend fun getDay(userCode: String, dayKey: String): Flow<Giorno> = callbackFlow {
-        val dayRef = firebaseDatabase.getReference("users")
-            .child(userCode)
-            .child("scheda")
-            .child("giorni")
-            .child(dayKey)
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val giorno = snapshot.getValue(Giorno::class.java)
-                if (giorno != null) {
-                    trySend(giorno)
+    override suspend fun getDay(userCode: String, dayKey: String): Result<Giorno> {
+        return suspendCancellableCoroutine { cont ->
+            val dayRef = usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
+            dayRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val giorno = snapshot.getValue(Giorno::class.java)
+                    if (giorno != null) {
+                        cont.resume(Result.success(giorno))
+                    }
                 }
-            }
-            override fun onCancelled(error: DatabaseError) {
-                close(Exception(error.message))
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    cont.resume(Result.failure(Exception(error.message)))
+                }
+            })
         }
-        dayRef.addValueEventListener(listener)
-        awaitClose { dayRef.removeEventListener(listener) }
     }
 
     override suspend fun addDay(userCode: String, dayKey: String, giorno: Giorno): Result<Unit> =
@@ -166,29 +163,23 @@ class FirebaseRepositoryImpl(
         userCode: String,
         dayKey: String,
         muscleGroupKey: String
-    ): Flow<GruppoMuscolare> = callbackFlow {
-        val groupRef = firebaseDatabase.getReference("users")
-            .child(userCode)
-            .child("scheda")
-            .child("giorni")
-            .child(dayKey)
-            .child("gruppiMuscolari")
-            .child(muscleGroupKey)
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                println("Snapshot per $userCode/$dayKey/$muscleGroupKey: exists=${snapshot.exists()}")
-                val gruppo = snapshot.getValue(GruppoMuscolare::class.java)
-                println("GruppoMuscolare parsed: $gruppo")
-                if (gruppo != null) {
-                    trySend(gruppo)
+    ): Result<GruppoMuscolare> {
+        return suspendCancellableCoroutine { cont ->
+            val groupRef = usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
+                .child("gruppiMuscolari").child(muscleGroupKey)
+            groupRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val gruppo = snapshot.getValue(GruppoMuscolare::class.java)
+                    if (gruppo != null) {
+                        cont.resume(Result.success(gruppo))
+                    }
                 }
-            }
-            override fun onCancelled(error: DatabaseError) {
-                close(Exception(error.message))
-            }
+
+                override fun onCancelled(error: DatabaseError) {
+                    cont.resume(Result.failure(Exception(error.message)))
+                }
+            })
         }
-        groupRef.addValueEventListener(listener)
-        awaitClose { groupRef.removeEventListener(listener) }
     }
 
     override suspend fun addMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit> =

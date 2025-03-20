@@ -16,16 +16,16 @@ interface FirebaseRepository {
 
     // Gestione scheda (Workout Card)
     suspend fun updateWorkoutCard(userCode: String, scheda: Scheda): Result<Unit>
-    suspend fun getWorkoutCard(userCode: String): Flow<Scheda>
+    suspend fun getWorkoutCard(userCode: String): Result<Scheda>
 
     // Gestione dei giorni (Day)
-    suspend fun getDay(userCode: String, dayKey: String): Flow<Giorno>
+    suspend fun getDay(userCode: String, dayKey: String): Result<Giorno>
     suspend fun addDay(userCode: String, dayKey: String, giorno: Giorno): Result<Unit>
     suspend fun updateDay(userCode: String, dayKey: String, giorno: Giorno): Result<Unit>
     suspend fun removeDay(userCode: String, dayKey: String): Result<Unit>
 
     // Gestione dei gruppi muscolari (Muscle Group)
-    suspend fun getMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Flow<GruppoMuscolare>
+    suspend fun getMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Result<GruppoMuscolare>
     suspend fun addMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit>
     suspend fun updateMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit>
     suspend fun removeMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Result<Unit>

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 class GetWorkoutCardUseCase(
     private val repository: FirebaseRepository
 ) {
-    suspend operator fun invoke(userCode: String): Flow<Scheda> {
+    suspend operator fun invoke(userCode: String): Result<Scheda> {
         return repository.getWorkoutCard(userCode)
     }
 }

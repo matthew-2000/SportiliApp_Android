@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 class GetMuscleGroupUseCase (
     private val repository: FirebaseRepository
 ) {
-    suspend operator fun invoke(userCode: String, dayKey: String, groupKey: String): Flow<GruppoMuscolare> {
+    suspend operator fun invoke(userCode: String, dayKey: String, groupKey: String): Result<GruppoMuscolare> {
         return repository.getMuscleGroup(userCode, dayKey, groupKey)
     }
 }
