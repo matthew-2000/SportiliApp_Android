@@ -1,5 +1,9 @@
 package com.matthew.sportiliapp.newadmin.ui.navigation
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,7 +27,9 @@ fun AdminNavGraph(navController: NavHostController) {
                 onAddUser = { navController.navigate(Screen.EditUser.createRoute("new")) }
             )
         }
-        composable(Screen.EditUser.route) { backStackEntry ->
+        composable(Screen.EditUser.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val gymAdminViewModel: GymAdminViewModel = viewModel(
                 factory = GymAdminViewModelFactory(
@@ -82,7 +88,9 @@ fun AdminNavGraph(navController: NavHostController) {
                 }
             }
         }
-        composable(Screen.EditWorkoutCard.route) { backStackEntry ->
+        composable(Screen.EditWorkoutCard.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val workoutCardViewModel: WorkoutCardViewModel = viewModel(factory = WorkoutCardViewModelFactory(userCode))
             workoutCardViewModel.loadWorkoutCard(userCode)
@@ -105,7 +113,9 @@ fun AdminNavGraph(navController: NavHostController) {
                 WorkoutCardUiState.Idle -> {}
             }
         }
-        composable(Screen.EditDay.route) { backStackEntry ->
+        composable(Screen.EditDay.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val dayViewModel: DayViewModel = viewModel(factory = DayViewModelFactory(userCode, dayKey))
@@ -130,7 +140,9 @@ fun AdminNavGraph(navController: NavHostController) {
                 DayUiState.Idle -> {}
             }
         }
-        composable(Screen.EditMuscleGroup.route) { backStackEntry ->
+        composable(Screen.EditMuscleGroup.route,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val groupKey = backStackEntry.arguments?.getString("groupKey") ?: ""

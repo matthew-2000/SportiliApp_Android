@@ -12,8 +12,8 @@ android {
         applicationId = "com.matthew.sportiliapp"
         minSdk = 27
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.1.2"
+        versionCode = 11
+        versionName = "1.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -51,10 +51,10 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.androidx.compose.bom.v20250300))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
