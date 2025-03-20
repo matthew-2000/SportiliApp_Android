@@ -6,6 +6,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -93,7 +94,9 @@ fun AdminNavGraph(navController: NavHostController) {
             exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val workoutCardViewModel: WorkoutCardViewModel = viewModel(factory = WorkoutCardViewModelFactory(userCode))
-            workoutCardViewModel.loadWorkoutCard(userCode)
+            LaunchedEffect(userCode) {
+                workoutCardViewModel.loadWorkoutCard(userCode)
+            }
             when (val state = workoutCardViewModel.state.collectAsState().value) {
                 is WorkoutCardUiState.Loading -> { Text(text = "Loading Workout Card...") }
                 is WorkoutCardUiState.Error -> { Text(text = "Error: ${state.error.localizedMessage}") }
@@ -119,7 +122,9 @@ fun AdminNavGraph(navController: NavHostController) {
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val dayViewModel: DayViewModel = viewModel(factory = DayViewModelFactory(userCode, dayKey))
-            dayViewModel.loadDay(userCode, dayKey)
+            LaunchedEffect(userCode, dayKey) {
+                dayViewModel.loadDay(userCode, dayKey)
+            }
             when (val state = dayViewModel.state.collectAsState().value) {
                 is DayUiState.Loading -> { Text(text = "Loading Day...") }
                 is DayUiState.Error -> { Text(text = "Error: ${state.exception.localizedMessage}") }
@@ -147,7 +152,9 @@ fun AdminNavGraph(navController: NavHostController) {
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val groupKey = backStackEntry.arguments?.getString("groupKey") ?: ""
             val muscleGroupViewModel: MuscleGroupViewModel = viewModel(factory = MuscleGroupViewModelFactory(userCode, dayKey, groupKey))
-            muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
+            LaunchedEffect(userCode, dayKey, groupKey) {
+                muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
+            }
             when (val state = muscleGroupViewModel.state.collectAsState().value) {
                 is MuscleGroupUiState.Loading -> { Text(text = "Loading Muscle Group...") }
                 is MuscleGroupUiState.Error -> { Text(text = "Error: ${state.exception.localizedMessage}") }

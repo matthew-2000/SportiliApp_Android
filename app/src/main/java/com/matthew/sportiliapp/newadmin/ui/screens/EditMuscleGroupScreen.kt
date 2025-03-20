@@ -21,6 +21,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.Esercizio
@@ -321,11 +322,10 @@ fun ExerciseReorderableItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(text = entry.exercise.name, style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Serie: ${entry.exercise.serie}")
-                Text(text = "Riposo: ${entry.exercise.riposo.orEmpty()}")
-                // Mostra altre note se desideri
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = entry.exercise.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = "Serie: ${entry.exercise.serie}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = "Riposo: ${entry.exercise.riposo.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row {
                 IconButton(onClick = onMoveUp) {
