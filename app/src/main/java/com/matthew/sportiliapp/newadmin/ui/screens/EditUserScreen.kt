@@ -77,66 +77,17 @@ fun EditUserScreen(
         )
     }
 
-    // BottomSheet per mostrare i dettagli della scheda
     if (showScheduleSheet && initialUser?.scheda != null) {
-        val sheetState = rememberModalBottomSheetState()
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showScheduleSheet = false },
             sheetState = sheetState,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Dettagli Scheda", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "Durata: ${initialUser.scheda!!.durata} giorni",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(text = "Giorni di Allenamento:", style = MaterialTheme.typography.titleSmall)
-
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(initialUser.scheda!!.giorni.toList()) { (dayKey, giorno) ->
-                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            Text(
-                                text = "- ${giorno.name}",
-                                style = MaterialTheme.typography.headlineMedium
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            if (giorno.gruppiMuscolari.isEmpty()) {
-                                Text(
-                                    text = "   Nessun gruppo muscolare",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            } else {
-                                giorno.gruppiMuscolari.forEach { (groupKey, gruppo) ->
-                                    val eserciziText = gruppo.esercizi.values.joinToString(separator = ", ") {
-                                        "${it.name} - ${it.serie}"
-                                    }
-                                    Text(
-                                        text = "   - ${gruppo.nome}: $eserciziText",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { showScheduleSheet = false },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Chiudi")
-                }
-            }
+            WorkoutCardSheet(
+                scheda = initialUser.scheda!!,
+                onClose = { showScheduleSheet = false }
+            )
         }
     }
 
@@ -287,6 +238,65 @@ fun EditUserScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun WorkoutCardSheet(
+    scheda: Scheda,
+    onClose: () -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(text = "Dettagli Scheda", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Data Inizio: ${formatToDisplayDate(scheda.dataInizio)}",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = "Durata: ${scheda.durata} giorni",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(text = "Giorni di Allenamento:", style = MaterialTheme.typography.titleSmall)
+
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(scheda.giorni.toList()) { (dayKey, giorno) ->
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(
+                        text = "- ${giorno.name}",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (giorno.gruppiMuscolari.isEmpty()) {
+                        Text(
+                            text = "   Nessun gruppo muscolare",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        giorno.gruppiMuscolari.forEach { (groupKey, gruppo) ->
+                            val eserciziText = gruppo.esercizi.values.joinToString(separator = ", ") {
+                                "${it.name} - ${it.serie}"
+                            }
+                            Text(
+                                text = "   - ${gruppo.nome}: $eserciziText",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onClose,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Chiudi")
         }
     }
 }

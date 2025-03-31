@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -106,6 +107,9 @@ fun EditMuscleGroupScreen(
             TopAppBar(
                 title = { Text(groupName) },
                 actions = {
+                    IconButton(onClick = { showSelectedSheet = true }) {
+                        Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
+                    }
                     IconButton(onClick = { predefinitoToAdd = EsercizioPredefinito(id = "Custom", nome = "", imageurl = "") }) {
                         Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
                     }
@@ -157,16 +161,6 @@ fun EditMuscleGroupScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3) Pulsante per aprire la bottom sheet degli esercizi selezionati
-            Button(
-                onClick = { showSelectedSheet = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Visualizza Esercizi Aggiunti")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // 4) Pulsanti di Annulla/Salva
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -213,7 +207,8 @@ fun EditMuscleGroupScreen(
     // Bottom sheet con la lista di esercizi selezionati (riordino/rimozione)
     if (showSelectedSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showSelectedSheet = false }
+            onDismissRequest = { showSelectedSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             SelectedExercisesSheet(
                 selectedExercises = selectedExercises,
@@ -325,7 +320,9 @@ fun ExerciseReorderableItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = entry.exercise.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(text = "Serie: ${entry.exercise.serie}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = "Riposo: ${entry.exercise.riposo.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if(entry.exercise.riposo?.isNotBlank() == true) {
+                    Text(text = "Riposo: ${entry.exercise.riposo}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             Row {
                 IconButton(onClick = onMoveUp) {
@@ -350,150 +347,155 @@ fun AddEsercizioDialog(
     onDismiss: () -> Unit,
     onEsercizioAdded: (Esercizio) -> Unit
 ) {
+
+    // Stato del bottom sheet
+    val bottomSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
     // Name can be empty if custom
     var exerciseName by remember { mutableStateOf(esercizioPredefinito.nome) }
 
-    // STEP 1) Serie e Ripetizioni (con Stepper)
     var numeroSerie by remember { mutableStateOf(3) }
     var numeroRipetizioni by remember { mutableStateOf(10) }
 
-    // STEP 2) Campo personalizzato per sostituire serie x ripetizioni (es: "2 minuti", "4x8", ecc.)
     var customSerieText by remember { mutableStateOf("") }
 
-    // STEP 3) Riposo
     var includeRiposo by remember { mutableStateOf(false) }
     var minutiRiposo by remember { mutableStateOf(1) }
     var secondiRiposo by remember { mutableStateOf(0) }
 
-    // STEP 4) Note PT
     var notePT by remember { mutableStateOf("") }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            // Se il nome è vuoto, stiamo aggiungendo un esercizio personalizzato
+        sheetState = bottomSheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
             val dialogTitle = if (exerciseName.isBlank()) {
                 "Aggiungi Esercizio Personalizzato"
             } else {
-                "Aggiungi/Modifica: $exerciseName"
+                exerciseName
             }
-            Text(dialogTitle, style = MaterialTheme.typography.bodyMedium)
-        },
-        text = {
-            Column {
-                // -- Nome esercizio (sempre modificabile, per flessibilità) --
-                OutlinedTextField(
-                    value = exerciseName,
-                    onValueChange = { exerciseName = it },
-                    label = { Text("Nome Esercizio") },
-                    placeholder = { Text("Panca piana, Trazioni, etc.") },
-                    modifier = Modifier.fillMaxWidth()
+
+            Text(dialogTitle, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = exerciseName,
+                onValueChange = { exerciseName = it },
+                label = { Text("Nome Esercizio") },
+                placeholder = { Text("Panca piana, Trazioni, etc.") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (customSerieText.isEmpty()) {
+                Stepper(
+                    value = numeroSerie,
+                    onValueChange = { numeroSerie = it },
+                    range = 1..30,
+                    label = "Serie"
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // -- Serie e Ripetizioni --
-                if (customSerieText.isEmpty()) {
-                    // Mostriamo i due Stepper solo se il campo custom è vuoto
-                    Stepper(
-                        value = numeroSerie,
-                        onValueChange = { numeroSerie = it },
-                        range = 1..30,
-                        label = "Serie"
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Stepper(
-                        value = numeroRipetizioni,
-                        onValueChange = { numeroRipetizioni = it },
-                        range = 1..50,
-                        label = "Ripetizioni"
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // -- Campo personalizzato (override) --
-                OutlinedTextField(
-                    value = customSerieText,
-                    onValueChange = { customSerieText = it },
-                    label = { Text("Formato Serie (opzionale)") },
-                    placeholder = { Text("Esempio: 4x8, 2 minuti, etc.") },
-                    modifier = Modifier.fillMaxWidth()
+                Stepper(
+                    value = numeroRipetizioni,
+                    onValueChange = { numeroRipetizioni = it },
+                    range = 1..50,
+                    label = "Ripetizioni"
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // -- Include Riposo --
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = includeRiposo,
-                        onCheckedChange = { includeRiposo = it }
-                    )
-                    Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
-                }
-
-                if (includeRiposo) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Riposo", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Stepper(
-                        value = minutiRiposo,
-                        onValueChange = { minutiRiposo = it },
-                        range = 0..10,
-                        label = "Minuti"
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Stepper(
-                        value = secondiRiposo,
-                        onValueChange = { secondiRiposo = it },
-                        range = 0..55 step 5,
-                        label = "Secondi"
-                    )
-                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    // Prepara il testo finale per la sezione "serie"
-                    val finalSerie = if (customSerieText.isNotBlank()) {
-                        customSerieText
-                    } else {
-                        // Formato di default: "3 x 10"
-                        "$numeroSerie x $numeroRipetizioni"
-                    }
 
-                    // Calcolo riposo (se incluso)
-                    val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
-                        ""
-                    } else {
-                        // Esempio: 1'05"
-                        if (secondiRiposo < 10) {
-                            "${minutiRiposo}'0${secondiRiposo}\""
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = customSerieText,
+                onValueChange = { customSerieText = it },
+                label = { Text("Formato Serie (opzionale)") },
+                placeholder = { Text("Esempio: 4x8, 2 minuti, etc.") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = includeRiposo,
+                    onCheckedChange = { includeRiposo = it }
+                )
+                Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
+            }
+
+            if (includeRiposo) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Riposo", style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Stepper(
+                    value = minutiRiposo,
+                    onValueChange = { minutiRiposo = it },
+                    range = 0..10,
+                    label = "Minuti"
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Stepper(
+                    value = secondiRiposo,
+                    onValueChange = { secondiRiposo = it },
+                    range = 0..55 step 5,
+                    label = "Secondi"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                    Text("Annulla")
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Button(
+                    onClick = {
+                        val finalSerie = if (customSerieText.isNotBlank()) {
+                            customSerieText
                         } else {
-                            "${minutiRiposo}'${secondiRiposo}\""
+                            "$numeroSerie x $numeroRipetizioni"
                         }
-                    }
 
-                    // Crea l'oggetto Esercizio
-                    val nuovoEsercizio = Esercizio(
-                        name = exerciseName.ifBlank { "Esercizio Personalizzato" },
-                        serie = finalSerie,
-                        riposo = riposoString,
-                        notePT = notePT
-                    )
+                        val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
+                            ""
+                        } else {
+                            if (secondiRiposo < 10) {
+                                "${minutiRiposo}'0${secondiRiposo}\""
+                            } else {
+                                "${minutiRiposo}'${secondiRiposo}\""
+                            }
+                        }
 
-                    onEsercizioAdded(nuovoEsercizio)
+                        val nuovoEsercizio = Esercizio(
+                            name = exerciseName.ifBlank { "Esercizio Personalizzato" },
+                            serie = finalSerie,
+                            riposo = riposoString,
+                            notePT = notePT
+                        )
+
+                        onEsercizioAdded(nuovoEsercizio)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Aggiungi")
                 }
-            ) { Text("Aggiungi") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annulla")
             }
         }
-    )
+    }
 }
+
 
 // ------------------- STEPPER COMPOSABLE ------------------- //
 

@@ -35,7 +35,12 @@ class GymAdminViewModel(
             getUsersUseCase()
                 .distinctUntilChanged()
                 .catch { e -> _usersState.value = UiState.Error(e) }
-                .collect { users -> _usersState.value = UiState.Success(users) }
+                .collect { users ->
+                    for (user in users) {
+                        user.scheda?.sortAll()
+                    }
+                    _usersState.value = UiState.Success(users)
+                }
         }
     }
 

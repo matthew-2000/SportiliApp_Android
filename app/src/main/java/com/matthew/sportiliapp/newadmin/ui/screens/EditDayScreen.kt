@@ -53,10 +53,6 @@ fun EditDayScreen(
         "Tricipiti",
         )
 
-    for (gruppo in day.gruppiMuscolari) {
-        gruppiMuscolari.removeAt(gruppiMuscolari.indexOf(gruppo.value.nome))
-    }
-
     // Stato per mantenere traccia dei gruppi muscolari selezionati
     val selectedGruppi = remember { mutableStateMapOf<String, Boolean>().apply {
         gruppiMuscolari.forEach { put(it, false) }

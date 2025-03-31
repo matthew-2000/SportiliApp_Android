@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -39,6 +40,7 @@ fun EditWorkoutCardScreen(
 
     // Stato per mostrare il dialog per aggiungere un nuovo giorno
     var showAddDayDialog by remember { mutableStateOf(false) }
+    var showScheduleSheet by remember { mutableStateOf(false) }
     var newDayName by remember { mutableStateOf("") }
 
     BackHandler {
@@ -68,6 +70,9 @@ fun EditWorkoutCardScreen(
         topBar = { TopAppBar(
             title = { Text("Modifica Scheda")},
             actions = {
+                IconButton(onClick = { showScheduleSheet = true }) {
+                    Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
+                }
                 IconButton(onClick = { showAddDayDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
                 }
@@ -189,6 +194,20 @@ fun EditWorkoutCardScreen(
                 },
                 shape = RoundedCornerShape(8.dp)
             )
+        }
+
+        if (showScheduleSheet) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = { showScheduleSheet = false },
+                sheetState = sheetState,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WorkoutCardSheet(
+                    scheda = scheda,
+                    onClose = { showScheduleSheet = false }
+                )
+            }
         }
     }
 }

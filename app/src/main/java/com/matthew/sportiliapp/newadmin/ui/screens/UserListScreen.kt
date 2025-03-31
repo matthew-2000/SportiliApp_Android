@@ -6,12 +6,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.matthew.sportiliapp.model.EsercizioPredefinito
 import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.GymAdminViewModel
@@ -43,14 +46,19 @@ fun UserListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Utenti") }
+                title = { Text("Utenti") },
+                actions = {
+                    IconButton(onClick = { onlyExpired = !onlyExpired }) {
+                        Icon(Icons.Default.Warning, contentDescription = "Visualizza solo scadute")
+                    }
+                }
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddUser) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add User")
             }
-        }
+        },
     ) { paddingValues ->
         // Gestione degli stati
         when (uiState) {
@@ -81,18 +89,6 @@ fun UserListScreen(
                             .fillMaxWidth()
                             .padding(8.dp)
                     )
-
-                    // CHECKBOX FILTRO "SOLO SCADUTE"
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = onlyExpired,
-                            onCheckedChange = { onlyExpired = it }
-                        )
-                        Text(text = "Mostra solo schede scadute")
-                    }
 
                     // LISTA UTENTI FILTRATA
                     val filteredUsers = allUsers.filter { user ->
