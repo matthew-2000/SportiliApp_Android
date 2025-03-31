@@ -67,6 +67,7 @@ fun AdminNavGraph(navController: NavHostController) {
                                     gymAdminViewModel.updateUser(user) { result ->
                                         if (result.isSuccess) {
                                             navController.navigate(Screen.EditWorkoutCard.createRoute(user.code))
+                                            navController.popBackStack()
                                         }
                                     }
                                 },
@@ -105,6 +106,7 @@ fun AdminNavGraph(navController: NavHostController) {
                         },
                         onSave = { updatedScheda ->
                             workoutCardViewModel.updateWorkoutCard(userCode, updatedScheda)
+                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -132,6 +134,7 @@ fun AdminNavGraph(navController: NavHostController) {
                         },
                         onSave = { updatedDay ->
                             dayViewModel.updateDay(userCode, dayKey, updatedDay)
+                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
@@ -157,6 +160,7 @@ fun AdminNavGraph(navController: NavHostController) {
                         group = state.group,
                         onSave = { updatedGroup ->
                             muscleGroupViewModel.updateMuscleGroup(userCode, dayKey, groupKey, updatedGroup)
+                            navController.popBackStack()
                         },
                         onCancel = { navController.popBackStack() }
                     )
