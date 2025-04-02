@@ -45,6 +45,14 @@ fun <T> MutableList<T>.swap(index1: Int, index2: Int) {
     this[index2] = tmp
 }
 
+/** Stato per ciascun esercizio all’interno del dialog (sia principale che extra) */
+data class ExerciseInputState(
+    var exerciseName: String = "",
+    var numeroSerie: Int = 3,
+    var numeroRipetizioni: Int = 10,
+    var customSerieText: String = ""
+)
+
 // ----------------- MAIN SCREEN -----------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,7 +170,7 @@ fun EditMuscleGroupScreen(
                         esercizioPredefinito = esercizioPredefinito,
                         isSelected = isAlreadySelected,
                         onClick = {
-                            // Apri la stessa dialog (stavolta per un esercizio predefinito)
+                            // Apri il dialog per aggiungere esercizi (con possibilità di più esercizi, inclusa selezione predefinita per extra)
                             predefinitoToAdd = esercizioPredefinito
                         }
                     )
@@ -201,10 +209,11 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Dialog Stepper (sia per predefinito che custom)
+    // Dialog Stepper per aggiungere esercizio (con possibilità di inserire extra esercizi)
     if (predefinitoToAdd != null) {
         AddEsercizioDialog(
             esercizioPredefinito = predefinitoToAdd!!,
+            predefiniti = predefinitiGruppo,
             onDismiss = { predefinitoToAdd = null },
             onEsercizioAdded = { esercizio ->
                 // Aggiungi a selectedExercises
@@ -277,7 +286,7 @@ fun SelectedExercisesSheet(
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f, fill = false)
+            modifier = Modifier.weight(1F, fill = false)
         ) {
             items(selectedExercises, key = { it.id }) { entry ->
                 ExerciseReorderableItem(
@@ -330,7 +339,7 @@ fun ExerciseReorderableItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = entry.exercise.name, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 Text(text = "Serie: ${entry.exercise.serie}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if(entry.exercise.riposo?.isNotBlank() == true) {
+                if (entry.exercise.riposo?.isNotBlank() == true) {
                     Text(text = "Riposo: ${entry.exercise.riposo}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -349,94 +358,82 @@ fun ExerciseReorderableItem(
     }
 }
 
-// ------------------ ADD / EDIT EXERCISE DIALOG (con superset) ------------------
-// ------------------ ADD / EDIT EXERCISE DIALOG (con Superserie e UI migliorata) ------------------
+// ------------------ ADD / EDIT EXERCISE DIALOG CON MULTIPLE ESERCIZI ------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEsercizioDialog(
     esercizioPredefinito: EsercizioPredefinito,
+    predefiniti: List<EsercizioPredefinito> = emptyList(),
     onDismiss: () -> Unit,
     onEsercizioAdded: (Esercizio) -> Unit
 ) {
-    // Stato del bottom sheet
     val bottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
 
-    // Name can be empty if custom
-    var exerciseName by remember { mutableStateOf(esercizioPredefinito.nome) }
+    // Stati per l'esercizio principale
+    var mainExerciseName by remember { mutableStateOf(esercizioPredefinito.nome) }
+    var mainSerie by remember { mutableStateOf(3) }
+    var mainRipetizioni by remember { mutableStateOf(10) }
+    var mainCustomSerie by remember { mutableStateOf("") }
 
-    // --- Stati primo esercizio ---
-    var numeroSerie by remember { mutableStateOf(3) }
-    var numeroRipetizioni by remember { mutableStateOf(10) }
-    var customSerieText by remember { mutableStateOf("") }
+    // Lista di esercizi extra (opzionali)
+    val extraExercises = remember { mutableStateListOf<ExerciseInputState>() }
 
-    // --- Stati per superserie ---
-    var enableSuperserie by remember { mutableStateOf(false) }
-
-    var exerciseName2 by remember { mutableStateOf("") }
-    var numeroSerie2 by remember { mutableStateOf(3) }
-    var numeroRipetizioni2 by remember { mutableStateOf(10) }
-    var customSerieText2 by remember { mutableStateOf("") }
-
-    // Altre info
+    // Stati per il riposo
     var includeRiposo by remember { mutableStateOf(false) }
     var minutiRiposo by remember { mutableStateOf(1) }
     var secondiRiposo by remember { mutableStateOf(0) }
 
     var notePT by remember { mutableStateOf("") }
 
+    // Stato per selezionare un esercizio predefinito per un extra (salva l'indice dell'entry in editing)
+    var selectingPredefinedIndex by remember { mutableStateOf<Int?>(null) }
+    var extraPredefSearchText by remember { mutableStateOf("") }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState
     ) {
-        // Per scorrere se il contenuto è molto
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(16.dp)
         ) {
-            // Titolo in alto
-            val dialogTitle = exerciseName.ifBlank { "Aggiungi Esercizio Personalizzato" }
+            val dialogTitle = if (mainExerciseName.isNotBlank()) mainExerciseName else "Aggiungi Esercizio Personalizzato"
             Text(dialogTitle, style = MaterialTheme.typography.titleLarge)
-
             SectionDivider()
 
-            // ---- SEZIONE ESERCIZIO 1 ----
-            SectionTitle("Esercizio")
-
+            // ---- SEZIONE ESERCIZIO PRINCIPALE ----
+            SectionTitle("Esercizio Principale")
             OutlinedTextField(
-                value = exerciseName,
-                onValueChange = { exerciseName = it },
+                value = mainExerciseName,
+                onValueChange = { mainExerciseName = it },
                 label = { Text("Nome Esercizio") },
                 placeholder = { Text("Panca piana, Trazioni, etc.") },
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(modifier = Modifier.height(12.dp))
-
-            if (customSerieText.isEmpty()) {
+            if (mainCustomSerie.isEmpty()) {
                 Stepper(
-                    value = numeroSerie,
-                    onValueChange = { numeroSerie = it },
+                    value = mainSerie,
+                    onValueChange = { mainSerie = it },
                     range = 1..30,
                     label = "Serie"
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Stepper(
-                    value = numeroRipetizioni,
-                    onValueChange = { numeroRipetizioni = it },
+                    value = mainRipetizioni,
+                    onValueChange = { mainRipetizioni = it },
                     range = 1..50,
                     label = "Ripetizioni"
                 )
             }
-
             Spacer(modifier = Modifier.height(12.dp))
-
             OutlinedTextField(
-                value = customSerieText,
-                onValueChange = { customSerieText = it },
+                value = mainCustomSerie,
+                onValueChange = { mainCustomSerie = it },
                 label = { Text("Formato Serie (opzionale)") },
                 placeholder = { Text("Esempio: 4x8, 2 minuti, etc.") },
                 modifier = Modifier.fillMaxWidth()
@@ -444,54 +441,23 @@ fun AddEsercizioDialog(
 
             SectionDivider()
 
-            // ---- OPZIONE SUPERSERIE ----
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = enableSuperserie,
-                    onCheckedChange = { enableSuperserie = it }
+            // ---- SEZIONE ESERCIZI EXTRA (SUPERSERIE) ----
+            SectionTitle("Superserie")
+            extraExercises.forEachIndexed { index, exerciseState ->
+                ExtraExerciseCard(
+                    index = index,
+                    exerciseState = exerciseState,
+                    onUpdate = { updatedState -> extraExercises[index] = updatedState },
+                    onRemove = { extraExercises.removeAt(index) },
+                    onSelectPredefinito = { selectingPredefinedIndex = index }
                 )
-                Text("Abilita Superserie", style = MaterialTheme.typography.bodyLarge)
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            // ---- SEZIONE ESERCIZIO 2 (visibile solo se la Superserie è abilitata) ----
-            if (enableSuperserie) {
-                SectionTitle("Esercizio 2")
-
-                OutlinedTextField(
-                    value = exerciseName2,
-                    onValueChange = { exerciseName2 = it },
-                    label = { Text("Nome Esercizio 2") },
-                    placeholder = { Text("Croci, Trazioni inverse, etc.") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (customSerieText2.isEmpty()) {
-                    Stepper(
-                        value = numeroSerie2,
-                        onValueChange = { numeroSerie2 = it },
-                        range = 1..30,
-                        label = "Serie"
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Stepper(
-                        value = numeroRipetizioni2,
-                        onValueChange = { numeroRipetizioni2 = it },
-                        range = 1..50,
-                        label = "Ripetizioni"
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = customSerieText2,
-                    onValueChange = { customSerieText2 = it },
-                    label = { Text("Formato Serie 2 (opzionale)") },
-                    placeholder = { Text("Esempio: 4x8, 2 minuti, etc.") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Button(
+                onClick = { extraExercises.add(ExerciseInputState()) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Aggiungi esercizio extra")
             }
 
             SectionDivider()
@@ -504,7 +470,6 @@ fun AddEsercizioDialog(
                 )
                 Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
             }
-
             if (includeRiposo) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SectionTitle("Tempo di Riposo")
@@ -540,58 +505,28 @@ fun AddEsercizioDialog(
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(
                     onClick = {
-                        // Calcolo SERIE per il primo esercizio
-                        val firstSerie = if (customSerieText.isNotBlank()) {
-                            customSerieText
-                        } else {
-                            "$numeroSerie x $numeroRipetizioni"
+                        // Combina i dati dell'esercizio principale e degli extra
+                        val mainSerieString = if (mainCustomSerie.isNotBlank()) mainCustomSerie else "$mainSerie x $mainRipetizioni"
+                        val extraSerieStrings = extraExercises.map {
+                            if (it.customSerieText.isNotBlank()) it.customSerieText else "${it.numeroRipetizioni}"
                         }
-
-                        // Calcolo SERIE per il secondo esercizio (se superserie)
-                        val secondSerie = if (enableSuperserie) {
-                            if (customSerieText2.isNotBlank()) {
-                                customSerieText2
-                            } else {
-                                "$numeroSerie2 x $numeroRipetizioni2"
-                            }
-                        } else {
-                            ""
-                        }
-
-                        // Costruisci nome e serie finali
-                        val finalName = if (!enableSuperserie || exerciseName2.isBlank()) {
-                            // Caso normale, o superset disabilitata
-                            exerciseName.ifBlank { "Esercizio Personalizzato" }
-                        } else {
-                            // Caso superset: "Esercizio1 + Esercizio2"
-                            "${exerciseName.ifBlank { "Esercizio Personalizzato" }} + ${exerciseName2}"
-                        }
-
-                        val finalSerie = if (!enableSuperserie || secondSerie.isBlank()) {
-                            firstSerie
-                        } else {
-                            "$firstSerie + $secondSerie"
-                        }
-
-                        // Calcolo riposo (se incluso)
+                        val finalSerie = listOf(mainSerieString)
+                            .plus(extraSerieStrings)
+                            .joinToString(" + ")
+                        val finalName = listOf(if (mainExerciseName.isNotBlank()) mainExerciseName else "Esercizio Personalizzato")
+                            .plus(extraExercises.map { if (it.exerciseName.isNotBlank()) it.exerciseName else "Esercizio" })
+                            .joinToString(" + ")
                         val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
                             ""
                         } else {
-                            if (secondiRiposo < 10) {
-                                "${minutiRiposo}'0${secondiRiposo}\""
-                            } else {
-                                "${minutiRiposo}'${secondiRiposo}\""
-                            }
+                            if (secondiRiposo < 10) "${minutiRiposo}'0${secondiRiposo}\"" else "${minutiRiposo}'${secondiRiposo}\""
                         }
-
-                        // Crea l'oggetto Esercizio
                         val nuovoEsercizio = Esercizio(
                             name = finalName,
                             serie = finalSerie,
                             riposo = riposoString,
                             notePT = notePT
                         )
-
                         onEsercizioAdded(nuovoEsercizio)
                     },
                     modifier = Modifier.weight(1f)
@@ -599,6 +534,114 @@ fun AddEsercizioDialog(
                     Text("Aggiungi")
                 }
             }
+        }
+    }
+
+    // Dialog per selezionare un esercizio predefinito per un extra
+    if (selectingPredefinedIndex != null) {
+        AlertDialog(
+            onDismissRequest = {
+                selectingPredefinedIndex = null
+                extraPredefSearchText = ""
+            },
+            title = { Text("Seleziona Esercizio Predefinito") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = extraPredefSearchText,
+                        onValueChange = { extraPredefSearchText = it },
+                        label = { Text("Cerca esercizio...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val filtered = predefiniti.filter { it.nome.contains(extraPredefSearchText, ignoreCase = true) }
+                    LazyColumn {
+                        items(filtered) { esercizioPredef ->
+                            Text(
+                                text = esercizioPredef.nome,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        selectingPredefinedIndex?.let { idx ->
+                                            val current = extraExercises[idx]
+                                            extraExercises[idx] = current.copy(exerciseName = esercizioPredef.nome)
+                                        }
+                                        selectingPredefinedIndex = null
+                                        extraPredefSearchText = ""
+                                    }
+                                    .padding(8.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = {
+                    selectingPredefinedIndex = null
+                    extraPredefSearchText = ""
+                }) {
+                    Text("Annulla")
+                }
+            }
+        )
+    }
+}
+
+// ------------------- EXTRA EXERCISE CARD (per esercizi extra nel dialog) ------------------- //
+@Composable
+fun ExtraExerciseCard(
+    index: Int,
+    exerciseState: ExerciseInputState,
+    onUpdate: (ExerciseInputState) -> Unit,
+    onRemove: () -> Unit,
+    onSelectPredefinito: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Esercizio Extra ${index + 1}", style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.Delete, contentDescription = "Rimuovi")
+                }
+            }
+            OutlinedTextField(
+                value = exerciseState.exerciseName,
+                onValueChange = { newName -> onUpdate(exerciseState.copy(exerciseName = newName)) },
+                label = { Text("Nome Esercizio") },
+                placeholder = { Text("Esempio: Trazioni") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            TextButton(onClick = onSelectPredefinito) {
+                Text("Seleziona da predefiniti")
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            if (exerciseState.customSerieText.isEmpty()) {
+                Stepper(
+                    value = exerciseState.numeroRipetizioni,
+                    onValueChange = { newVal -> onUpdate(exerciseState.copy(numeroRipetizioni = newVal)) },
+                    range = 1..50,
+                    label = "Ripetizioni"
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = exerciseState.customSerieText,
+                onValueChange = { newVal -> onUpdate(exerciseState.copy(customSerieText = newVal)) },
+                label = { Text("Formato Serie (opzionale)") },
+                placeholder = { Text("Esempio: 10") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -619,7 +662,6 @@ fun SectionTitle(text: String) {
 }
 
 // ------------------- STEPPER COMPOSABLE ------------------- //
-
 @Composable
 fun Stepper(
     value: Int,
@@ -635,9 +677,7 @@ fun Stepper(
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyLarge)
-
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Decrement
             IconButton(onClick = {
                 if (value - step >= range.first) {
                     onValueChange(value - step)
@@ -652,7 +692,6 @@ fun Stepper(
                 text = value.toString(),
                 style = MaterialTheme.typography.bodyLarge
             )
-            // Increment
             IconButton(onClick = {
                 if (value + step <= range.last) {
                     onValueChange(value + step)
