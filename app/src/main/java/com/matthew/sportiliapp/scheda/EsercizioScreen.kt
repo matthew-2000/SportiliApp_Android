@@ -259,7 +259,7 @@ fun EsercizioScreen(
                                     }
                                 },
                                 dismissButton = {
-                                    Button(onClick = { showingAlertState.value = false }) {
+                                    OutlinedButton(onClick = { showingAlertState.value = false }) {
                                         Text("Annulla")
                                     }
                                 }

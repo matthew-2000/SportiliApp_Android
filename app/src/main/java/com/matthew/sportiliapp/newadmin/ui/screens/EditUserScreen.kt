@@ -63,13 +63,13 @@ fun EditUserScreen(
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     showRemoveDialog = false
                     onRemove?.invoke()
-                }) { Text("Conferma") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Conferma") }
             },
             dismissButton = {
-                TextButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
             },
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere l'utente?") },
@@ -111,7 +111,7 @@ fun EditUserScreen(
             }
 
             // Pulsante per mostrare/nascondere la sezione di modifica
-            Button(
+            OutlinedButton(
                 onClick = { showEditFields = !showEditFields },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -206,7 +206,7 @@ fun EditUserScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = "Durata: ${initialUser.scheda!!.durata} giorni",
+                            text = "Durata: ${initialUser.scheda!!.durata} settimane",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

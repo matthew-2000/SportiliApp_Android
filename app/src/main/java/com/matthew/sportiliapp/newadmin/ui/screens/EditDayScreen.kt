@@ -64,7 +64,6 @@ fun EditDayScreen(
             gruppiMuscolari = LinkedHashMap(groupsList.toMap())
         )
         onSave(updatedDay)
-        onCancel()
     }
 
     Scaffold(
@@ -174,7 +173,7 @@ fun EditDayScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     // Crea una lista di GruppoMuscolare per quelli selezionati
                     val gruppiMuscolariSelezionati = selectedGruppi.filter { it.value }
                         .map { GruppoMuscolare(it.key) }
@@ -186,7 +185,7 @@ fun EditDayScreen(
                 }) { Text("Aggiungi") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddGroupDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showAddGroupDialog = false }) { Text("Annulla") }
             },
             shape = RoundedCornerShape(8.dp)
         )
@@ -210,13 +209,13 @@ fun MuscleGroupItem(
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo gruppo?") },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     showRemoveDialog = false
                     onRemove()
-                }) { Text("Conferma") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Conferma") }
             },
             dismissButton = {
-                TextButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
             },
             shape = RoundedCornerShape(8.dp)
         )

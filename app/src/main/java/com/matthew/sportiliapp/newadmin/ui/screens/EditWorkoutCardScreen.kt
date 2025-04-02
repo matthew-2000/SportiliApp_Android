@@ -50,7 +50,6 @@ fun EditWorkoutCardScreen(
             giorni = LinkedHashMap(daysList.toMap())
         )
         onSave(updatedScheda)
-        onCancel()
     }
 
     // DatePickerDialog per selezionare la data
@@ -182,7 +181,7 @@ fun EditWorkoutCardScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
+                    Button(onClick = {
                         val newKey = "giorno${(daysList.size + 1)}"
                         daysList.add(newKey to Giorno(newDayName))
                         newDayName = ""
@@ -190,7 +189,7 @@ fun EditWorkoutCardScreen(
                     }) { Text("Aggiungi") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showAddDayDialog = false }) { Text("Annulla") }
+                    OutlinedButton(onClick = { showAddDayDialog = false }) { Text("Annulla") }
                 },
                 shape = RoundedCornerShape(8.dp)
             )
@@ -229,13 +228,13 @@ fun DayItem(
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo giorno?") },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     showRemoveDialog = false
                     onRemove()
-                }) { Text("Conferma") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Conferma") }
             },
             dismissButton = {
-                TextButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
             },
             shape = RoundedCornerShape(8.dp)
         )
