@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,7 +46,7 @@ fun <T> MutableList<T>.swap(index1: Int, index2: Int) {
     this[index2] = tmp
 }
 
-/** Stato per ciascun esercizio all’interno del dialog (sia principale che extra) */
+/** Stato per ciascun esercizio extra nel dialog (sia in aggiunta che in editing) */
 data class ExerciseInputState(
     var exerciseName: String = "",
     var numeroSerie: Int = 3,
@@ -95,14 +96,15 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Dialog per aggiungere esercizio: se non null, indica l'EsercizioPredefinito (o custom) da inserire
-    var predefinitoToAdd by remember { mutableStateOf<EsercizioPredefinito?>(null) }
-
+    // Stato per aprire il dialog in modalità “aggiungi”
+    var exerciseDialogInitial by remember { mutableStateOf<Esercizio?>(null) }
+    // Stato per aprire il dialog in modalità “modifica”
+    var exerciseEntryInEdit by remember { mutableStateOf<ExerciseEntry?>(null) }
     // Stato per mostrare la sheet degli esercizi selezionati
     var showSelectedSheet by remember { mutableStateOf(false) }
 
     BackHandler {
-        // Salva l'ordine al back press
+        // Al back, salva l'ordine
         val exercisesMap = linkedMapOf<String, Esercizio>()
         selectedExercises.forEachIndexed { index, entry ->
             exercisesMap["esercizio${index + 1}"] = entry.exercise
@@ -122,10 +124,12 @@ fun EditMuscleGroupScreen(
                     }
                     // Pulsante per aggiungere un nuovo esercizio
                     IconButton(onClick = {
-                        predefinitoToAdd = EsercizioPredefinito(
-                            id = "Custom",
-                            nome = "",
-                            imageurl = ""
+                        // Passa null per indicare “aggiungi nuovo”
+                        exerciseDialogInitial = Esercizio(
+                            name = "",
+                            serie = "",
+                            riposo = null,
+                            notePT = ""
                         )
                     }) {
                         Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
@@ -163,14 +167,19 @@ fun EditMuscleGroupScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredExercises) { esercizioPredefinito ->
-                    // Verifichiamo se è già nella lista selezionata
+                    // Verifica se già selezionato
                     val isAlreadySelected = selectedExercises.any { it.exercise.name.contains(esercizioPredefinito.nome) }
                     PredefinedExerciseCard(
                         esercizioPredefinito = esercizioPredefinito,
                         isSelected = isAlreadySelected,
                         onClick = {
-                            // Apri il dialog per aggiungere esercizi
-                            predefinitoToAdd = esercizioPredefinito
+                            // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
+                            exerciseDialogInitial = Esercizio(
+                                name = esercizioPredefinito.nome, // Usa il nome del predefinito
+                                serie = "",
+                                riposo = null,
+                                notePT = ""
+                            )
                         }
                     )
                 }
@@ -178,7 +187,7 @@ fun EditMuscleGroupScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Pulsanti di Annulla/Avanti
+            // Pulsanti Annulla / Visualizza
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -200,20 +209,35 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Dialog per aggiungere esercizio (con possibilità di extra)
-    if (predefinitoToAdd != null) {
-        AddEsercizioDialog(
-            esercizioPredefinito = predefinitoToAdd!!,
-            predefiniti = predefinitiGruppo,
-            onDismiss = { predefinitoToAdd = null },
-            onEsercizioAdded = { esercizio ->
-                selectedExercises.add(ExerciseEntry(exercise = esercizio))
-                predefinitoToAdd = null
-            }
+    // Dialog per Aggiungere un nuovo esercizio o modificare uno esistente
+    if (exerciseDialogInitial != null || exerciseEntryInEdit != null) {
+        // Se in editing, recupera i dati dall'entry; altrimenti, usa quelli passati in aggiunta
+        val initialExercise = exerciseEntryInEdit?.exercise ?: exerciseDialogInitial!!
+        EsercizioDialog(
+            initialExercise = initialExercise,
+            onDismiss = {
+                exerciseDialogInitial = null
+                exerciseEntryInEdit = null
+            },
+            onConfirm = { updatedExercise ->
+                if (exerciseEntryInEdit != null) {
+                    // Aggiorna la voce in editing
+                    val index = selectedExercises.indexOfFirst { it.id == exerciseEntryInEdit!!.id }
+                    if (index != -1) {
+                        selectedExercises[index] = selectedExercises[index].copy(exercise = updatedExercise)
+                    }
+                    exerciseEntryInEdit = null
+                } else {
+                    // Aggiungi nuova voce
+                    selectedExercises.add(ExerciseEntry(exercise = updatedExercise))
+                    exerciseDialogInitial = null
+                }
+            },
+            predefiniti = predefinitiGruppo
         )
     }
 
-    // Bottom sheet con la lista degli esercizi selezionati: ora ha due pulsanti (Annulla e Salva)
+    // Bottom sheet per visualizzare gli esercizi aggiunti, con possibilità di editing via click
     if (showSelectedSheet) {
         ModalBottomSheet(
             onDismissRequest = { showSelectedSheet = false },
@@ -223,14 +247,16 @@ fun EditMuscleGroupScreen(
                 selectedExercises = selectedExercises,
                 onClose = { showSelectedSheet = false },
                 onSave = {
-                    // Salva l'ordine e torna indietro
                     val exercisesMap = linkedMapOf<String, Esercizio>()
                     selectedExercises.forEachIndexed { index, entry ->
                         exercisesMap["esercizio${index + 1}"] = entry.exercise
                     }
                     val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
                     onSave(updatedGroup)
-                    onCancel()
+                },
+                onEdit = { entry ->
+                    // Quando si clicca su un item, apri il dialog in modalità editing
+                    exerciseEntryInEdit = entry
                 }
             )
         }
@@ -272,7 +298,8 @@ fun PredefinedExerciseCard(
 fun SelectedExercisesSheet(
     selectedExercises: MutableList<ExerciseEntry>,
     onClose: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onEdit: (ExerciseEntry) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -281,7 +308,6 @@ fun SelectedExercisesSheet(
     ) {
         Text("Esercizi Aggiunti", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(12.dp))
-
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.weight(1F, fill = false)
@@ -289,6 +315,7 @@ fun SelectedExercisesSheet(
             items(selectedExercises, key = { it.id }) { entry ->
                 ExerciseReorderableItem(
                     entry = entry,
+                    onItemClick = { onEdit(entry) },
                     onMoveUp = {
                         val currentIndex = selectedExercises.indexOf(entry)
                         if (currentIndex > 0) {
@@ -301,16 +328,11 @@ fun SelectedExercisesSheet(
                             selectedExercises.swap(currentIndex, currentIndex + 1)
                         }
                     },
-                    onRemove = {
-                        selectedExercises.remove(entry)
-                    }
+                    onRemove = { selectedExercises.remove(entry) }
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Row con due pulsanti: Annulla e Salva
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -335,11 +357,17 @@ fun SelectedExercisesSheet(
 @Composable
 fun ExerciseReorderableItem(
     entry: ExerciseEntry,
+    onItemClick: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit
 ) {
-    Card {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onItemClick() }
+            .padding(4.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -369,40 +397,65 @@ fun ExerciseReorderableItem(
     }
 }
 
-// ------------------ ADD / EDIT EXERCISE DIALOG CON MULTIPLE ESERCIZI ------------------
+// ------------------- DIALOG PER AGGIUNGERE/EDITARE UN ESERCIZIO -------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddEsercizioDialog(
-    esercizioPredefinito: EsercizioPredefinito,
-    predefiniti: List<EsercizioPredefinito> = emptyList(),
+fun EsercizioDialog(
+    initialExercise: Esercizio,
     onDismiss: () -> Unit,
-    onEsercizioAdded: (Esercizio) -> Unit
+    onConfirm: (Esercizio) -> Unit,
+    predefiniti: List<EsercizioPredefinito>,
 ) {
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Se l'esercizio è in editing, proviamo a precompilare i campi
+    // Per il main usiamo la prima parte del nome e della serie (se nel formato "x + y + ...")
+    val nameParts = initialExercise.name.split(" + ").map { it.trim() }
+    val serieParts = initialExercise.serie.split(" + ").map { it.trim() }
 
-    // Stati per l'esercizio principale
-    var mainExerciseName by remember { mutableStateOf(esercizioPredefinito.nome) }
+    var mainExerciseName by remember { mutableStateOf(if (nameParts.isNotEmpty()) nameParts[0] else "") }
     var mainSerie by remember { mutableStateOf(3) }
     var mainRipetizioni by remember { mutableStateOf(10) }
     var mainCustomSerie by remember { mutableStateOf("") }
 
-    // Lista di esercizi extra (opzionali)
-    val extraExercises = remember { mutableStateListOf<ExerciseInputState>() }
+    // Se la prima parte della serie è nel formato "n x m" allora la parsiamo
+    if (serieParts.isNotEmpty() && serieParts[0].contains("x")) {
+        val parts = serieParts[0].split("x").map { it.trim() }
+        mainSerie = parts.getOrNull(0)?.toIntOrNull() ?: 3
+        mainRipetizioni = parts.getOrNull(1)?.toIntOrNull() ?: 10
+    } else if (serieParts.isNotEmpty() && serieParts[0].isNotEmpty()){
+        mainCustomSerie = serieParts[0]
+    }
 
-    // Stati per il riposo
-    var includeRiposo by remember { mutableStateOf(false) }
-    var minutiRiposo by remember { mutableStateOf(1) }
-    var secondiRiposo by remember { mutableStateOf(0) }
+    // Precompiliamo la lista degli extra (se esistono)
+    val extraExercisesInitial = remember { mutableStateListOf<ExerciseInputState>() }
+    if (nameParts.size > 1 && serieParts.size > 1) {
+        // Per ogni extra, la posizione corrisponde
+        for (i in 1 until minOf(nameParts.size, serieParts.size)) {
+            extraExercisesInitial.add(
+                ExerciseInputState(
+                    exerciseName = nameParts[i],
+                    customSerieText = serieParts[i]
+                )
+            )
+        }
+    }
 
-    var notePT by remember { mutableStateOf("") }
+    // Riposo: se presente, proviamo a parsarlo nel formato m'ss" (semplice parsing)
+    var includeRiposo by remember { mutableStateOf(initialExercise.riposo?.isNotBlank() == true) }
+    var minutiRiposo by remember { mutableStateOf( if (includeRiposo) initialExercise.riposo?.substringBefore("'")?.toIntOrNull() ?: 1 else 1) }
+    var secondiRiposo by remember { mutableStateOf( if (includeRiposo) initialExercise.riposo?.substringAfter("'")?.substringBefore("\"")?.toIntOrNull() ?: 0 else 0) }
 
-    // Stato per selezionare un esercizio predefinito per un extra (salva l'indice in editing)
+    // Note (opzionale)
+    var notePT by remember { mutableStateOf(initialExercise.notePT) }
+
+    // Stati per esercizi extra (superserie)
+    val extraExercises = remember { extraExercisesInitial.toMutableStateList() }
+    // Stato per selezionare un esercizio predefinito per un extra
     var selectingPredefinedIndex by remember { mutableStateOf<Int?>(null) }
     var extraPredefSearchText by remember { mutableStateOf("") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = bottomSheetState
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         Column(
             modifier = Modifier
@@ -410,7 +463,7 @@ fun AddEsercizioDialog(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            val dialogTitle = if (mainExerciseName.isNotBlank()) mainExerciseName else "Aggiungi Esercizio Personalizzato"
+            val dialogTitle = if (mainExerciseName.isNotBlank()) mainExerciseName else "Esercizio Personalizzato"
             Text(dialogTitle, style = MaterialTheme.typography.titleLarge)
             SectionDivider()
 
@@ -535,11 +588,11 @@ fun AddEsercizioDialog(
                             riposo = riposoString,
                             notePT = notePT
                         )
-                        onEsercizioAdded(nuovoEsercizio)
+                        onConfirm(nuovoEsercizio)
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Aggiungi")
+                    Text("Salva")
                 }
             }
         }
@@ -596,7 +649,7 @@ fun AddEsercizioDialog(
     }
 }
 
-// ------------------- EXTRA EXERCISE CARD (per esercizi extra nel dialog) ------------------- //
+// ------------------- EXTRA EXERCISE CARD ------------------- //
 @Composable
 fun ExtraExerciseCard(
     index: Int,
@@ -642,21 +695,12 @@ fun ExtraExerciseCard(
                     label = "Ripetizioni"
                 )
             }
-            /**
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedTextField(
-                value = exerciseState.customSerieText,
-                onValueChange = { newVal -> onUpdate(exerciseState.copy(customSerieText = newVal)) },
-                label = { Text("Formato Serie (opzionale)") },
-                placeholder = { Text("Esempio: 10") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            **/
+            /** Se necessario, può essere riattivato un campo per customizzare il formato delle serie extra **/
         }
     }
 }
 
-/** Divider con un po' di spazio verticale */
+/** Divider con spazio verticale */
 @Composable
 fun SectionDivider() {
     Spacer(modifier = Modifier.height(16.dp))
@@ -664,7 +708,7 @@ fun SectionDivider() {
     Spacer(modifier = Modifier.height(16.dp))
 }
 
-/** Titolo di sezione personalizzato */
+/** Titolo di sezione */
 @Composable
 fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium)
@@ -680,7 +724,6 @@ fun Stepper(
     label: String
 ) {
     val step = range.step
-
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -689,9 +732,7 @@ fun Stepper(
         Text(text = label, style = MaterialTheme.typography.bodyLarge)
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
-                if (value - step >= range.first) {
-                    onValueChange(value - step)
-                }
+                if (value - step >= range.first) onValueChange(value - step)
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
@@ -703,9 +744,7 @@ fun Stepper(
                 style = MaterialTheme.typography.bodyLarge
             )
             IconButton(onClick = {
-                if (value + step <= range.last) {
-                    onValueChange(value + step)
-                }
+                if (value + step <= range.last) onValueChange(value + step)
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
