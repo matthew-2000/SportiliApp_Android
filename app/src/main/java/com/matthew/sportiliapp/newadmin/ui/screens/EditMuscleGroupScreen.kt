@@ -687,15 +687,22 @@ fun ExtraExerciseCard(
                 Text("Seleziona da predefiniti")
             }
             Spacer(modifier = Modifier.height(4.dp))
-            if (exerciseState.customSerieText.isEmpty()) {
+            if (exerciseState.customSerieText.isBlank()) {
                 Stepper(
                     value = exerciseState.numeroRipetizioni,
                     onValueChange = { newVal -> onUpdate(exerciseState.copy(numeroRipetizioni = newVal)) },
                     range = 1..50,
                     label = "Ripetizioni"
                 )
+                Spacer(modifier = Modifier.height(4.dp))
             }
-            /** Se necessario, può essere riattivato un campo per customizzare il formato delle serie extra **/
+            OutlinedTextField(
+                value = exerciseState.customSerieText,
+                onValueChange = { newText -> onUpdate(exerciseState.copy(customSerieText = newText)) },
+                label = { Text("Ripetizioni (testo)") },
+                placeholder = { Text("Esempio: 3x10, 4 serie da 8, ecc.") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

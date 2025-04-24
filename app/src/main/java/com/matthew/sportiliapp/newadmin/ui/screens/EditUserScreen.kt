@@ -151,9 +151,8 @@ fun EditUserScreen(
                     Button(
                         onClick = {
                             // Logica di salvataggio
-                            val name = nome.filter { !it.isWhitespace() }
-                            val surname = cognome.filter { !it.isWhitespace() }
-
+                            val name = nome.filter { it.isLetter() }
+                            val surname = cognome.filter { it.isLetter() }
                             // Generiamo (o recuperiamo) un code
                             val userCode = initialUser?.code
                                 ?: ((name.take(3) + surname.take(3)).lowercase() + (0..999).random())
