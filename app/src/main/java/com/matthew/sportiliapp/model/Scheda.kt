@@ -65,6 +65,34 @@ data class Scheda(
         return currentDate < endDate
     }
 
+    fun getSettimaneMancanti(): Int {
+        // Definisci il formato della data che ricevi
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+
+        // Prova a parsare la stringa `dataInizio` in un oggetto Date
+        val startDate: Date = try {
+            dateFormat.parse(dataInizio) ?: return 0
+        } catch (e: Exception) {
+            return 0  // Se la parsing fallisce, restituisce 0
+        }
+
+        // Ottieni l'istanza del calendario e imposta la data di inizio
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+
+        // Aggiungi la durata (in settimane) alla data di inizio per ottenere la data di fine
+        calendar.add(Calendar.WEEK_OF_YEAR, durata)
+
+        // Ottieni la data di fine della scheda
+        val endDate = calendar.time
+        // Ottieni la data corrente
+        val currentDate = Date()
+
+        // Calcola il numero di settimane rimanenti
+        val diffInMillis = endDate.time - currentDate.time
+        return (diffInMillis / (1000 * 60 * 60 * 24 * 7)).toInt()
+    }
+
     override fun toString(): String {
         return "Scheda(dataInizio='$dataInizio', durata=$durata, giorni=$giorni)"
     }

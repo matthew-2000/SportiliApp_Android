@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -95,11 +96,6 @@ fun SchedaScreen(navController: NavHostController) {
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Divider(
-                                color = Color.LightGray,
-                                thickness = 1.dp,
-                                modifier = Modifier.padding(vertical = 16.dp)
-                            )
                         }
 
                         if (!scheda!!.isSchedaValida()) {
@@ -111,6 +107,25 @@ fun SchedaScreen(navController: NavHostController) {
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                        }
+
+                        if (scheda!!.getSettimaneMancanti() < 2 && scheda!!.isSchedaValida()) {
+                            item {
+                                Text(
+                                    "${scheda!!.getSettimaneMancanti()} settimane rimanenti",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        item {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 16.dp),
+                                thickness = 1.dp,
+                                color = Color.LightGray
+                            )
                         }
 
                         items(scheda!!.giorni.entries.toList()) { (key, giorno) ->

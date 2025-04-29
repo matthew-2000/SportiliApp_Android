@@ -168,18 +168,20 @@ fun EditMuscleGroupScreen(
             ) {
                 items(filteredExercises) { esercizioPredefinito ->
                     // Verifica se già selezionato
-                    val isAlreadySelected = selectedExercises.any { it.exercise.name.contains(esercizioPredefinito.nome) }
+                    val isAlreadySelected = selectedExercises.any { it.exercise.name.trim() == esercizioPredefinito.nome.trim() }
                     PredefinedExerciseCard(
                         esercizioPredefinito = esercizioPredefinito,
                         isSelected = isAlreadySelected,
                         onClick = {
-                            // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
-                            exerciseDialogInitial = Esercizio(
-                                name = esercizioPredefinito.nome, // Usa il nome del predefinito
-                                serie = "",
-                                riposo = null,
-                                notePT = ""
-                            )
+                            if (!isAlreadySelected) {
+                                // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
+                                exerciseDialogInitial = Esercizio(
+                                    name = esercizioPredefinito.nome, // Usa il nome del predefinito
+                                    serie = "",
+                                    riposo = null,
+                                    notePT = ""
+                                )
+                            }
                         }
                     )
                 }
