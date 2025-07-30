@@ -1,5 +1,5 @@
 [versions]
-agp = "8.5.0"
+agp = "8.9.2"
 coilCompose = "2.0.0-rc01"
 composeBomVersion = "2025.03.00"
 dagger = "2.46.1"

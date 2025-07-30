@@ -168,20 +168,18 @@ fun EditMuscleGroupScreen(
             ) {
                 items(filteredExercises) { esercizioPredefinito ->
                     // Verifica se già selezionato
-                    val isAlreadySelected = selectedExercises.any { it.exercise.name.trim() == esercizioPredefinito.nome.trim() }
+                    val isAlreadySelected = selectedExercises.any { it.exercise.name.contains(esercizioPredefinito.nome) }
                     PredefinedExerciseCard(
                         esercizioPredefinito = esercizioPredefinito,
                         isSelected = isAlreadySelected,
                         onClick = {
-                            if (!isAlreadySelected) {
-                                // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
-                                exerciseDialogInitial = Esercizio(
-                                    name = esercizioPredefinito.nome, // Usa il nome del predefinito
-                                    serie = "",
-                                    riposo = null,
-                                    notePT = ""
-                                )
-                            }
+                            // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
+                            exerciseDialogInitial = Esercizio(
+                                name = esercizioPredefinito.nome, // Usa il nome del predefinito
+                                serie = "",
+                                riposo = null,
+                                notePT = ""
+                            )
                         }
                     )
                 }
@@ -410,35 +408,22 @@ fun EsercizioDialog(
 ) {
     // Se l'esercizio è in editing, proviamo a precompilare i campi
     // Per il main usiamo la prima parte del nome e della serie (se nel formato "x + y + ...")
+    val nameParts = initialExercise.name.split(" + ").map { it.trim() }
     val serieParts = initialExercise.serie.split(" + ").map { it.trim() }
 
-    val nameParts = remember(initialExercise.name) {
-        initialExercise.name.split(" + ").map { it.trim() }
+    var mainExerciseName by remember { mutableStateOf(if (nameParts.isNotEmpty()) nameParts[0] else "") }
+    var mainSerie by remember { mutableStateOf(3) }
+    var mainRipetizioni by remember { mutableStateOf(10) }
+    var mainCustomSerie by remember { mutableStateOf("") }
+
+    // Se la prima parte della serie è nel formato "n x m" allora la parsiamo
+    if (serieParts.isNotEmpty() && serieParts[0].contains("x")) {
+        val parts = serieParts[0].split("x").map { it.trim() }
+        mainSerie = parts.getOrNull(0)?.toIntOrNull() ?: 3
+        mainRipetizioni = parts.getOrNull(1)?.toIntOrNull() ?: 10
+    } else if (serieParts.isNotEmpty() && serieParts[0].isNotEmpty()){
+        mainCustomSerie = serieParts[0]
     }
-    var mainExerciseName by remember { mutableStateOf(nameParts.getOrNull(0) ?: "") }
-
-    val (mainSerieInit, mainRipetizioniInit, mainCustomSerieInit) = remember(initialExercise.serie) {
-        val serieParts = initialExercise.serie.split(" + ").map { it.trim() }
-        if (serieParts.isNotEmpty() && serieParts[0].contains("x")) {
-            val parts = serieParts[0].split("x").map { it.trim() }
-            val n = parts.getOrNull(0)?.toIntOrNull()
-            val m = parts.getOrNull(1)?.toIntOrNull()
-
-            if (n != null && m != null && n > 0 && m > 0) {
-                Triple(n, m, "")
-            } else {
-                Triple(3, 10, serieParts[0])
-            }
-        } else if (serieParts.isNotEmpty() && serieParts[0].isNotEmpty()) {
-            Triple(3, 10, serieParts[0])
-        } else {
-            Triple(3, 10, "")
-        }
-    }
-
-    var mainSerie by remember { mutableStateOf(mainSerieInit) }
-    var mainRipetizioni by remember { mutableStateOf(mainRipetizioniInit) }
-    var mainCustomSerie by remember { mutableStateOf(mainCustomSerieInit) }
 
     // Precompiliamo la lista degli extra (se esistono)
     val extraExercisesInitial = remember { mutableStateListOf<ExerciseInputState>() }
@@ -702,20 +687,9 @@ fun ExtraExerciseCard(
                 Text("Seleziona da predefiniti")
             }
             Spacer(modifier = Modifier.height(4.dp))
-            if (exerciseState.customSerieText.isBlank()) {
-                Stepper(
-                    value = exerciseState.numeroRipetizioni,
-                    onValueChange = { newVal -> onUpdate(exerciseState.copy(numeroRipetizioni = newVal)) },
-                    range = 1..50,
-                    label = "Ripetizioni"
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-            }
             OutlinedTextField(
                 value = exerciseState.customSerieText,
                 onValueChange = { newText -> onUpdate(exerciseState.copy(customSerieText = newText)) },
-                label = { Text("Ripetizioni (testo)") },
-                placeholder = { Text("Esempio: 3x10, 4 serie da 8, ecc.") },
                 modifier = Modifier.fillMaxWidth()
             )
         }
