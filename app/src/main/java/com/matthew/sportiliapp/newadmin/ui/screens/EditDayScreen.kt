@@ -39,10 +39,12 @@ fun EditDayScreen(
     var showAddGroupDialog by remember { mutableStateOf(false) }
 
     // Lista dei gruppi muscolari disponibili
+    // *** NOVITÀ: aggiunto "Circuito" ***
     val gruppiMuscolari = mutableListOf(
         "Addominali",
         "Bicipiti",
         "Cardio",
+        "Circuito",          // <--- nuovo gruppo speciale
         "Defaticamento",
         "Dorsali",
         "Gambe e Glutei",
@@ -51,12 +53,14 @@ fun EditDayScreen(
         "Riscaldamento",
         "Spalle",
         "Tricipiti",
-        )
+    )
 
     // Stato per mantenere traccia dei gruppi muscolari selezionati
-    val selectedGruppi = remember { mutableStateMapOf<String, Boolean>().apply {
-        gruppiMuscolari.forEach { put(it, false) }
-    }}
+    val selectedGruppi = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            gruppiMuscolari.forEach { put(it, false) }
+        }
+    }
 
     BackHandler {
         val updatedDay = day.copy(

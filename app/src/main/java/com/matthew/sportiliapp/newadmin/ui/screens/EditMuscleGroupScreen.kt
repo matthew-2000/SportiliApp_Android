@@ -74,13 +74,22 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    // Trova gli esercizi predefiniti associati a questo gruppo, se esistono
-    val predefinitiGruppo = remember(predefiniti) {
-        predefiniti.firstOrNull { it.nome == group.nome }?.esercizi ?: emptyList()
-    }
-
     // Stato: nome del gruppo
     var groupName by remember { mutableStateOf(group.nome) }
+
+    // *** NOVITÀ: se il gruppo è "Circuito", usa tutti gli esercizi da tutti i gruppi ***
+    // Altrimenti, usa solo quelli del gruppo selezionato come prima
+    val predefinitiGruppo = remember(predefiniti, groupName) {
+        val isCircuito = groupName.equals("Circuito", ignoreCase = true)
+        if (isCircuito) {
+            predefiniti
+                .flatMap { it.esercizi }
+                .distinctBy { it.nome } // evita duplicati di nome
+        } else {
+            predefiniti.firstOrNull { it.nome.equals(groupName, ignoreCase = true) }?.esercizi
+                ?: emptyList()
+        }
+    }
 
     // Stato: barra di ricerca
     var searchText by remember { mutableStateOf("") }
@@ -233,6 +242,7 @@ fun EditMuscleGroupScreen(
                     exerciseDialogInitial = null
                 }
             },
+            // *** Passiamo l'elenco determinato sopra: per "Circuito" conterrà tutti i predefiniti ***
             predefiniti = predefinitiGruppo
         )
     }
