@@ -1,10 +1,12 @@
 package com.matthew.sportiliapp.scheda
 import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,12 +102,78 @@ fun SchedaScreen(navController: NavHostController) {
 
                         if (!scheda!!.isSchedaValida()) {
                             item {
-                                Text(
-                                    "Scheda scaduta!",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 16.dp),
+                                    thickness = 1.dp,
+                                    color = Color.LightGray
                                 )
+                            }
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp)
+                                        .padding(horizontal = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "⚠️ Scheda scaduta!",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+
+                                    if (scheda!!.cambioRichiesto) {
+                                        Text(
+                                            text = "Hai già richiesto una nuova scheda. Attendi che il personal trainer la carichi.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center,
+                                            color = Color.Gray,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                        Button(
+                                            onClick = { /* disabilitato */ },
+                                            enabled = false,
+                                            modifier = Modifier.wrapContentWidth().height(40.dp)
+                                        ) {
+                                            Text(
+                                                text = "Richiesta inviata",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "Richiedi un aggiornamento al personal trainer.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center,
+                                            color = Color.Gray,
+                                            modifier = Modifier.padding(bottom = 16.dp)
+                                        )
+                                        Button(
+                                            onClick = {
+                                                viewModel.inviaRichiestaCambioScheda(
+                                                    onSuccess = {
+                                                        Toast.makeText(context, "Richiesta inviata!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    onError = { e ->
+                                                        Toast.makeText(context, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                )
+                                            },
+                                            modifier = Modifier.wrapContentWidth().height(40.dp)
+                                        ) {
+                                            Text(
+                                                text = "Richiedi nuova scheda",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 

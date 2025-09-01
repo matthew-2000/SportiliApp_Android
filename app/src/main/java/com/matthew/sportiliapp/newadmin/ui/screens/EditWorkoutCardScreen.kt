@@ -47,7 +47,7 @@ fun EditWorkoutCardScreen(
         val updatedScheda = scheda.copy(
             dataInizio = formatToSaveDate(startDate),
             durata = duration.toIntOrNull() ?: scheda.durata,
-            giorni = LinkedHashMap(daysList.toMap())
+            giorni = LinkedHashMap(daysList.toMap()),
         )
         onSave(updatedScheda)
     }
@@ -143,7 +143,8 @@ fun EditWorkoutCardScreen(
                             val updatedScheda = scheda.copy(
                                 dataInizio = formatToSaveDate(startDate),
                                 durata = duration.toIntOrNull() ?: scheda.durata,
-                                giorni = LinkedHashMap(daysList.toMap())
+                                giorni = LinkedHashMap(daysList.toMap()),
+                                cambioRichiesto = false // 👈 reset al salvataggio
                             )
                             onDaySelected(dayKey, giorno, updatedScheda)
                         }
@@ -161,7 +162,8 @@ fun EditWorkoutCardScreen(
                     val updatedScheda = scheda.copy(
                         dataInizio = formatToSaveDate(startDate),
                         durata = duration.toIntOrNull() ?: scheda.durata,
-                        giorni = LinkedHashMap(daysList.toMap())
+                        giorni = LinkedHashMap(daysList.toMap()),
+                        cambioRichiesto = false
                     )
                     onSave(updatedScheda)
                 }, modifier = Modifier.weight(1f)) { Text("Salva") }

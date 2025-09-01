@@ -7,7 +7,8 @@ import java.util.*
 data class Scheda(
     var dataInizio: String,
     var durata: Int,
-    var giorni: Map<String, Giorno> = mapOf() // Usa una mappa di GiornoFirebase
+    var giorni: Map<String, Giorno> = mapOf(),
+    var cambioRichiesto: Boolean = false // 👈 nuovo campo
 ) {
     fun toMap(): Map<String, Any> {
         val result: MutableMap<String, Any> = HashMap()
@@ -16,6 +17,7 @@ data class Scheda(
 
         // Convertendo la mappa `giorni` a una mappa di chiavi-valori per ogni `Giorno`.
         result["giorni"] = giorni.mapValues { entry -> entry.value.toMap() }
+        result["cambioRichiesto"] = cambioRichiesto // 👈 includilo anche qui
 
         return result
     }
@@ -24,8 +26,7 @@ data class Scheda(
         val dateFormatter: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
     }
 
-    constructor() : this("", 0, mapOf())
-
+    constructor() : this("", 0, mapOf(), false)
 
 
     fun sortAll() {

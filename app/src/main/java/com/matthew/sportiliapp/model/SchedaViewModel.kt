@@ -8,6 +8,7 @@ import com.google.firebase.database.*
 import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.lifecycle.ViewModelProvider
+import com.google.firebase.auth.FirebaseAuth
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
     private val _scheda = MutableLiveData<Scheda?>()
@@ -97,6 +98,25 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 }
         }
     }
+
+    fun inviaRichiestaCambioScheda(
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+        val savedCode = sharedPreferences.getString("code", "") ?: ""
+        if (savedCode.isEmpty()) {
+            onError(Exception("Codice utente non trovato"))
+            return
+        }
+
+        val db = FirebaseDatabase.getInstance().reference
+        db.child("users").child(savedCode).child("scheda").child("cambioRichiesto")
+            .setValue(true)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { e -> onError(e) }
+    }
+
 }
 
 
