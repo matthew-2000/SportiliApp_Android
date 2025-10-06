@@ -55,7 +55,7 @@ data class ExerciseInputState(
 )
 
 // ----------------- MAIN SCREEN -----------------
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun EditMuscleGroupScreen(
     userCode: String,
@@ -81,10 +81,34 @@ fun EditMuscleGroupScreen(
     // Altrimenti, usa solo quelli del gruppo selezionato come prima
     val predefinitiGruppo = remember(predefiniti, groupName) {
         val isCircuito = groupName.equals("Circuito", ignoreCase = true)
+
         if (isCircuito) {
+            // Ordine manuale dei gruppi
+            val groupOrder = listOf(
+                "Addominali",
+                "Gambe e Glutei",
+                "Pettorali",
+                "Spalle",
+                "Dorsali",
+                "Bicipiti",
+                "Tricipiti",
+                "Polpacci",
+                "Cardio"
+            )
+
             predefiniti
-                .flatMap { it.esercizi }
-                .distinctBy { it.nome } // evita duplicati di nome
+                // Ordina i gruppi in base all’ordine sopra
+                .sortedBy { group ->
+                    val index = groupOrder.indexOfFirst { it.equals(group.nome, ignoreCase = true) }
+                    if (index == -1) Int.MAX_VALUE else index // se non trovato, va in fondo
+                }
+                // Combina tutti gli esercizi in ordine
+                .flatMap { gruppo ->
+                    gruppo.esercizi.map { esercizio ->
+                        esercizio.copy(nome = "${gruppo.nome}: ${esercizio.nome}")
+                    }
+                }
+
         } else {
             predefiniti.firstOrNull { it.nome.equals(groupName, ignoreCase = true) }?.esercizi
                 ?: emptyList()
@@ -175,22 +199,79 @@ fun EditMuscleGroupScreen(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(filteredExercises) { esercizioPredefinito ->
-                    // Verifica se già selezionato
-                    val isAlreadySelected = selectedExercises.any { it.exercise.name.contains(esercizioPredefinito.nome) }
-                    PredefinedExerciseCard(
-                        esercizioPredefinito = esercizioPredefinito,
-                        isSelected = isAlreadySelected,
-                        onClick = {
-                            // Usa il dialog per aggiungere, inizializzando correttamente il nome dall'oggetto predefinito
-                            exerciseDialogInitial = Esercizio(
-                                name = esercizioPredefinito.nome, // Usa il nome del predefinito
-                                serie = "",
-                                riposo = null,
-                                notePT = ""
-                            )
-                        }
+                if (groupName.equals("Circuito", ignoreCase = true)) {
+                    val groupOrder = listOf(
+                        "Addominali",
+                        "Gambe e Glutei",
+                        "Pettorali",
+                        "Spalle",
+                        "Dorsali",
+                        "Bicipiti",
+                        "Tricipiti",
+                        "Polpacci",
+                        "Cardio"
                     )
+
+                    predefiniti
+                        .sortedBy { gruppo ->
+                            val index = groupOrder.indexOfFirst { it.equals(gruppo.nome, ignoreCase = true) }
+                            if (index == -1) Int.MAX_VALUE else index
+                        }
+                        .forEach { gruppo ->
+                            // Sticky header per ogni gruppo muscolare
+                            stickyHeader {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    tonalElevation = 4.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = gruppo.nome,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+
+                            // Lista degli esercizi del gruppo
+                            items(gruppo.esercizi) { esercizioPredefinito ->
+                                val isAlreadySelected = selectedExercises.any {
+                                    it.exercise.name.contains(esercizioPredefinito.nome, ignoreCase = true)
+                                }
+                                PredefinedExerciseCard(
+                                    esercizioPredefinito = esercizioPredefinito,
+                                    isSelected = isAlreadySelected,
+                                    onClick = {
+                                        exerciseDialogInitial = Esercizio(
+                                            name = esercizioPredefinito.nome,
+                                            serie = "",
+                                            riposo = null,
+                                            notePT = ""
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                } else {
+                    items(filteredExercises) { esercizioPredefinito ->
+                        val isAlreadySelected = selectedExercises.any {
+                            it.exercise.name.contains(esercizioPredefinito.nome, ignoreCase = true)
+                        }
+                        PredefinedExerciseCard(
+                            esercizioPredefinito = esercizioPredefinito,
+                            isSelected = isAlreadySelected,
+                            onClick = {
+                                exerciseDialogInitial = Esercizio(
+                                    name = esercizioPredefinito.nome,
+                                    serie = "",
+                                    riposo = null,
+                                    notePT = ""
+                                )
+                            }
+                        )
+                    }
                 }
             }
 

@@ -151,8 +151,8 @@ fun EditUserScreen(
                     Button(
                         onClick = {
                             // Logica di salvataggio
-                            val trimmedNome = nome.trim()
-                            val trimmedCognome = cognome.trim()
+                            val trimmedNome = nome.trim().lowercase().replaceFirstChar { it.uppercase() }
+                            val trimmedCognome = cognome.trim().lowercase().replaceFirstChar { it.uppercase() }
 
                             val name = trimmedNome.filter { it.isLetter() }
                             val surname = trimmedCognome.filter { it.isLetter() }

@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "com.matthew.sportiliapp"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.matthew.sportiliapp"
         minSdk = 27
-        targetSdk = 34
-        versionCode = 20
-        versionName = "1.2.2"
+        targetSdk = 35
+        versionCode = 22
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
