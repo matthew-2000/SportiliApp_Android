@@ -27,9 +27,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.matthew.sportiliapp.admin.AdminHomeScreen
-import com.matthew.sportiliapp.admin.UtenteNavHost
-import com.matthew.sportiliapp.admin.UtenteScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Utente
