@@ -9,6 +9,10 @@ import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.matthew.sportiliapp.model.WeightLogEntry
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
     private val _scheda = MutableLiveData<Scheda?>()
@@ -60,18 +64,27 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // Funzione per aggiornare le note utente di un esercizio
-    fun updateEsercizioNotes(
+    fun addWeightEntry(
         giornoId: String,
         gruppoMuscolareId: String,
         esercizioId: String,
-        noteUtente: String,
-        onSuccess: () -> Unit,
+        weight: Double,
+        onSuccess: (WeightLogEntry) -> Unit,
         onFailure: (String) -> Unit
     ) {
+        if (weight <= 0) {
+            onFailure("Il peso deve essere maggiore di zero")
+            return
+        }
+
         viewModelScope.launch {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
             val savedCode = sharedPreferences.getString("code", "") ?: ""
+            if (savedCode.isEmpty()) {
+                onFailure("Codice utente non trovato")
+                return@launch
+            }
+
             val database = FirebaseDatabase.getInstance()
 
             val esercizioRef = database.reference
@@ -85,16 +98,24 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 .child("esercizi")
                 .child(esercizioId)
 
-            val updates = hashMapOf<String, Any?>(
-                "noteUtente" to noteUtente
+            val timestamp = System.currentTimeMillis()
+            val entry = WeightLogEntry(weight = weight, timestamp = timestamp)
+            val entryData = hashMapOf<String, Any?>(
+                "weight" to weight,
+                "timestamp" to timestamp
             )
 
-            esercizioRef.updateChildren(updates)
+            val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
+            val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", weight)} kg - ${noteFormatter.format(Date(timestamp))}"
+
+            val weightLogRef = esercizioRef.child("weightLogs").push()
+            weightLogRef.setValue(entryData)
                 .addOnSuccessListener {
-                    onSuccess()  // Callback di successo
+                    esercizioRef.child("noteUtente").setValue(formattedNote)
+                    onSuccess(entry)
                 }
                 .addOnFailureListener { error ->
-                    onFailure(error.message ?: "Errore sconosciuto")  // Callback di fallimento
+                    onFailure(error.message ?: "Errore sconosciuto")
                 }
         }
     }
