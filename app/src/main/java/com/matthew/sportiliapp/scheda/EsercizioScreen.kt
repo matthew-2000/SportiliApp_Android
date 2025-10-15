@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -370,6 +371,7 @@ fun FullScreenImageDialog(imageUrl: String, onClose: () -> Unit) {
 fun WeightProgressChart(entries: List<WeightLogEntry>) {
     val colorPrimary = MaterialTheme.colorScheme.primary
     val colorOutline = MaterialTheme.colorScheme.outline
+    val colorText = MaterialTheme.colorScheme.onSurfaceVariant
 
     val plottedEntries = remember(entries) {
         entries.filter { it.weight != null && it.timestamp != null }
@@ -389,57 +391,63 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
     val minWeight = weights.minOrNull() ?: 0.0
     val maxWeight = weights.maxOrNull() ?: 0.0
     val weightRange = (maxWeight - minWeight).takeIf { it > 0.0 } ?: 1.0
-    val startDate = plottedEntries.first().timestamp ?: 0L
-    val endDate = plottedEntries.last().timestamp ?: 0L
     val dateFormatter = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        // Grafico
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
+                .height(220.dp)
         ) {
             val width = size.width
             val height = size.height
-            val horizontalPadding = 48f
+            val horizontalPadding = 64f
             val verticalPadding = 32f
             val usableWidth = width - horizontalPadding * 2
             val usableHeight = height - verticalPadding * 2
             val stepX = if (plottedEntries.size > 1) usableWidth / (plottedEntries.size - 1) else 0f
 
-            val baselineStart = Offset(horizontalPadding, height - verticalPadding)
-            val baselineEnd = Offset(width - horizontalPadding, height - verticalPadding)
-            drawLine(
-                color = colorOutline,
-                start = baselineStart,
-                end = baselineEnd,
-                strokeWidth = 2f
-            )
+            // Griglia orizzontale leggera
+            val gridCount = 4
+            repeat(gridCount + 1) { i ->
+                val y = verticalPadding + (usableHeight / gridCount) * i
+                drawLine(
+                    color = colorOutline.copy(alpha = 0.3f),
+                    start = Offset(horizontalPadding, y),
+                    end = Offset(width - horizontalPadding, y),
+                    strokeWidth = 1f
+                )
+            }
 
+            // Linea asse Y
             drawLine(
-                color = colorOutline,
+                color = colorOutline.copy(alpha = 0.5f),
                 start = Offset(horizontalPadding, verticalPadding),
                 end = Offset(horizontalPadding, height - verticalPadding),
                 strokeWidth = 2f
             )
 
-            val path = Path()
+            // Linea asse X
+            drawLine(
+                color = colorOutline.copy(alpha = 0.5f),
+                start = Offset(horizontalPadding, height - verticalPadding),
+                end = Offset(width - horizontalPadding, height - verticalPadding),
+                strokeWidth = 2f
+            )
 
+            // Traccia linea peso
+            val path = Path()
             plottedEntries.forEachIndexed { index, entry ->
                 val weight = entry.weight!!
                 val normalized = ((weight - minWeight) / weightRange).toFloat()
-                val x = if (plottedEntries.size > 1) {
-                    horizontalPadding + stepX * index
-                } else {
-                    horizontalPadding + usableWidth / 2f
-                }
+                val x = horizontalPadding + stepX * index
                 val y = height - (verticalPadding + usableHeight * normalized)
-                if (index == 0) {
-                    path.moveTo(x, y)
-                } else {
-                    path.lineTo(x, y)
-                }
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
 
             drawPath(
@@ -448,48 +456,73 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
                 style = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
 
+            // Punti e label del peso
             plottedEntries.forEachIndexed { index, entry ->
                 val weight = entry.weight!!
                 val normalized = ((weight - minWeight) / weightRange).toFloat()
-                val x = if (plottedEntries.size > 1) {
-                    horizontalPadding + stepX * index
-                } else {
-                    horizontalPadding + usableWidth / 2f
-                }
+                val x = horizontalPadding + stepX * index
                 val y = height - (verticalPadding + usableHeight * normalized)
+
                 drawCircle(
-                    color = colorOutline,
-                    radius = 10f,
+                    color = colorPrimary,
+                    radius = 8f,
                     center = Offset(x, y)
                 )
+
+                // Peso sopra ogni punto
+                drawContext.canvas.nativeCanvas.apply {
+                    drawText(
+                        "${formatWeight(weight)} kg",
+                        x - 35,
+                        y - 16,
+                        android.graphics.Paint().apply {
+                            color = android.graphics.Color.GRAY
+                            textSize = 26f
+                            textAlign = android.graphics.Paint.Align.LEFT
+                            isAntiAlias = true
+                        }
+                    )
+                }
+            }
+
+            // Etichette date sull’asse X
+            plottedEntries.forEachIndexed { index, entry ->
+                val x = horizontalPadding + stepX * index
+                val y = height - verticalPadding + 28f
+                val dateLabel = entry.timestamp?.let { dateFormatter.format(Date(it)) } ?: "-"
+
+                drawContext.canvas.nativeCanvas.apply {
+                    drawText(
+                        dateLabel,
+                        x - 40,
+                        y + 10,
+                        android.graphics.Paint().apply {
+                            color = android.graphics.Color.DKGRAY
+                            textSize = 26f
+                            textAlign = android.graphics.Paint.Align.LEFT
+                            isAntiAlias = true
+                        }
+                    )
+                }
             }
         }
 
+        // Range peso (min/max)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "${formatWeight(minWeight)} kg",
-                style = MaterialTheme.typography.labelSmall
+                text = "Min: ${formatWeight(minWeight)} kg",
+                style = MaterialTheme.typography.labelSmall,
+                color = colorText
             )
             Text(
-                text = "${formatWeight(maxWeight)} kg",
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = if (startDate == 0L) "-" else dateFormatter.format(Date(startDate)),
-                style = MaterialTheme.typography.labelSmall
-            )
-            Text(
-                text = if (endDate == 0L) "-" else dateFormatter.format(Date(endDate)),
-                style = MaterialTheme.typography.labelSmall
+                text = "Max: ${formatWeight(maxWeight)} kg",
+                style = MaterialTheme.typography.labelSmall,
+                color = colorText
             )
         }
     }
