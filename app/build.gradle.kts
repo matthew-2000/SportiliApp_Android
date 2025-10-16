@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.firebase.database.ktx)
     implementation(libs.protolite.well.known.types)
     implementation(libs.androidx.runtime.livedata)
+    implementation(libs.gson)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

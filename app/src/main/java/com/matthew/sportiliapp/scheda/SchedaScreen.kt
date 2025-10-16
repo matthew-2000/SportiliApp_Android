@@ -2,6 +2,7 @@ package com.matthew.sportiliapp.scheda
 import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,6 +53,7 @@ fun SchedaScreen(navController: NavHostController) {
     val scheda by viewModel.scheda.observeAsState()
     val nomeUtente by viewModel.name.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true) // Osserviamo lo stato di caricamento
+    val isOfflineMode by viewModel.isOfflineMode.observeAsState(false)
 
     Scaffold(
         topBar = {
@@ -73,13 +75,19 @@ fun SchedaScreen(navController: NavHostController) {
             } else {
                 // Mostra la scheda o la schermata "non disponibile"
                 if (scheda == null || scheda!!.giorni.isEmpty()) {
-                    SchedaNonDisponibileScreen()
+                    SchedaNonDisponibileScreen(isOfflineMode)
                 } else {
                     LazyColumn(
                         modifier = Modifier
                             .padding(padding)
                             .padding(all = 16.dp)
                     ) {
+                        if (isOfflineMode) {
+                            item {
+                                OfflineBanner()
+                            }
+                        }
+
                         item {
                             Row(
                                 modifier = Modifier
@@ -209,7 +217,27 @@ fun SchedaScreen(navController: NavHostController) {
 }
 
 @Composable
-fun SchedaNonDisponibileScreen() {
+private fun OfflineBanner() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text(
+            text = "Modalità offline attiva. Stai visualizzando l'ultima scheda salvata sul dispositivo.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun SchedaNonDisponibileScreen(isOffline: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -217,6 +245,9 @@ fun SchedaNonDisponibileScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (isOffline) {
+            OfflineBanner()
+        }
         Text(
             text = "La tua scheda di allenamento non è ancora disponibile.",
             style = MaterialTheme.typography.headlineMedium,
@@ -230,6 +261,14 @@ fun SchedaNonDisponibileScreen() {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+        if (isOffline) {
+            Text(
+                text = "Quando tornerai online aggiorneremo automaticamente queste informazioni.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = Color.Gray
+            )
+        }
     }
 }
 

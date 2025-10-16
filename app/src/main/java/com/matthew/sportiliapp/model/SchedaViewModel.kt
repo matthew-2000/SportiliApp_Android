@@ -1,24 +1,30 @@
 package com.matthew.sportiliapp.model
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.*
+import com.google.gson.Gson
 import kotlinx.coroutines.launch
-import android.content.Context
-import androidx.lifecycle.ViewModelProvider
-import com.google.firebase.auth.FirebaseAuth
-import com.matthew.sportiliapp.model.WeightLogEntry
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
+    private val gson = Gson()
     private val _scheda = MutableLiveData<Scheda?>()
     private val _name = MutableLiveData<String?>()
+    private val _isOfflineMode = MutableLiveData(false)
     val scheda: LiveData<Scheda?> = _scheda
     val name: LiveData<String?> = _name
+    val isOfflineMode: LiveData<Boolean> = _isOfflineMode
     val isLoading = MutableLiveData(true) // Stato di caricamento
 
     init {
@@ -27,40 +33,133 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
     private fun loadScheda() {
         viewModelScope.launch {
-            // Imposta lo stato di caricamento a true
+            // Imposta lo stato di caricamento a true di default
             isLoading.postValue(true)
 
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val cachedScheda = getCachedScheda(sharedPreferences)?.apply { sortAll() }
+            val cachedName = getCachedName(sharedPreferences)
+
+            if (cachedScheda != null) {
+                _scheda.postValue(cachedScheda)
+            }
+            if (cachedName != null) {
+                _name.postValue(cachedName)
+            }
+
+            if (cachedScheda != null || cachedName != null) {
+                // Mostra immediatamente i dati in cache mentre attendiamo la rete
+                isLoading.postValue(false)
+            }
+
             val savedCode = sharedPreferences.getString("code", "") ?: ""
+            if (savedCode.isEmpty()) {
+                if (cachedScheda == null && cachedName == null) {
+                    isLoading.postValue(false)
+                }
+                _isOfflineMode.postValue(true)
+                return@launch
+            }
+
+            if (!isNetworkAvailable()) {
+                if (cachedScheda == null && cachedName == null) {
+                    isLoading.postValue(false)
+                }
+                _isOfflineMode.postValue(true)
+                return@launch
+            }
+
+            _isOfflineMode.postValue(false)
+
             val database = FirebaseDatabase.getInstance()
 
             val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
-            schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val data = snapshot.getValue(Scheda::class.java)
-                    data?.sortAll()
-                    _scheda.postValue(data)
+            schedaRef.get()
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val snapshot = task.result
+                        val data = snapshot.getValue(Scheda::class.java)
+                        data?.sortAll()
+                        _scheda.postValue(data)
+                        saveSchedaToCache(sharedPreferences, data)
+                        _isOfflineMode.postValue(false)
+                    } else {
+                        val fallbackScheda = getCachedScheda(sharedPreferences)?.apply { sortAll() }
+                        if (fallbackScheda != null) {
+                            _scheda.postValue(fallbackScheda)
+                        }
+                        _isOfflineMode.postValue(true)
+                    }
                     // Caricamento completato, imposta isLoading a false
                     isLoading.postValue(false)
                 }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // In caso di errore, imposta isLoading a false
-                    isLoading.postValue(false)
-                }
-            })
-
             val nameRef = database.reference.child("users").child(savedCode).child("nome")
-            nameRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val data = snapshot.getValue(String::class.java)
-                    _name.postValue(data)
+            nameRef.get()
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val data = task.result.getValue(String::class.java)
+                        _name.postValue(data)
+                        saveNameToCache(sharedPreferences, data)
+                    } else {
+                        val fallbackName = getCachedName(sharedPreferences)
+                        if (fallbackName != null) {
+                            _name.postValue(fallbackName)
+                        }
+                    }
                 }
+        }
+    }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // Gestione errori
-                }
-            })
+    private fun saveSchedaToCache(sharedPreferences: SharedPreferences, scheda: Scheda?) {
+        val editor = sharedPreferences.edit()
+        if (scheda != null) {
+            editor.putString(CACHED_SCHEDA_KEY, gson.toJson(scheda))
+        } else {
+            editor.remove(CACHED_SCHEDA_KEY)
+        }
+        editor.apply()
+    }
+
+    private fun getCachedScheda(sharedPreferences: SharedPreferences): Scheda? {
+        val json = sharedPreferences.getString(CACHED_SCHEDA_KEY, null) ?: return null
+        return try {
+            gson.fromJson(json, Scheda::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun saveNameToCache(sharedPreferences: SharedPreferences, name: String?) {
+        val editor = sharedPreferences.edit()
+        if (!name.isNullOrEmpty()) {
+            editor.putString(CACHED_NAME_KEY, name)
+        } else {
+            editor.remove(CACHED_NAME_KEY)
+        }
+        editor.apply()
+    }
+
+    private fun getCachedName(sharedPreferences: SharedPreferences): String? {
+        return sharedPreferences.getString(CACHED_NAME_KEY, null)
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return false
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val activeNetworkInfo = connectivityManager.activeNetworkInfo
+            @Suppress("DEPRECATION")
+            activeNetworkInfo != null && activeNetworkInfo.isConnected
         }
     }
 
@@ -150,3 +249,6 @@ class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.F
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+
+private const val CACHED_SCHEDA_KEY = "cached_scheda"
+private const val CACHED_NAME_KEY = "cached_user_name"
