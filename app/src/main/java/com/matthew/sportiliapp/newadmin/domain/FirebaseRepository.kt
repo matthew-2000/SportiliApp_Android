@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.newadmin.domain
 
+import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.model.Utente
 import kotlinx.coroutines.flow.Flow
 import com.matthew.sportiliapp.model.Scheda
@@ -34,4 +35,10 @@ interface FirebaseRepository {
     suspend fun addExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String, esercizio: Esercizio): Result<Unit>
     suspend fun updateExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String, esercizio: Esercizio): Result<Unit>
     suspend fun removeExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String): Result<Unit>
+
+    // Gestione avvisi
+    fun getAlerts(): Flow<List<Avviso>>
+    suspend fun addAlert(avviso: Avviso): Result<Unit>
+    suspend fun updateAlert(avviso: Avviso): Result<Unit>
+    suspend fun removeAlert(alertId: String): Result<Unit>
 }

@@ -19,4 +19,5 @@ sealed class Screen(val route: String) {
         fun createRoute(userCode: String, dayKey: String, groupKey: String, exerciseKey: String) =
             "edit_exercise/$userCode/$dayKey/$groupKey/$exerciseKey"
     }
+    object Alerts : Screen("alerts")
 }

@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.matthew.sportiliapp.avvisi.AvvisiScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Utente
@@ -42,6 +44,7 @@ fun ContentScreen(navController: NavHostController) {
     // Bottom navigation items
     val items = listOf(
         BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
+        BottomNavItem("Avvisi", Icons.Filled.Notifications, "avvisi"),
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
@@ -84,6 +87,9 @@ fun ContentScreen(navController: NavHostController) {
             ) {
                 composable("scheda") {
                     SchedaScreen(navController = navController2)
+                }
+                composable("avvisi") {
+                    AvvisiScreen()
                 }
                 composable(
                     "impostazioni",

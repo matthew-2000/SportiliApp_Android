@@ -4,6 +4,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Giorno
@@ -21,6 +22,7 @@ class FirebaseRepositoryImpl(
 ) : FirebaseRepository {
 
     private val usersRef = firebaseDatabase.getReference("users")
+    private val alertsRef = firebaseDatabase.getReference("alerts")
 
     // --- Gestione utenti ---
     override fun getUsers(): Flow<List<Utente>> = callbackFlow {
@@ -239,6 +241,69 @@ class FirebaseRepositoryImpl(
             usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
                 .child("gruppiMuscolari").child(muscleGroupKey)
                 .child("esercizi").child(exerciseKey)
+                .removeValue()
+                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+        }
+
+    // --- Gestione Avvisi ---
+    override fun getAlerts(): Flow<List<Avviso>> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val now = System.currentTimeMillis()
+                val alerts = snapshot.children.mapNotNull { ds ->
+                    val alert = ds.getValue(Avviso::class.java)?.apply {
+                        id = ds.key ?: ""
+                    }
+                    if (alert != null && alert.isExpired(now)) {
+                        if (alert.id.isNotBlank()) {
+                            alertsRef.child(alert.id).removeValue()
+                        }
+                        null
+                    } else {
+                        alert
+                    }
+                }.sortedWith(
+                    compareByDescending<Avviso> { it.urgencyWeight() }
+                        .thenBy { it.scadenza ?: Long.MAX_VALUE }
+                        .thenBy { it.titolo }
+                )
+                trySend(alerts)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                close(Exception(error.message))
+            }
+        }
+        alertsRef.addValueEventListener(listener)
+        awaitClose { alertsRef.removeEventListener(listener) }
+    }
+
+    override suspend fun addAlert(avviso: Avviso): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            val targetRef = if (avviso.id.isBlank()) alertsRef.push() else alertsRef.child(avviso.id)
+            val id = targetRef.key ?: avviso.id
+            val alertToSave = avviso.copy(id = id)
+            targetRef.setValue(alertToSave)
+                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+        }
+
+    override suspend fun updateAlert(avviso: Avviso): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            if (avviso.id.isBlank()) {
+                cont.resume(Result.failure(IllegalArgumentException("Alert id cannot be empty")))
+            } else {
+                alertsRef.child(avviso.id)
+                    .setValue(avviso)
+                    .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                    .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+            }
+        }
+
+    override suspend fun removeAlert(alertId: String): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            alertsRef.child(alertId)
                 .removeValue()
                 .addOnSuccessListener { cont.resume(Result.success(Unit)) }
                 .addOnFailureListener { e -> cont.resume(Result.failure(e)) }

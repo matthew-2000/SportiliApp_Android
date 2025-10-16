@@ -13,6 +13,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import com.matthew.sportiliapp.newadmin.ui.screens.AdminAlertsScreen
 import com.matthew.sportiliapp.newadmin.ui.screens.EditDayScreen
 import com.matthew.sportiliapp.newadmin.ui.screens.EditMuscleGroupScreen
 import com.matthew.sportiliapp.newadmin.ui.screens.EditUserScreen
@@ -47,6 +48,9 @@ fun AdminNavGraph(navController: NavHostController) {
                     },
                     onAddUser = {
                         navController.navigate(Screen.EditUser.createRoute("new"))
+                    },
+                    onManageAlerts = {
+                        navController.navigate(Screen.Alerts.route)
                     }
                 )
             }
@@ -217,6 +221,9 @@ fun AdminNavGraph(navController: NavHostController) {
                     }
                 }
             }
+        }
+        composable(Screen.Alerts.route) {
+            AdminAlertsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

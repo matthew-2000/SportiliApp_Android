@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +29,8 @@ import com.matthew.sportiliapp.newadmin.ui.viewmodel.UiState
 @Composable
 fun UserListScreen(
     onUserSelected: (Utente) -> Unit,
-    onAddUser: () -> Unit
+    onAddUser: () -> Unit,
+    onManageAlerts: () -> Unit
 ) {
     val gymAdminViewModel: GymAdminViewModel = viewModel(
         factory = GymAdminViewModelFactory(
@@ -53,6 +55,11 @@ fun UserListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Utenti") },
+                actions = {
+                    IconButton(onClick = onManageAlerts) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Gestisci avvisi")
+                    }
+                }
             )
         },
         floatingActionButton = {
