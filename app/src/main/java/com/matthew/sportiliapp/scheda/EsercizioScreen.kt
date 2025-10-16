@@ -24,7 +24,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -61,6 +63,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private data class WeightLogRecord(
+    val id: String,
+    val weight: Double,
+    val timestamp: Long
+)
+
+private sealed class WeightDialogMode {
+    object Hidden : WeightDialogMode()
+    object Create : WeightDialogMode()
+    data class Edit(val record: WeightLogRecord) : WeightDialogMode()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EsercizioScreen(
@@ -74,20 +88,26 @@ fun EsercizioScreen(
     val esercizio = viewModel.scheda.value?.giorni?.get(giornoId)
         ?.gruppiMuscolari?.get(gruppoMuscolareId)?.esercizi?.get(esercizioId)
 
-    var weightLogs by remember { mutableStateOf<List<WeightLogEntry>>(emptyList()) }
-    var showWeightDialog by remember { mutableStateOf(false) }
+    var weightLogs by remember { mutableStateOf<List<WeightLogRecord>>(emptyList()) }
+    var weightDialogMode by remember { mutableStateOf<WeightDialogMode>(WeightDialogMode.Hidden) }
     var weightInput by remember { mutableStateOf("") }
     var isImageFullScreen by remember { mutableStateOf(false) }
+    var pendingDeletionRecord by remember { mutableStateOf<WeightLogRecord?>(null) }
+    var alertMessage by remember { mutableStateOf<String?>(null) }
 
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
     LaunchedEffect(esercizio?.weightLogs) {
-        val logs = esercizio?.weightLogs?.values?.mapNotNull { entry ->
+        val logs = esercizio?.weightLogs?.mapNotNull { (id, entry) ->
             val weight = entry.weight
             val timestamp = entry.timestamp
-            if (weight != null && timestamp != null) WeightLogEntry(weight, timestamp) else null
+            if (weight != null && timestamp != null) {
+                WeightLogRecord(id, weight, timestamp)
+            } else {
+                null
+            }
         }?.sortedBy { it.timestamp } ?: emptyList()
         weightLogs = logs
     }
@@ -187,7 +207,7 @@ fun EsercizioScreen(
                 )
 
                 val recentLogs = remember(weightLogs) {
-                    weightLogs.sortedBy { it.timestamp ?: 0L }.takeLast(10)
+                    weightLogs.sortedBy { it.timestamp }.takeLast(10)
                 }
 
                 if (recentLogs.isEmpty()) {
@@ -199,16 +219,55 @@ fun EsercizioScreen(
                     )
                 } else {
                     Spacer(modifier = Modifier.height(8.dp))
-                    WeightProgressChart(entries = recentLogs)
+                    val chartEntries = remember(recentLogs) {
+                        recentLogs.map { WeightLogEntry(weight = it.weight, timestamp = it.timestamp) }
+                    }
+                    WeightProgressChart(entries = chartEntries)
                     Spacer(modifier = Modifier.height(8.dp))
-                    recentLogs.asReversed().take(3).forEach { entry ->
-                        val dateLabel = entry.timestamp?.let { dateFormatter.format(Date(it)) } ?: "-"
-                        val weightLabel = entry.weight?.let { formatWeight(it) } ?: "-"
-                        Text(
-                            text = "$dateLabel • $weightLabel kg",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                }
+
+                val latestRecord = remember(weightLogs) { weightLogs.maxByOrNull { it.timestamp } }
+
+                latestRecord?.let { record ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Ultimo peso registrato",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                text = "${dateFormatter.format(Date(record.timestamp))} • ${formatWeight(record.weight)} kg",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        weightDialogMode = WeightDialogMode.Edit(record)
+                                        weightInput = record.weight.toString()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text("Modifica")
+                                }
+                                TextButton(
+                                    onClick = { pendingDeletionRecord = record },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        "Elimina",
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -216,7 +275,10 @@ fun EsercizioScreen(
 
                 // ——— AZIONI ———
                 Button(
-                    onClick = { showWeightDialog = true },
+                    onClick = {
+                        weightDialogMode = WeightDialogMode.Create
+                        weightInput = ""
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -236,13 +298,14 @@ fun EsercizioScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // ——— DIALOG PESO ———
-                if (showWeightDialog) {
+                if (weightDialogMode != WeightDialogMode.Hidden) {
+                    val isEditing = weightDialogMode is WeightDialogMode.Edit
                     AlertDialog(
                         onDismissRequest = {
-                            showWeightDialog = false
+                            weightDialogMode = WeightDialogMode.Hidden
                             weightInput = ""
                         },
-                        title = { Text("Registra peso") },
+                        title = { Text(if (isEditing) "Modifica peso" else "Registra peso") },
                         text = {
                             Column {
                                 OutlinedTextField(
@@ -264,29 +327,125 @@ fun EsercizioScreen(
                         confirmButton = {
                             Button(onClick = {
                                 val parsed = weightInput.toDoubleOrNull()
-                                if (parsed == null) {
+                                if (parsed == null || parsed <= 0) {
                                     Toast.makeText(context, "Inserisci un peso valido", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    viewModel.addWeightEntry(
-                                        giornoId, gruppoMuscolareId, esercizioId, parsed,
-                                        onSuccess = { entry ->
-                                            weightLogs = (weightLogs + entry).sortedBy { it.timestamp ?: 0L }
-                                            Toast.makeText(context, "Peso salvato", Toast.LENGTH_SHORT).show()
-                                            showWeightDialog = false
-                                            weightInput = ""
-                                        },
-                                        onFailure = { err ->
-                                            Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                                    when (val mode = weightDialogMode) {
+                                        WeightDialogMode.Create -> {
+                                            viewModel.addWeightEntry(
+                                                giornoId,
+                                                gruppoMuscolareId,
+                                                esercizioId,
+                                                parsed,
+                                                onSuccess = { id, entry ->
+                                                    val weight = entry.weight
+                                                    val timestamp = entry.timestamp
+                                                    if (weight != null && timestamp != null) {
+                                                        weightLogs = (weightLogs + WeightLogRecord(id, weight, timestamp))
+                                                            .sortedBy { it.timestamp }
+                                                        Toast.makeText(context, "Peso salvato", Toast.LENGTH_SHORT).show()
+                                                        weightDialogMode = WeightDialogMode.Hidden
+                                                        weightInput = ""
+                                                    } else {
+                                                        Toast.makeText(context, "Errore nel salvataggio del peso", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                onFailure = { err ->
+                                                    if (err.contains("Connessione internet assente")) {
+                                                        alertMessage = err
+                                                    } else {
+                                                        Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            )
                                         }
-                                    )
+
+                                        is WeightDialogMode.Edit -> {
+                                            val record = mode.record
+                                            viewModel.updateWeightEntry(
+                                                giornoId,
+                                                gruppoMuscolareId,
+                                                esercizioId,
+                                                record.id,
+                                                parsed,
+                                                onSuccess = { entry ->
+                                                    val weight = entry.weight
+                                                    val timestamp = entry.timestamp
+                                                    if (weight != null && timestamp != null) {
+                                                        weightLogs = weightLogs.map {
+                                                            if (it.id == record.id) {
+                                                                WeightLogRecord(record.id, weight, timestamp)
+                                                            } else {
+                                                                it
+                                                            }
+                                                        }.sortedBy { it.timestamp }
+                                                        Toast.makeText(context, "Peso aggiornato", Toast.LENGTH_SHORT).show()
+                                                        weightDialogMode = WeightDialogMode.Hidden
+                                                        weightInput = ""
+                                                    } else {
+                                                        Toast.makeText(context, "Errore nell'aggiornamento del peso", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                onFailure = { err ->
+                                                    if (err.contains("Connessione internet assente")) {
+                                                        alertMessage = err
+                                                    } else {
+                                                        Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            )
+                                        }
+
+                                        WeightDialogMode.Hidden -> Unit
+                                    }
                                 }
-                            }) { Text("Salva") }
+                            }) { Text(if (isEditing) "Salva modifiche" else "Salva") }
                         },
                         dismissButton = {
                             OutlinedButton(onClick = {
-                                showWeightDialog = false
+                                weightDialogMode = WeightDialogMode.Hidden
                                 weightInput = ""
                             }) { Text("Annulla") }
+                        }
+                    )
+                }
+
+                pendingDeletionRecord?.let { record ->
+                    AlertDialog(
+                        onDismissRequest = { pendingDeletionRecord = null },
+                        title = { Text("Elimina peso") },
+                        text = { Text("Vuoi eliminare l'ultimo peso registrato?") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    viewModel.deleteWeightEntry(
+                                        giornoId,
+                                        gruppoMuscolareId,
+                                        esercizioId,
+                                        record.id,
+                                        onSuccess = {
+                                            weightLogs = weightLogs.filterNot { it.id == record.id }
+                                            Toast.makeText(context, "Peso eliminato", Toast.LENGTH_SHORT).show()
+                                            pendingDeletionRecord = null
+                                        },
+                                        onFailure = { err ->
+                                            if (err.contains("Connessione internet assente")) {
+                                                alertMessage = err
+                                            } else {
+                                                Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Elimina")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { pendingDeletionRecord = null }) {
+                                Text("Annulla")
+                            }
                         }
                     )
                 }
@@ -308,6 +467,19 @@ fun EsercizioScreen(
                 )
             }
         }
+    }
+
+    alertMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { alertMessage = null },
+            title = { Text("Connessione assente") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { alertMessage = null }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

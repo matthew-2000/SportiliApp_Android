@@ -77,6 +77,11 @@ fun SchedaScreen(navController: NavHostController) {
                 if (scheda == null || scheda!!.giorni.isEmpty()) {
                     SchedaNonDisponibileScreen(isOfflineMode)
                 } else {
+                    val currentScheda = scheda!!
+                    val isExpired = !currentScheda.isSchedaValida()
+                    val weeksLeft = currentScheda.getSettimaneMancanti()
+                    val canRequestCambio = isExpired || weeksLeft <= 1
+
                     LazyColumn(
                         modifier = Modifier
                             .padding(padding)
@@ -95,12 +100,12 @@ fun SchedaScreen(navController: NavHostController) {
                                     .padding(vertical = 16.dp),
                             ) {
                                 Text(
-                                    "Inizio: ${convertDateTime(scheda!!.dataInizio)} ",
+                                    "Inizio: ${convertDateTime(currentScheda.dataInizio)} ",
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    "x${scheda!!.durata} sett.",
+                                    "x${currentScheda.durata} sett.",
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
@@ -108,7 +113,7 @@ fun SchedaScreen(navController: NavHostController) {
                             }
                         }
 
-                        if (!scheda!!.isSchedaValida()) {
+                        if (canRequestCambio) {
                             item {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 16.dp),
@@ -125,15 +130,15 @@ fun SchedaScreen(navController: NavHostController) {
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "⚠️ Scheda scaduta!",
+                                        text = if (isExpired) "⚠️ Scheda scaduta!" else "⏳ Scheda in scadenza",
                                         style = MaterialTheme.typography.headlineSmall,
-                                        color = MaterialTheme.colorScheme.error,
+                                        color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
 
-                                    if (scheda!!.cambioRichiesto) {
+                                    if (currentScheda.cambioRichiesto) {
                                         Text(
                                             text = "Hai già richiesto una nuova scheda. Attendi che il personal trainer la carichi.",
                                             style = MaterialTheme.typography.bodyMedium,
@@ -153,8 +158,13 @@ fun SchedaScreen(navController: NavHostController) {
                                             )
                                         }
                                     } else {
+                                        val infoMessage = when {
+                                            isExpired -> "Richiedi un aggiornamento al personal trainer."
+                                            weeksLeft <= 0 -> "Manca meno di una settimana alla scadenza. Puoi richiedere subito un cambio scheda."
+                                            else -> "Manca 1 settimana alla scadenza. Puoi già richiedere un cambio scheda."
+                                        }
                                         Text(
-                                            text = "Richiedi un aggiornamento al personal trainer.",
+                                            text = infoMessage,
                                             style = MaterialTheme.typography.bodyMedium,
                                             textAlign = TextAlign.Center,
                                             color = Color.Gray,
@@ -185,10 +195,10 @@ fun SchedaScreen(navController: NavHostController) {
                             }
                         }
 
-                        if (scheda!!.getSettimaneMancanti() < 2 && scheda!!.isSchedaValida()) {
+                        if (!isExpired && weeksLeft > 1) {
                             item {
                                 Text(
-                                    "${scheda!!.getSettimaneMancanti()} settimane rimanenti",
+                                    "$weeksLeft settimane rimanenti",
                                     style = MaterialTheme.typography.headlineSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
@@ -204,7 +214,7 @@ fun SchedaScreen(navController: NavHostController) {
                             )
                         }
 
-                        items(scheda!!.giorni.entries.toList()) { (key, giorno) ->
+                        items(currentScheda.giorni.entries.toList()) { (key, giorno) ->
                             GiornoItem(giorno) {
                                 navController.navigate("giorno/$key")
                             }

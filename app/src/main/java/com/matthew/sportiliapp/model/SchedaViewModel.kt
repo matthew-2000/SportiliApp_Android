@@ -168,11 +168,16 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         gruppoMuscolareId: String,
         esercizioId: String,
         weight: Double,
-        onSuccess: (WeightLogEntry) -> Unit,
+        onSuccess: (String, WeightLogEntry) -> Unit,
         onFailure: (String) -> Unit
     ) {
         if (weight <= 0) {
             onFailure("Il peso deve essere maggiore di zero")
+            return
+        }
+
+        if (!isNetworkAvailable()) {
+            onFailure("Connessione internet assente. Impossibile salvare il peso.")
             return
         }
 
@@ -211,12 +216,161 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             weightLogRef.setValue(entryData)
                 .addOnSuccessListener {
                     esercizioRef.child("noteUtente").setValue(formattedNote)
-                    onSuccess(entry)
+                    val entryId = weightLogRef.key
+                    if (entryId != null) {
+                        onSuccess(entryId, entry)
+                    } else {
+                        onFailure("Impossibile ottenere l'identificativo del peso salvato")
+                    }
                 }
                 .addOnFailureListener { error ->
                     onFailure(error.message ?: "Errore sconosciuto")
                 }
         }
+    }
+
+    fun updateWeightEntry(
+        giornoId: String,
+        gruppoMuscolareId: String,
+        esercizioId: String,
+        entryId: String,
+        newWeight: Double,
+        onSuccess: (WeightLogEntry) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        if (newWeight <= 0) {
+            onFailure("Il peso deve essere maggiore di zero")
+            return
+        }
+
+        if (!isNetworkAvailable()) {
+            onFailure("Connessione internet assente. Impossibile modificare il peso.")
+            return
+        }
+
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            if (savedCode.isEmpty()) {
+                onFailure("Codice utente non trovato")
+                return@launch
+            }
+
+            val database = FirebaseDatabase.getInstance()
+
+            val esercizioRef = database.reference
+                .child("users")
+                .child(savedCode)
+                .child("scheda")
+                .child("giorni")
+                .child(giornoId)
+                .child("gruppiMuscolari")
+                .child(gruppoMuscolareId)
+                .child("esercizi")
+                .child(esercizioId)
+
+            val timestamp = System.currentTimeMillis()
+            val entry = WeightLogEntry(weight = newWeight, timestamp = timestamp)
+            val entryData = hashMapOf<String, Any?>(
+                "weight" to newWeight,
+                "timestamp" to timestamp
+            )
+
+            val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
+            val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", newWeight)} kg - ${noteFormatter.format(Date(timestamp))}"
+
+            esercizioRef.child("weightLogs").child(entryId).setValue(entryData)
+                .addOnSuccessListener {
+                    esercizioRef.child("noteUtente").setValue(formattedNote)
+                        .addOnSuccessListener { onSuccess(entry) }
+                        .addOnFailureListener { error ->
+                            onFailure(error.message ?: "Errore sconosciuto")
+                        }
+                }
+                .addOnFailureListener { error ->
+                    onFailure(error.message ?: "Errore sconosciuto")
+                }
+        }
+    }
+
+    fun deleteWeightEntry(
+        giornoId: String,
+        gruppoMuscolareId: String,
+        esercizioId: String,
+        entryId: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        if (!isNetworkAvailable()) {
+            onFailure("Connessione internet assente. Impossibile eliminare il peso.")
+            return
+        }
+
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            if (savedCode.isEmpty()) {
+                onFailure("Codice utente non trovato")
+                return@launch
+            }
+
+            val database = FirebaseDatabase.getInstance()
+
+            val esercizioRef = database.reference
+                .child("users")
+                .child(savedCode)
+                .child("scheda")
+                .child("giorni")
+                .child(giornoId)
+                .child("gruppiMuscolari")
+                .child(gruppoMuscolareId)
+                .child("esercizi")
+                .child(esercizioId)
+
+            esercizioRef.child("weightLogs").child(entryId).removeValue()
+                .addOnSuccessListener {
+                    refreshLatestUserNote(esercizioRef, onSuccess, onFailure)
+                }
+                .addOnFailureListener { error ->
+                    onFailure(error.message ?: "Errore sconosciuto")
+                }
+        }
+    }
+
+    private fun refreshLatestUserNote(
+        esercizioRef: DatabaseReference,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        esercizioRef.child("weightLogs")
+            .orderByChild("timestamp")
+            .limitToLast(1)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val latestSnapshot = snapshot.children.firstOrNull()
+                val latestEntry = latestSnapshot?.getValue(WeightLogEntry::class.java)
+                val weight = latestEntry?.weight
+                val timestamp = latestEntry?.timestamp
+
+                if (weight != null && timestamp != null) {
+                    val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
+                    val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", weight)} kg - ${noteFormatter.format(Date(timestamp))}"
+                    esercizioRef.child("noteUtente").setValue(formattedNote)
+                        .addOnSuccessListener { onSuccess() }
+                        .addOnFailureListener { error ->
+                            onFailure(error.message ?: "Errore sconosciuto")
+                        }
+                } else {
+                    esercizioRef.child("noteUtente").removeValue()
+                        .addOnSuccessListener { onSuccess() }
+                        .addOnFailureListener { error ->
+                            onFailure(error.message ?: "Errore sconosciuto")
+                        }
+                }
+            }
+            .addOnFailureListener { error ->
+                onFailure(error.message ?: "Errore sconosciuto")
+            }
     }
 
     fun inviaRichiestaCambioScheda(
