@@ -10,6 +10,7 @@ import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.Esercizio
+import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.newadmin.domain.FirebaseRepository
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,7 @@ class FirebaseRepositoryImpl(
 
     private val usersRef = firebaseDatabase.getReference("users")
     private val alertsRef = firebaseDatabase.getReference("alerts")
+    private val reportsRef = firebaseDatabase.getReference("workoutIssueReports")
 
     // --- Gestione utenti ---
     override fun getUsers(): Flow<List<Utente>> = callbackFlow {
@@ -304,6 +306,59 @@ class FirebaseRepositoryImpl(
     override suspend fun removeAlert(alertId: String): Result<Unit> =
         suspendCancellableCoroutine { cont ->
             alertsRef.child(alertId)
+                .removeValue()
+                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+        }
+
+    // --- Segnalazioni problemi scheda ---
+    override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = callbackFlow {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val reports = snapshot.children.mapNotNull { ds ->
+                    ds.getValue(WorkoutIssueReport::class.java)?.apply {
+                        id = ds.key ?: id
+                    }
+                }.sortedWith(
+                    compareBy<WorkoutIssueReport> { it.resolved }
+                        .thenByDescending { it.createdAt }
+                )
+                trySend(reports)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                close(Exception(error.message))
+            }
+        }
+        reportsRef.addValueEventListener(listener)
+        awaitClose { reportsRef.removeEventListener(listener) }
+    }
+
+    override suspend fun addWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            val targetRef = if (report.id.isBlank()) reportsRef.push() else reportsRef.child(report.id)
+            val id = targetRef.key ?: report.id
+            val reportToSave = report.copy(id = id)
+            targetRef.setValue(reportToSave)
+                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+        }
+
+    override suspend fun updateWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            if (report.id.isBlank()) {
+                cont.resume(Result.failure(IllegalArgumentException("Report id cannot be empty")))
+            } else {
+                reportsRef.child(report.id)
+                    .setValue(report)
+                    .addOnSuccessListener { cont.resume(Result.success(Unit)) }
+                    .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+            }
+        }
+
+    override suspend fun removeWorkoutIssueReport(reportId: String): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            reportsRef.child(reportId)
                 .removeValue()
                 .addOnSuccessListener { cont.resume(Result.success(Unit)) }
                 .addOnFailureListener { e -> cont.resume(Result.failure(e)) }

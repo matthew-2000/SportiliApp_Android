@@ -434,6 +434,14 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    fun getCurrentUserCode(): String? {
+        if (!userCode.isNullOrBlank()) {
+            return userCode
+        }
+        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+        return sharedPreferences.getString("code", null)
+    }
+
     fun inviaRichiestaCambioScheda(
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit

@@ -7,6 +7,7 @@ import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.Esercizio
+import com.matthew.sportiliapp.model.WorkoutIssueReport
 
 interface FirebaseRepository {
     // Gestione utenti
@@ -41,4 +42,10 @@ interface FirebaseRepository {
     suspend fun addAlert(avviso: Avviso): Result<Unit>
     suspend fun updateAlert(avviso: Avviso): Result<Unit>
     suspend fun removeAlert(alertId: String): Result<Unit>
+
+    // Segnalazioni problemi scheda
+    fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>>
+    suspend fun addWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit>
+    suspend fun updateWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit>
+    suspend fun removeWorkoutIssueReport(reportId: String): Result<Unit>
 }

@@ -26,4 +26,16 @@ object ManualInjection {
     val addAlertUseCase: AddAlertUseCase by lazy { AddAlertUseCase(firebaseRepository) }
     val updateAlertUseCase: UpdateAlertUseCase by lazy { UpdateAlertUseCase(firebaseRepository) }
     val removeAlertUseCase: RemoveAlertUseCase by lazy { RemoveAlertUseCase(firebaseRepository) }
+    val getWorkoutIssueReportsUseCase: GetWorkoutIssueReportsUseCase by lazy {
+        GetWorkoutIssueReportsUseCase(firebaseRepository)
+    }
+    val submitWorkoutIssueReportUseCase: SubmitWorkoutIssueReportUseCase by lazy {
+        SubmitWorkoutIssueReportUseCase(firebaseRepository)
+    }
+    val updateWorkoutIssueReportUseCase: UpdateWorkoutIssueReportUseCase by lazy {
+        UpdateWorkoutIssueReportUseCase(firebaseRepository)
+    }
+    val removeWorkoutIssueReportUseCase: RemoveWorkoutIssueReportUseCase by lazy {
+        RemoveWorkoutIssueReportUseCase(firebaseRepository)
+    }
 }

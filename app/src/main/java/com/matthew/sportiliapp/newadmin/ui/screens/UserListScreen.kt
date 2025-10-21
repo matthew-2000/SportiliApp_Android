@@ -30,7 +30,8 @@ import com.matthew.sportiliapp.newadmin.ui.viewmodel.UiState
 fun UserListScreen(
     onUserSelected: (Utente) -> Unit,
     onAddUser: () -> Unit,
-    onManageAlerts: () -> Unit
+    onManageAlerts: () -> Unit,
+    onViewReports: () -> Unit
 ) {
     val gymAdminViewModel: GymAdminViewModel = viewModel(
         factory = GymAdminViewModelFactory(
@@ -56,6 +57,9 @@ fun UserListScreen(
             TopAppBar(
                 title = { Text("Utenti") },
                 actions = {
+                    IconButton(onClick = onViewReports) {
+                        Icon(Icons.Default.Warning, contentDescription = "Segnalazioni schede")
+                    }
                     IconButton(onClick = onManageAlerts) {
                         Icon(Icons.Default.Notifications, contentDescription = "Gestisci avvisi")
                     }

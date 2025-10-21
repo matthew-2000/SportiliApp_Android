@@ -20,4 +20,5 @@ sealed class Screen(val route: String) {
             "edit_exercise/$userCode/$dayKey/$groupKey/$exerciseKey"
     }
     object Alerts : Screen("alerts")
+    object Reports : Screen("reports")
 }

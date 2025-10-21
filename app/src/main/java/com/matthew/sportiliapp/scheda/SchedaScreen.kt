@@ -7,14 +7,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -36,9 +44,12 @@ import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.matthew.sportiliapp.model.Giorno
+import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.SchedaViewModel
 import com.matthew.sportiliapp.model.SchedaViewModelFactory
+import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -54,6 +65,13 @@ fun SchedaScreen(navController: NavHostController) {
     val nomeUtente by viewModel.name.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true) // Osserviamo lo stato di caricamento
     val isOfflineMode by viewModel.isOfflineMode.observeAsState(false)
+
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportMessage by remember { mutableStateOf("") }
+    var isSubmittingReport by remember { mutableStateOf(false) }
+    var reportError by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    val submitReportUseCase = remember { ManualInjection.submitWorkoutIssueReportUseCase }
 
     Scaffold(
         topBar = {
@@ -75,7 +93,10 @@ fun SchedaScreen(navController: NavHostController) {
             } else {
                 // Mostra la scheda o la schermata "non disponibile"
                 if (scheda == null || scheda!!.giorni.isEmpty()) {
-                    SchedaNonDisponibileScreen(isOfflineMode)
+                    SchedaNonDisponibileScreen(isOfflineMode) {
+                        reportError = null
+                        showReportDialog = true
+                    }
                 } else {
                     val currentScheda = scheda!!
                     val isExpired = !currentScheda.isSchedaValida()
@@ -219,11 +240,69 @@ fun SchedaScreen(navController: NavHostController) {
                                 navController.navigate("giorno/$key")
                             }
                         }
+                        item {
+                            ReportProblemSection(onClick = {
+                                reportError = null
+                                showReportDialog = true
+                            })
+                        }
                     }
                 }
             }
         }
     )
+
+    if (showReportDialog) {
+        ReportProblemDialog(
+            message = reportMessage,
+            onMessageChange = {
+                reportMessage = it
+                if (!reportError.isNullOrEmpty()) {
+                    reportError = null
+                }
+            },
+            isSubmitting = isSubmittingReport,
+            errorMessage = reportError,
+            onDismiss = {
+                if (!isSubmittingReport) {
+                    showReportDialog = false
+                    reportMessage = ""
+                    reportError = null
+                }
+            },
+            onSubmit = {
+                val trimmed = reportMessage.trim()
+                if (trimmed.isEmpty()) {
+                    reportError = "Inserisci una descrizione del problema"
+                    return@ReportProblemDialog
+                }
+                val code = viewModel.getCurrentUserCode()
+                if (code.isNullOrBlank()) {
+                    Toast.makeText(context, "Codice utente non disponibile", Toast.LENGTH_SHORT).show()
+                    return@ReportProblemDialog
+                }
+                isSubmittingReport = true
+                coroutineScope.launch {
+                    val report = WorkoutIssueReport(
+                        userCode = code,
+                        userName = nomeUtente.orEmpty(),
+                        message = trimmed
+                    )
+                    val result = submitReportUseCase(report)
+                    isSubmittingReport = false
+                    if (result.isSuccess) {
+                        Toast.makeText(context, "Segnalazione inviata", Toast.LENGTH_SHORT).show()
+                        showReportDialog = false
+                        reportMessage = ""
+                        reportError = null
+                    } else {
+                        reportError = result.exceptionOrNull()?.localizedMessage
+                            ?: "Invio non riuscito"
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -247,7 +326,7 @@ private fun OfflineBanner() {
 }
 
 @Composable
-fun SchedaNonDisponibileScreen(isOffline: Boolean) {
+fun SchedaNonDisponibileScreen(isOffline: Boolean, onReportClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -271,6 +350,9 @@ fun SchedaNonDisponibileScreen(isOffline: Boolean) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+        OutlinedButton(onClick = onReportClick) {
+            Text("Segnala un problema")
+        }
         if (isOffline) {
             Text(
                 text = "Quando tornerai online aggiorneremo automaticamente queste informazioni.",
@@ -294,6 +376,71 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
         Text(getGruppiString(giorno), style = MaterialTheme.typography.labelLarge, color = Color.Gray)
         Divider(color = Color.LightGray, thickness = 1.dp)
     }
+}
+
+@Composable
+private fun ReportProblemSection(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        OutlinedButton(onClick = onClick) {
+            Text("Segnala un problema")
+        }
+    }
+}
+
+@Composable
+private fun ReportProblemDialog(
+    message: String,
+    onMessageChange: (String) -> Unit,
+    isSubmitting: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Segnala un problema") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Descrivi cosa non funziona nella tua scheda. Il personal trainer riceverà la segnalazione.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = onMessageChange,
+                    label = { Text("Messaggio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { if (!isSubmitting) onSubmit() }, enabled = !isSubmitting) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Invia")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSubmitting) {
+                Text("Annulla")
+            }
+        }
+    )
 }
 
 fun getTitle(nomeUtente: String?): String {

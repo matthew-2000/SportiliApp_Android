@@ -16,7 +16,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -35,6 +44,7 @@ import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.scheda.EsercizioScreen
 import com.matthew.sportiliapp.scheda.GiornoScreen
 import com.matthew.sportiliapp.scheda.SchedaScreen
+import com.matthew.sportiliapp.newadmin.di.ManualInjection
 
 
 @Composable
@@ -48,6 +58,10 @@ fun ContentScreen(navController: NavHostController) {
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
+    val alertsFlow = remember { ManualInjection.getAlertsUseCase() }
+    val alerts by alertsFlow.collectAsState(initial = emptyList())
+    val alertsCount = alerts.size
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -56,7 +70,22 @@ fun ContentScreen(navController: NavHostController) {
 
                 items.forEach { item ->
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = null) },
+                        icon = {
+                            if (item.route == "avvisi" && alertsCount > 0) {
+                                val badgeText = if (alertsCount > 99) "99+" else alertsCount.toString()
+                                BadgedBox(
+                                    badge = {
+                                        Badge {
+                                            Text(badgeText)
+                                        }
+                                    }
+                                ) {
+                                    Icon(item.icon, contentDescription = null)
+                                }
+                            } else {
+                                Icon(item.icon, contentDescription = null)
+                            }
+                        },
                         label = { Text(item.title) },
                         selected = currentRoute == item.route,
                         colors = NavigationBarItemDefaults.colors(
