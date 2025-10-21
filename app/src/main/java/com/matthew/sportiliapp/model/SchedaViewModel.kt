@@ -13,8 +13,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.*
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class SchedaViewModel(private val context: Context) : ViewModel() {
@@ -22,10 +20,16 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     private val _scheda = MutableLiveData<Scheda?>()
     private val _name = MutableLiveData<String?>()
     private val _isOfflineMode = MutableLiveData(false)
+    private val _userExerciseData = MutableLiveData<Map<String, UserExerciseData>>(emptyMap())
     val scheda: LiveData<Scheda?> = _scheda
     val name: LiveData<String?> = _name
     val isOfflineMode: LiveData<Boolean> = _isOfflineMode
+    val userExerciseData: LiveData<Map<String, UserExerciseData>> = _userExerciseData
     val isLoading = MutableLiveData(true) // Stato di caricamento
+
+    private var userCode: String? = null
+    private var exerciseDataRef: DatabaseReference? = null
+    private var exerciseDataListener: ValueEventListener? = null
 
     init {
         loadScheda()
@@ -60,6 +64,9 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 _isOfflineMode.postValue(true)
                 return@launch
             }
+
+            userCode = savedCode
+            observeUserExerciseData(savedCode)
 
             if (!isNetworkAvailable()) {
                 if (cachedScheda == null && cachedName == null) {
@@ -164,9 +171,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     fun addWeightEntry(
-        giornoId: String,
-        gruppoMuscolareId: String,
-        esercizioId: String,
+        exerciseKey: String,
         weight: Double,
         onSuccess: (String, WeightLogEntry) -> Unit,
         onFailure: (String) -> Unit
@@ -183,7 +188,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
         viewModelScope.launch {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
@@ -194,13 +199,8 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             val esercizioRef = database.reference
                 .child("users")
                 .child(savedCode)
-                .child("scheda")
-                .child("giorni")
-                .child(giornoId)
-                .child("gruppiMuscolari")
-                .child(gruppoMuscolareId)
-                .child("esercizi")
-                .child(esercizioId)
+                .child("exerciseData")
+                .child(exerciseKey)
 
             val timestamp = System.currentTimeMillis()
             val entry = WeightLogEntry(weight = weight, timestamp = timestamp)
@@ -209,15 +209,16 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 "timestamp" to timestamp
             )
 
-            val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
-            val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", weight)} kg - ${noteFormatter.format(Date(timestamp))}"
-
             val weightLogRef = esercizioRef.child("weightLogs").push()
             weightLogRef.setValue(entryData)
                 .addOnSuccessListener {
-                    esercizioRef.child("noteUtente").setValue(formattedNote)
                     val entryId = weightLogRef.key
                     if (entryId != null) {
+                        updateLocalExerciseData(exerciseKey) { current ->
+                            val updatedLogs = (current.weightLogs ?: emptyMap()).toMutableMap()
+                            updatedLogs[entryId] = entry
+                            current.copy(weightLogs = updatedLogs)
+                        }
                         onSuccess(entryId, entry)
                     } else {
                         onFailure("Impossibile ottenere l'identificativo del peso salvato")
@@ -230,9 +231,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     fun updateWeightEntry(
-        giornoId: String,
-        gruppoMuscolareId: String,
-        esercizioId: String,
+        exerciseKey: String,
         entryId: String,
         newWeight: Double,
         onSuccess: (WeightLogEntry) -> Unit,
@@ -250,7 +249,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
         viewModelScope.launch {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
@@ -261,13 +260,8 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             val esercizioRef = database.reference
                 .child("users")
                 .child(savedCode)
-                .child("scheda")
-                .child("giorni")
-                .child(giornoId)
-                .child("gruppiMuscolari")
-                .child(gruppoMuscolareId)
-                .child("esercizi")
-                .child(esercizioId)
+                .child("exerciseData")
+                .child(exerciseKey)
 
             val timestamp = System.currentTimeMillis()
             val entry = WeightLogEntry(weight = newWeight, timestamp = timestamp)
@@ -276,16 +270,14 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 "timestamp" to timestamp
             )
 
-            val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
-            val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", newWeight)} kg - ${noteFormatter.format(Date(timestamp))}"
-
             esercizioRef.child("weightLogs").child(entryId).setValue(entryData)
                 .addOnSuccessListener {
-                    esercizioRef.child("noteUtente").setValue(formattedNote)
-                        .addOnSuccessListener { onSuccess(entry) }
-                        .addOnFailureListener { error ->
-                            onFailure(error.message ?: "Errore sconosciuto")
-                        }
+                    updateLocalExerciseData(exerciseKey) { current ->
+                        val updatedLogs = (current.weightLogs ?: emptyMap()).toMutableMap()
+                        updatedLogs[entryId] = entry
+                        current.copy(weightLogs = updatedLogs)
+                    }
+                    onSuccess(entry)
                 }
                 .addOnFailureListener { error ->
                     onFailure(error.message ?: "Errore sconosciuto")
@@ -294,9 +286,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     fun deleteWeightEntry(
-        giornoId: String,
-        gruppoMuscolareId: String,
-        esercizioId: String,
+        exerciseKey: String,
         entryId: String,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
@@ -308,7 +298,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
         viewModelScope.launch {
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-            val savedCode = sharedPreferences.getString("code", "") ?: ""
+            val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
@@ -319,17 +309,17 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             val esercizioRef = database.reference
                 .child("users")
                 .child(savedCode)
-                .child("scheda")
-                .child("giorni")
-                .child(giornoId)
-                .child("gruppiMuscolari")
-                .child(gruppoMuscolareId)
-                .child("esercizi")
-                .child(esercizioId)
+                .child("exerciseData")
+                .child(exerciseKey)
 
             esercizioRef.child("weightLogs").child(entryId).removeValue()
                 .addOnSuccessListener {
-                    refreshLatestUserNote(esercizioRef, onSuccess, onFailure)
+                    updateLocalExerciseData(exerciseKey) { current ->
+                        val updatedLogs = (current.weightLogs ?: emptyMap()).toMutableMap()
+                        updatedLogs.remove(entryId)
+                        current.copy(weightLogs = if (updatedLogs.isEmpty()) null else updatedLogs)
+                    }
+                    onSuccess()
                 }
                 .addOnFailureListener { error ->
                     onFailure(error.message ?: "Errore sconosciuto")
@@ -337,40 +327,111 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    private fun refreshLatestUserNote(
-        esercizioRef: DatabaseReference,
+    fun updateUserNote(
+        exerciseKey: String,
+        newNote: String?,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
-        esercizioRef.child("weightLogs")
-            .orderByChild("timestamp")
-            .limitToLast(1)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val latestSnapshot = snapshot.children.firstOrNull()
-                val latestEntry = latestSnapshot?.getValue(WeightLogEntry::class.java)
-                val weight = latestEntry?.weight
-                val timestamp = latestEntry?.timestamp
+        if (!isNetworkAvailable()) {
+            onFailure("Connessione internet assente. Impossibile salvare la nota.")
+            return
+        }
 
-                if (weight != null && timestamp != null) {
-                    val noteFormatter = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
-                    val formattedNote = "Ultimo peso: ${String.format(Locale.getDefault(), "%.1f", weight)} kg - ${noteFormatter.format(Date(timestamp))}"
-                    esercizioRef.child("noteUtente").setValue(formattedNote)
-                        .addOnSuccessListener { onSuccess() }
-                        .addOnFailureListener { error ->
-                            onFailure(error.message ?: "Errore sconosciuto")
-                        }
-                } else {
-                    esercizioRef.child("noteUtente").removeValue()
-                        .addOnSuccessListener { onSuccess() }
-                        .addOnFailureListener { error ->
-                            onFailure(error.message ?: "Errore sconosciuto")
-                        }
-                }
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
+            if (savedCode.isEmpty()) {
+                onFailure("Codice utente non trovato")
+                return@launch
             }
-            .addOnFailureListener { error ->
+
+            val database = FirebaseDatabase.getInstance()
+            val esercizioRef = database.reference
+                .child("users")
+                .child(savedCode)
+                .child("exerciseData")
+                .child(exerciseKey)
+
+            val task = if (newNote.isNullOrBlank()) {
+                esercizioRef.child("noteUtente").removeValue()
+            } else {
+                esercizioRef.child("noteUtente").setValue(newNote)
+            }
+
+            task.addOnSuccessListener {
+                updateLocalExerciseData(exerciseKey) { current ->
+                    current.copy(noteUtente = newNote?.takeIf { it.isNotBlank() })
+                }
+                onSuccess()
+            }.addOnFailureListener { error ->
                 onFailure(error.message ?: "Errore sconosciuto")
             }
+        }
+    }
+
+    fun exerciseKeyFromName(name: String): String {
+        val normalized = name.trim().lowercase(Locale.getDefault())
+        val sanitized = normalized.replace("[^a-z0-9]+".toRegex(), "_").trim('_')
+        return if (sanitized.isNotEmpty()) {
+            sanitized
+        } else {
+            "exercise_${name.trim().hashCode()}"
+        }
+    }
+
+    private fun observeUserExerciseData(code: String) {
+        val database = FirebaseDatabase.getInstance()
+        val reference = database.reference
+            .child("users")
+            .child(code)
+            .child("exerciseData")
+
+        exerciseDataListener?.let { listener ->
+            exerciseDataRef?.removeEventListener(listener)
+        }
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val data = snapshot.children.mapNotNull { child ->
+                    val key = child.key ?: return@mapNotNull null
+                    val value = child.getValue(UserExerciseData::class.java) ?: UserExerciseData()
+                    val hasContent = !value.noteUtente.isNullOrEmpty() || (value.weightLogs != null && value.weightLogs!!.isNotEmpty())
+                    if (hasContent) key to value else null
+                }.toMap()
+                _userExerciseData.postValue(data)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Ignora l'errore, mantieni i dati in cache
+            }
+        }
+
+        reference.addValueEventListener(listener)
+        exerciseDataRef = reference
+        exerciseDataListener = listener
+    }
+
+    private fun updateLocalExerciseData(
+        exerciseKey: String,
+        transform: (UserExerciseData) -> UserExerciseData
+    ) {
+        val currentMap = _userExerciseData.value?.toMutableMap() ?: mutableMapOf()
+        val baseData = currentMap[exerciseKey] ?: UserExerciseData()
+        val updatedData = transform(baseData)
+        if (updatedData.noteUtente.isNullOrEmpty() && (updatedData.weightLogs == null || updatedData.weightLogs!!.isEmpty())) {
+            currentMap.remove(exerciseKey)
+        } else {
+            currentMap[exerciseKey] = updatedData
+        }
+        _userExerciseData.postValue(currentMap.toMap())
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        exerciseDataListener?.let { listener ->
+            exerciseDataRef?.removeEventListener(listener)
+        }
     }
 
     fun inviaRichiestaCambioScheda(
