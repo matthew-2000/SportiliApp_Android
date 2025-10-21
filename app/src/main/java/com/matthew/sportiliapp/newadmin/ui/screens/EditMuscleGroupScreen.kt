@@ -32,6 +32,7 @@ import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.EsercizioPredefinito
 import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
 import com.matthew.sportiliapp.model.GruppoMuscolare
+import java.util.Locale
 import java.util.UUID
 
 // ----------------- Data classes & Utilities -----------------
@@ -53,6 +54,31 @@ data class ExerciseInputState(
     var numeroRipetizioni: Int = 10,
     var customSerieText: String = ""
 )
+
+private fun String.normalizeForExerciseComparison(): String =
+    trim().lowercase(Locale.getDefault())
+
+private fun String.capitalizeExerciseName(): String {
+    val trimmed = trim()
+    if (trimmed.isEmpty()) return ""
+    val lower = trimmed.lowercase(Locale.getDefault())
+    return lower.replaceFirstChar { char ->
+        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+    }
+}
+
+private fun formatCompositeExerciseName(rawName: String): String {
+    if (rawName.isBlank()) return rawName
+    return rawName.split(" + ").joinToString(" + ") { part -> part.capitalizeExerciseName() }
+}
+
+private fun Esercizio.containsExerciseName(targetName: String): Boolean {
+    val normalizedTarget = targetName.normalizeForExerciseComparison()
+    if (normalizedTarget.isEmpty()) return false
+    return name.split(" + ")
+        .map { it.normalizeForExerciseComparison() }
+        .any { it == normalizedTarget }
+}
 
 // ----------------- MAIN SCREEN -----------------
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -140,7 +166,10 @@ fun EditMuscleGroupScreen(
         // Al back, salva l'ordine
         val exercisesMap = linkedMapOf<String, Esercizio>()
         selectedExercises.forEachIndexed { index, entry ->
-            exercisesMap["esercizio${index + 1}"] = entry.exercise
+            val sanitizedExercise = entry.exercise.copy(
+                name = formatCompositeExerciseName(entry.exercise.name)
+            )
+            exercisesMap["esercizio${index + 1}"] = sanitizedExercise
         }
         val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
         onSave(updatedGroup)
@@ -238,7 +267,7 @@ fun EditMuscleGroupScreen(
                             // Lista degli esercizi del gruppo
                             items(gruppo.esercizi) { esercizioPredefinito ->
                                 val isAlreadySelected = selectedExercises.any {
-                                    it.exercise.name.contains(esercizioPredefinito.nome, ignoreCase = true)
+                                    it.exercise.containsExerciseName(esercizioPredefinito.nome)
                                 }
                                 PredefinedExerciseCard(
                                     esercizioPredefinito = esercizioPredefinito,
@@ -257,7 +286,7 @@ fun EditMuscleGroupScreen(
                 } else {
                     items(filteredExercises) { esercizioPredefinito ->
                         val isAlreadySelected = selectedExercises.any {
-                            it.exercise.name.contains(esercizioPredefinito.nome, ignoreCase = true)
+                            it.exercise.containsExerciseName(esercizioPredefinito.nome)
                         }
                         PredefinedExerciseCard(
                             esercizioPredefinito = esercizioPredefinito,
@@ -340,7 +369,10 @@ fun EditMuscleGroupScreen(
                 onSave = {
                     val exercisesMap = linkedMapOf<String, Esercizio>()
                     selectedExercises.forEachIndexed { index, entry ->
-                        exercisesMap["esercizio${index + 1}"] = entry.exercise
+                        val sanitizedExercise = entry.exercise.copy(
+                            name = formatCompositeExerciseName(entry.exercise.name)
+                        )
+                        exercisesMap["esercizio${index + 1}"] = sanitizedExercise
                     }
                     val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
                     onSave(updatedGroup)
@@ -665,8 +697,19 @@ fun EsercizioDialog(
                         val finalSerie = listOf(mainSerieString)
                             .plus(extraSerieStrings)
                             .joinToString(" + ")
-                        val finalName = listOf(if (mainExerciseName.isNotBlank()) mainExerciseName else "Esercizio Personalizzato")
-                            .plus(extraExercises.map { if (it.exerciseName.isNotBlank()) it.exerciseName else "Esercizio" })
+                        val formattedMainName = if (mainExerciseName.isNotBlank()) {
+                            mainExerciseName.capitalizeExerciseName()
+                        } else {
+                            "Esercizio Personalizzato".capitalizeExerciseName()
+                        }
+                        val formattedExtraNames = extraExercises.map { state ->
+                            val rawName = state.exerciseName.ifBlank {
+                                "Esercizio"
+                            }
+                            rawName.capitalizeExerciseName()
+                        }
+                        val finalName = listOf(formattedMainName)
+                            .plus(formattedExtraNames)
                             .joinToString(" + ")
                         val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
                             ""
