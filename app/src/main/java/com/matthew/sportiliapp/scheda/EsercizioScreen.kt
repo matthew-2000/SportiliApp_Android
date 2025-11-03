@@ -370,13 +370,13 @@ fun EsercizioScreen(
                 val isNoteDirty = noteInput != savedNote
 
                 Text(
-                    text = "Note personali",
+                    text = "Note",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
                 )
                 OutlinedTextField(
                     value = noteInput,
                     onValueChange = { noteInput = it },
-                    placeholder = { Text("Aggiungi una nota personale") },
+                    placeholder = { Text("Aggiungi una nota") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
