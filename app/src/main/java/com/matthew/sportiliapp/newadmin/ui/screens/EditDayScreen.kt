@@ -41,18 +41,18 @@ fun EditDayScreen(
     // Lista dei gruppi muscolari disponibili
     // *** NOVITÀ: aggiunto "Circuito" ***
     val gruppiMuscolari = mutableListOf(
+        "Riscaldamento",
         "Addominali",
-        "Bicipiti",
         "Cardio",
-        "Circuito",          // <--- nuovo gruppo speciale
-        "Defaticamento",
+        "Circuito",
+        "Pettorali",
         "Dorsali",
         "Gambe e Glutei",
-        "Polpacci",
-        "Pettorali",
-        "Riscaldamento",
         "Spalle",
+        "Bicipiti",
         "Tricipiti",
+        "Polpacci",
+        "Defaticamento"
     )
 
     // Stato per mantenere traccia dei gruppi muscolari selezionati
@@ -148,7 +148,7 @@ fun EditDayScreen(
     }
     if (showAddGroupDialog) {
         AlertDialog(
-            onDismissRequest = { showAddGroupDialog = false },
+            onDismissRequest = { showAddGroupDialog = false; selectedGruppi.keys.forEach { selectedGruppi[it] = false } },
             title = { Text("Aggiungi Gruppi Muscolare") },
             text = {
                 Column(
@@ -185,11 +185,12 @@ fun EditDayScreen(
                         val newKey = "gruppo${groupsList.size + 1}"
                         groupsList.add(newKey to GruppoMuscolare(nome = g.nome))
                     }
+                    selectedGruppi.keys.forEach { selectedGruppi[it] = false }
                     showAddGroupDialog = false
                 }) { Text("Aggiungi") }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showAddGroupDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showAddGroupDialog = false; selectedGruppi.keys.forEach { selectedGruppi[it] = false } }) { Text("Annulla") }
             },
             shape = RoundedCornerShape(8.dp)
         )
@@ -209,7 +210,7 @@ fun MuscleGroupItem(
 
     if (showRemoveDialog) {
         AlertDialog(
-            onDismissRequest = { showRemoveDialog = false },
+            onDismissRequest = { showRemoveDialog = false;  },
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo gruppo?") },
             confirmButton = {
