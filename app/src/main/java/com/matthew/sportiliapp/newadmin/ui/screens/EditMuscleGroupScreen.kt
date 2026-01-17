@@ -529,52 +529,80 @@ fun EsercizioDialog(
     onConfirm: (Esercizio) -> Unit,
     predefiniti: List<EsercizioPredefinito>,
 ) {
-    // Se l'esercizio è in editing, proviamo a precompilare i campi
-    // Per il main usiamo la prima parte del nome e della serie (se nel formato "x + y + ...")
-    val nameParts = initialExercise.name.split(" + ").map { it.trim() }
-    val serieParts = initialExercise.serie.split(" + ").map { it.trim() }
-
-    var mainExerciseName by remember { mutableStateOf(if (nameParts.isNotEmpty()) nameParts[0] else "") }
-    var mainSerie by remember { mutableStateOf(3) }
-    var mainRipetizioni by remember { mutableStateOf(10) }
-    var mainCustomSerie by remember { mutableStateOf("") }
-
-    // Se la prima parte della serie è nel formato "n x m" allora la parsiamo
-    if (serieParts.isNotEmpty() && serieParts[0].contains("x")) {
-        val parts = serieParts[0].split("x").map { it.trim() }
-        mainSerie = parts.getOrNull(0)?.toIntOrNull() ?: 3
-        mainRipetizioni = parts.getOrNull(1)?.toIntOrNull() ?: 10
-    } else if (serieParts.isNotEmpty() && serieParts[0].isNotEmpty()){
-        mainCustomSerie = serieParts[0]
+    // ✅ Calcolati UNA SOLA VOLTA quando cambia initialExercise
+    val nameParts = remember(initialExercise) {
+        initialExercise.name.split(" + ").map { it.trim() }
+    }
+    val serieParts = remember(initialExercise) {
+        initialExercise.serie.split(" + ").map { it.trim() }
     }
 
-    // Precompiliamo la lista degli extra (se esistono)
-    val extraExercisesInitial = remember { mutableStateListOf<ExerciseInputState>() }
-    if (nameParts.size > 1 && serieParts.size > 1) {
-        // Per ogni extra, la posizione corrisponde
+    // ✅ State "utente" - si resettano SOLO quando cambia initialExercise
+    var mainExerciseName by remember(initialExercise) {
+        mutableStateOf(nameParts.firstOrNull().orEmpty())
+    }
+    var mainSerie by remember(initialExercise) { mutableStateOf(3) }
+    var mainRipetizioni by remember(initialExercise) { mutableStateOf(10) }
+    var mainCustomSerie by remember(initialExercise) { mutableStateOf("") }
+
+    // ✅ Extra (superserie) - lista stabile
+    val extraExercises = remember(initialExercise) { mutableStateListOf<ExerciseInputState>() }
+
+    // ✅ Riposo
+    var includeRiposo by remember(initialExercise) {
+        mutableStateOf(initialExercise.riposo?.isNotBlank() == true)
+    }
+    var minutiRiposo by remember(initialExercise) { mutableStateOf(1) }
+    var secondiRiposo by remember(initialExercise) { mutableStateOf(0) }
+
+    // ✅ Note
+    var notePT by remember(initialExercise) { mutableStateOf(initialExercise.notePT) }
+
+    // ✅ Selezione predefiniti per extra
+    var selectingPredefinedIndex by remember { mutableStateOf<Int?>(null) }
+    var extraPredefSearchText by remember { mutableStateOf("") }
+
+    // ✅ Inizializzazione “one-shot” di serie + extra + riposo (NON deve stare nel body!)
+    LaunchedEffect(initialExercise) {
+        // --- parse serie principale ---
+        val firstSerie = serieParts.firstOrNull().orEmpty()
+        if (firstSerie.contains("x")) {
+            val parts = firstSerie.split("x").map { it.trim() }
+            mainSerie = parts.getOrNull(0)?.toIntOrNull() ?: 3
+            mainRipetizioni = parts.getOrNull(1)?.toIntOrNull() ?: 10
+            mainCustomSerie = ""
+        } else if (firstSerie.isNotBlank()) {
+            mainCustomSerie = firstSerie
+        } else {
+            mainCustomSerie = ""
+            mainSerie = 3
+            mainRipetizioni = 10
+        }
+
+        // --- parse extra ---
+        extraExercises.clear()
         for (i in 1 until minOf(nameParts.size, serieParts.size)) {
-            extraExercisesInitial.add(
+            extraExercises.add(
                 ExerciseInputState(
                     exerciseName = nameParts[i],
                     customSerieText = serieParts[i]
                 )
             )
         }
+
+        // --- parse riposo (m'ss") ---
+        val hasRiposo = initialExercise.riposo?.isNotBlank() == true
+        if (hasRiposo) {
+            minutiRiposo = initialExercise.riposo?.substringBefore("'")?.toIntOrNull() ?: 1
+            secondiRiposo = initialExercise.riposo
+                ?.substringAfter("'")
+                ?.substringBefore("\"")
+                ?.toIntOrNull() ?: 0
+        } else {
+            minutiRiposo = 1
+            secondiRiposo = 0
+        }
     }
-
-    // Riposo: se presente, proviamo a parsarlo nel formato m'ss" (semplice parsing)
-    var includeRiposo by remember { mutableStateOf(initialExercise.riposo?.isNotBlank() == true) }
-    var minutiRiposo by remember { mutableStateOf( if (includeRiposo) initialExercise.riposo?.substringBefore("'")?.toIntOrNull() ?: 1 else 1) }
-    var secondiRiposo by remember { mutableStateOf( if (includeRiposo) initialExercise.riposo?.substringAfter("'")?.substringBefore("\"")?.toIntOrNull() ?: 0 else 0) }
-
-    // Note (opzionale)
-    var notePT by remember { mutableStateOf(initialExercise.notePT) }
-
-    // Stati per esercizi extra (superserie)
-    val extraExercises = remember { extraExercisesInitial.toMutableStateList() }
-    // Stato per selezionare un esercizio predefinito per un extra
-    var selectingPredefinedIndex by remember { mutableStateOf<Int?>(null) }
-    var extraPredefSearchText by remember { mutableStateOf("") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
