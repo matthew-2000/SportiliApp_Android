@@ -12,8 +12,8 @@ android {
         applicationId = "com.matthew.sportiliapp"
         minSdk = 27
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.2.6"
+        versionCode = 26
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
