@@ -1,6 +1,5 @@
 package com.matthew.sportiliapp.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -18,11 +17,15 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = OrangePink80,
     background = Color(0xFF121212), // Dark background
     surface = Color(0xFF1E1E1E),    // Dark surface
+    surfaceVariant = Color(0xFF3A2E28),
     onPrimary = Color.White,        // Text on primary color
     onSecondary = Color.White,      // Text on secondary color
     onTertiary = Color.White,       // Text on tertiary color
     onBackground = Color.White,     // Text on dark background
-    onSurface = Color.White         // Text on dark surface
+    onSurface = Color.White,        // Text on dark surface
+    onSurfaceVariant = Color(0xFFEAD9CF),
+    outline = Color(0xFFB39A8D),
+    outlineVariant = Color(0xFF5B4A42)
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -31,11 +34,15 @@ private val LightColorScheme = lightColorScheme(
     tertiary = OrangePink40,
     background = Color(0xFFFFFBFE),
     surface = Color(0xFFFFFBFE),
+    surfaceVariant = Color(0xFFF4E9E2),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
     onBackground = Color(0xFF1C1B1F),
     onSurface = Color(0xFF1C1B1F),
+    onSurfaceVariant = Color(0xFF5A4D45),
+    outline = Color(0xFF8F7D72),
+    outlineVariant = Color(0xFFD9C9BF)
 )
 
 @Composable

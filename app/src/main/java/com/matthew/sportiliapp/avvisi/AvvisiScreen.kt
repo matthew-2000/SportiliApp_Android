@@ -1,6 +1,6 @@
 package com.matthew.sportiliapp.avvisi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,7 +26,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -80,6 +83,14 @@ fun AvvisiScreen() {
                 if (alerts.isEmpty()) {
                     EmptyAlertsScreen(padding)
                 } else {
+                    val orderedAlerts = alerts.sortedWith(
+                        compareByDescending<Avviso> { !it.isExpired() }
+                            .thenByDescending { it.urgencyWeight() }
+                            .thenBy { it.scadenza ?: Long.MAX_VALUE }
+                    )
+                    val activeAlerts = orderedAlerts.filterNot { it.isExpired() }
+                    val expiredAlerts = orderedAlerts.filter { it.isExpired() }
+
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -88,22 +99,28 @@ fun AvvisiScreen() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 80.dp)
                     ) {
-                        item {
-                            // intestazione sezione, coerente con SchedaScreen
-                            Text(
-                                "Aggiornamenti",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(top = 8.dp),
-                                thickness = 1.dp,
-                                color = Color.LightGray
-                            )
+                        if (activeAlerts.isNotEmpty()) {
+                            item {
+                                AlertsSectionTitle(
+                                    title = "Da leggere",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            items(activeAlerts, key = { it.id }) { alert ->
+                                AlertCardClean(alert)
+                            }
                         }
-                        items(alerts, key = { it.id }) { alert ->
-                            AlertCardClean(alert)
+
+                        if (expiredAlerts.isNotEmpty()) {
+                            item {
+                                AlertsSectionTitle(
+                                    title = "Scaduti",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            items(expiredAlerts, key = { it.id }) { alert ->
+                                AlertCardClean(alert)
+                            }
                         }
                     }
                 }
@@ -173,39 +190,74 @@ fun EmptyAlertsScreen(padding: PaddingValues) {
         Text(
             "Controlla più tardi per nuovi aggiornamenti.",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
 }
 
-/* ---------- CARD PULITA E GERARCHICA ---------- */
+@Composable
+private fun AlertsSectionTitle(title: String, color: Color) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineSmall,
+        color = color,
+        fontWeight = FontWeight.SemiBold
+    )
+    HorizontalDivider(
+        modifier = Modifier.padding(top = 8.dp),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+}
 
 @Composable
 fun AlertCardClean(alert: Avviso) {
     val weight = alert.urgencyWeight()
-    val accent = when (weight) {
-        3 -> MaterialTheme.colorScheme.error
-        2 -> MaterialTheme.colorScheme.tertiary
+    val isExpired = alert.isExpired()
+    val accent = when {
+        isExpired -> MaterialTheme.colorScheme.onSurfaceVariant
+        weight == 3 -> MaterialTheme.colorScheme.error
+        weight == 2 -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.primary
     }
-    val icon = if (weight >= 3) Icons.Filled.Warning else Icons.Filled.Info
+    val icon = if (!isExpired && weight >= 3) Icons.Filled.Warning else Icons.Filled.Info
+    val description = buildString {
+        append(alert.titolo)
+        append(". ")
+        append(if (isExpired) "Avviso scaduto. " else "Avviso attivo. ")
+        alert.urgenza?.takeIf { it.isNotBlank() }?.let {
+            append("Urgenza $it. ")
+        }
+        alert.scadenza?.let { deadline ->
+            val date = Instant.ofEpochMilli(deadline)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            append(if (isExpired) "Scaduto il $date." else "Scade il $date.")
+        }
+    }
 
-    OutlinedCard( // bordo sottile, look pulito
-        modifier = Modifier.fillMaxWidth(),
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+            },
+        border = BorderStroke(1.dp, accent.copy(alpha = if (isExpired) 0.25f else 0.45f)),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(16.dp)
+                .alpha(if (isExpired) 0.82f else 1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Riga titolo + icona (peso visivo principale)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = if (weight >= 3) "Avviso urgente" else "Avviso",
+                    contentDescription = null,
                     tint = accent,
                     modifier = Modifier.size(20.dp)
                 )
@@ -218,25 +270,30 @@ fun AlertCardClean(alert: Avviso) {
                 )
             }
 
-            // Descrizione (secondario)
             Text(
                 text = alert.descrizione,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // Metadati: chip per scadenza e urgenza (stessa riga)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (isExpired) {
+                    MetaChip(
+                        text = "Scaduto",
+                        accent = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 alert.scadenza?.let { deadline ->
                     val date = Instant.ofEpochMilli(deadline)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
                         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                     MetaChip(
-                        text = "Scade il $date",
+                        text = if (isExpired) "Scaduto il $date" else "Scade il $date",
                         accent = accent
                     )
                 }

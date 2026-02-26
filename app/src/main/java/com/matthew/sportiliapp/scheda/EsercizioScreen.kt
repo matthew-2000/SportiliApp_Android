@@ -26,8 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -37,9 +38,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +58,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,7 +91,6 @@ import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.SchedaViewModel
 import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import com.matthew.sportiliapp.model.WeightLogEntry
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -149,11 +148,7 @@ fun EsercizioScreen(
     val currentData = userExerciseData[exerciseKey]
 
     val canManageData = esercizio != null && exerciseKey.isNotEmpty()
-    val topBarTitle = when {
-        esercizio != null -> esercizio.name
-        isLoading -> "Caricamento esercizio"
-        else -> "Esercizio non disponibile"
-    }
+    val topBarTitle = ""
 
     // Logs + Note (synced with current key)
     var weightLogs by remember { mutableStateOf<List<WeightLogRecord>>(emptyList()) }
@@ -197,6 +192,11 @@ fun EsercizioScreen(
     val recentLogs = remember(sortedLogs) { sortedLogs.takeLast(10) }
     val savedNote = currentData?.noteUtente ?: ""
     val isNoteDirty = noteInput != savedNote
+    val openWeightEntrySheet = {
+        dialogExerciseKey = exerciseKey
+        weightDialogMode = WeightDialogMode.Create
+        weightInput = ""
+    }
 
     Scaffold(
         topBar = {
@@ -210,7 +210,7 @@ fun EsercizioScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
                 },
                 actions = {
@@ -222,11 +222,7 @@ fun EsercizioScreen(
                     }
                     if (esercizio != null) {
                         IconButton(
-                            onClick = {
-                                dialogExerciseKey = exerciseKey
-                                weightDialogMode = WeightDialogMode.Create
-                                weightInput = ""
-                            },
+                            onClick = openWeightEntrySheet,
                             enabled = canManageData
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = "Registra peso")
@@ -299,7 +295,7 @@ fun EsercizioScreen(
                             ExerciseSerieRow(serie = ex.serie)
 
                             ex.riposo?.takeIf { it.isNotBlank() }?.let { rip ->
-                                Divider(modifier = Modifier.padding(vertical = 12.dp))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                                 LabeledRow(
                                     label = "Recupero",
                                     icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
@@ -308,7 +304,7 @@ fun EsercizioScreen(
                             }
 
                             ex.notePT?.takeIf { it.isNotBlank() }?.let { note ->
-                                Divider(modifier = Modifier.padding(vertical = 12.dp))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                                 CoachNotesRow(text = note)
                             }
                         }
@@ -362,7 +358,7 @@ fun EsercizioScreen(
                         ) {
                             EmptyStateCard(
                                 title = "Nessun peso registrato",
-                                message = "Registra il tuo primo peso cliccando sul + in alto per visualizzare i progressi."
+                                message = "Usa il + in alto per registrare il primo peso e tracciare i progressi."
                             )
                         }
                     } else {
@@ -975,7 +971,7 @@ private fun NotesPreviewRow(
         ) {
             Icon(
                 imageVector = Icons.Filled.Edit,
-                contentDescription = null,
+                contentDescription = "Modifica note",
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -997,8 +993,8 @@ private fun NotesPreviewRow(
                 }
             }
             Icon(
-                imageVector = Icons.Filled.ArrowBack, // chevron-like workaround without extra icons
-                contentDescription = null,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Apri note",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .size(18.dp)
@@ -1089,8 +1085,14 @@ private fun WeightLogSwipeCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                // spazio “clean” (come iOS)
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    TextButton(onClick = onEdit, enabled = enabled) {
+                        Text("Modifica")
+                    }
+                    TextButton(onClick = onDelete, enabled = enabled) {
+                        Text("Elimina", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
         }
     }
