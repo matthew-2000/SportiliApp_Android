@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.newadmin.domain.GetAlertsUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -23,18 +24,25 @@ class AlertsFeedViewModel(
     private val _uiState: MutableStateFlow<AlertsFeedUiState> =
         MutableStateFlow(AlertsFeedUiState.Loading)
     val uiState: StateFlow<AlertsFeedUiState> = _uiState
+    private var observeJob: Job? = null
 
     init {
         observeAlerts()
     }
 
     private fun observeAlerts() {
-        viewModelScope.launch {
+        _uiState.value = AlertsFeedUiState.Loading
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
             getAlertsUseCase()
                 .catch { throwable -> _uiState.value = AlertsFeedUiState.Error(throwable) }
                 .collectLatest { alerts ->
                     _uiState.value = AlertsFeedUiState.Success(alerts)
                 }
         }
+    }
+
+    fun retry() {
+        observeAlerts()
     }
 }

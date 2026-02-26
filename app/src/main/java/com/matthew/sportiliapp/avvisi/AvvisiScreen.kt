@@ -1,6 +1,4 @@
 package com.matthew.sportiliapp.avvisi
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,16 +54,25 @@ fun AvvisiScreen() {
     ) { padding ->
         when (val uiState = state) {
             AlertsFeedUiState.Loading -> {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) { Text("Caricamento...") }
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Caricamento avvisi...")
+                }
             }
 
             is AlertsFeedUiState.Error -> {
-                ErrorScreen(padding)
+                ErrorScreen(
+                    padding = padding,
+                    message = uiState.throwable.localizedMessage,
+                    onRetry = viewModel::retry
+                )
             }
 
             is AlertsFeedUiState.Success -> {
@@ -106,12 +113,17 @@ fun AvvisiScreen() {
 }
 
 @Composable
-fun ErrorScreen(padding: PaddingValues) {
-    Box(
+fun ErrorScreen(
+    padding: PaddingValues,
+    message: String?,
+    onRetry: () -> Unit
+) {
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        contentAlignment = Alignment.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             "Errore durante il caricamento degli avvisi",
@@ -119,6 +131,20 @@ fun ErrorScreen(padding: PaddingValues) {
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
+        if (!message.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onRetry) {
+            Text("Riprova")
+        }
     }
 }
 
@@ -134,7 +160,7 @@ fun EmptyAlertsScreen(padding: PaddingValues) {
     ) {
         Icon(
             Icons.Default.Info,
-            contentDescription = null,
+            contentDescription = "Informazioni",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(48.dp)
         )
@@ -179,7 +205,7 @@ fun AlertCardClean(alert: Avviso) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = null,
+                    contentDescription = if (weight >= 3) "Avviso urgente" else "Avviso",
                     tint = accent,
                     modifier = Modifier.size(20.dp)
                 )

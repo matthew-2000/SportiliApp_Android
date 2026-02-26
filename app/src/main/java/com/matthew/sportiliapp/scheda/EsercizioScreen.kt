@@ -63,7 +63,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -119,7 +118,9 @@ fun EsercizioScreen(
 ) {
     val context = LocalContext.current
     val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
-    val esercizio = viewModel.scheda.value?.giorni?.get(giornoId)
+    val scheda by viewModel.scheda.observeAsState()
+    val isLoading by viewModel.isLoading.observeAsState(true)
+    val esercizio = scheda?.giorni?.get(giornoId)
         ?.gruppiMuscolari?.get(gruppoMuscolareId)?.esercizi?.get(esercizioId)
 
     val userExerciseData by viewModel.userExerciseData.observeAsState(initial = emptyMap())
@@ -140,10 +141,19 @@ fun EsercizioScreen(
     }
 
     val currentPartName = exerciseParts.getOrElse(selectedPartIndex) { esercizio?.name ?: "" }
-    val exerciseKey = viewModel.exerciseKeyFromName(currentPartName)
+    val exerciseKey = if (currentPartName.isBlank()) {
+        ""
+    } else {
+        viewModel.exerciseKeyFromName(currentPartName)
+    }
     val currentData = userExerciseData[exerciseKey]
 
-    val canManageData = exerciseKey.isNotEmpty()
+    val canManageData = esercizio != null && exerciseKey.isNotEmpty()
+    val topBarTitle = when {
+        esercizio != null -> esercizio.name
+        isLoading -> "Caricamento esercizio"
+        else -> "Esercizio non disponibile"
+    }
 
     // Logs + Note (synced with current key)
     var weightLogs by remember { mutableStateOf<List<WeightLogRecord>>(emptyList()) }
@@ -158,8 +168,6 @@ fun EsercizioScreen(
     var isImageFullScreen by remember { mutableStateOf(false) }
     var pendingDeletionRecord by remember { mutableStateOf<WeightLogRecord?>(null) }
     var alertMessage by remember { mutableStateOf<String?>(null) }
-
-    val scope = rememberCoroutineScope()
 
     val sheetDateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val summaryDateFormatter = remember { SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault()) }
@@ -193,7 +201,13 @@ fun EsercizioScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("") },
+                title = {
+                    Text(
+                        text = topBarTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
@@ -206,22 +220,25 @@ fun EsercizioScreen(
                             Icon(Icons.Filled.Notifications, contentDescription = "Avvia timer recupero")
                         }
                     }
-                    IconButton(
-                        onClick = {
-                            dialogExerciseKey = exerciseKey
-                            weightDialogMode = WeightDialogMode.Create
-                            weightInput = ""
-                        },
-                        enabled = canManageData
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Registra peso")
+                    if (esercizio != null) {
+                        IconButton(
+                            onClick = {
+                                dialogExerciseKey = exerciseKey
+                                weightDialogMode = WeightDialogMode.Create
+                                weightInput = ""
+                            },
+                            enabled = canManageData
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Registra peso")
+                        }
                     }
                 }
             )
         }
     ) { padding ->
 
-        esercizio?.let { ex ->
+        if (esercizio != null) {
+            val ex = esercizio
 
             val heroSubtitle = if (exerciseParts.size > 1) currentPartName else null
             val imageUrl =
@@ -489,7 +506,7 @@ fun EsercizioScreen(
                     WeightDialogMode.Hidden -> ""
                 }
 
-                val dateLabel = when (val mode = weightDialogMode) {
+                val dateLabel = when (weightDialogMode) {
                     is WeightDialogMode.Edit -> "Ultimo aggiornamento"
                     WeightDialogMode.Create -> "Data"
                     WeightDialogMode.Hidden -> "Data"
@@ -632,6 +649,37 @@ fun EsercizioScreen(
                         }
                     }
                 )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text("Caricamento esercizio...")
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    ) {
+                        Text(
+                            text = "Questo esercizio non è disponibile.",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        OutlinedButton(onClick = { navController.popBackStack() }) {
+                            Text("Torna indietro")
+                        }
+                    }
+                }
             }
         }
     }

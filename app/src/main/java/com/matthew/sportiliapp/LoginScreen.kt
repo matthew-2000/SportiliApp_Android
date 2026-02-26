@@ -1,13 +1,9 @@
 package com.matthew.sportiliapp
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,20 +15,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.matthew.sportiliapp.R
-import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
 @Composable
 fun LoginScreen(navController: NavHostController) {
     var code by remember { mutableStateOf("") }
     var showAlert by remember { mutableStateOf(false) }
     var alertMessage by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -57,7 +52,7 @@ fun LoginScreen(navController: NavHostController) {
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.icon),
-                    contentDescription = null,
+                    contentDescription = "Logo SportiliApp",
                     modifier = Modifier.size(200.dp)
                 )
                 Text(
@@ -75,6 +70,7 @@ fun LoginScreen(navController: NavHostController) {
                     onValueChange = { code = it },
                     label = { Text("Codice", fontWeight = FontWeight.Medium) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -93,6 +89,7 @@ fun LoginScreen(navController: NavHostController) {
                             showAlert = true
                         } else {
                             coroutineScope.launch {
+                                isSubmitting = true
                                 try {
                                     register(
                                         codice = code,
@@ -106,6 +103,8 @@ fun LoginScreen(navController: NavHostController) {
                                 } catch (e: Exception) {
                                     alertMessage = "Errore inaspettato: ${e.message}"
                                     showAlert = true
+                                } finally {
+                                    isSubmitting = false
                                 }
                             }
                         }
@@ -113,16 +112,25 @@ fun LoginScreen(navController: NavHostController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(),
+                    enabled = !isSubmitting,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Text(
-                        text = "Entra",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Entra",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 TextButton(
@@ -131,6 +139,7 @@ fun LoginScreen(navController: NavHostController) {
                             "Per accedere è necessario avere un codice fornito dal personal trainer. Ti preghiamo di contattarlo per assistenza."
                         showAlert = true
                     },
+                    enabled = !isSubmitting,
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.secondary
                     )
@@ -184,7 +193,10 @@ private suspend fun register(
         if (isAdmin) {
             FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    navController.navigate("admin")
+                    navController.navigate("admin") {
+                        popUpTo("login") { inclusive = true }
+                        launchSingleTop = true
+                    }
                 } else {
                     // Errore durante l'accesso
                     onError("Errore durante l'accesso. Riprova più tardi.")
@@ -200,7 +212,10 @@ private suspend fun register(
                         }
                         user?.updateProfile(profileUpdates)
                         salvaCodeInSharedPreferences(context, code = codice)
-                        navController.navigate("content")
+                        navController.navigate("content") {
+                            popUpTo("login") { inclusive = true }
+                            launchSingleTop = true
+                        }
                     } else {
                         // Errore durante l'accesso
                         onError("Errore durante l'accesso. Riprova più tardi.")

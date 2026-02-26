@@ -81,14 +81,22 @@ fun SchedaScreen(navController: NavHostController) {
         },
         content = { padding ->
             if (isLoading) {
-                // Mostra l'indicatore di caricamento
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    //CircularProgressIndicator()
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Caricamento scheda...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             } else {
                 // Mostra la scheda o la schermata "non disponibile"

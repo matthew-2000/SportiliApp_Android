@@ -23,7 +23,6 @@ import com.google.firebase.auth.FirebaseAuth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImpostazioniScreen(navController: NavHostController) {
-    var isLoggedOut by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -197,8 +196,11 @@ fun ImpostazioniScreen(navController: NavHostController) {
                                 // Handle logout button click
                                 FirebaseAuth.getInstance().signOut()
                                 resetSharedPref(context)
-                                isLoggedOut = true
                                 showLogoutDialog = false
+                                navController.navigate("login") {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                    launchSingleTop = true
+                                }
                             }
                         ) {
                             Text("Conferma")
@@ -214,10 +216,6 @@ fun ImpostazioniScreen(navController: NavHostController) {
                 )
             }
 
-            // Fullscreen cover logic for logout
-            if (isLoggedOut) {
-                navController.navigate("login")
-            }
         }
     }
 }

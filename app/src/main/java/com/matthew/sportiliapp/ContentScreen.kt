@@ -80,10 +80,13 @@ fun ContentScreen(navController: NavHostController) {
                                         }
                                     }
                                 ) {
-                                    Icon(item.icon, contentDescription = null)
+                                    Icon(
+                                        item.icon,
+                                        contentDescription = "${item.title}, $badgeText nuovi avvisi"
+                                    )
                                 }
                             } else {
-                                Icon(item.icon, contentDescription = null)
+                                Icon(item.icon, contentDescription = item.title)
                             }
                         },
                         label = { Text(item.title) },

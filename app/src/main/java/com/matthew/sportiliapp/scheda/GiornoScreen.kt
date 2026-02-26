@@ -1,10 +1,8 @@
 package com.matthew.sportiliapp.scheda
-
-
-import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,10 +25,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,7 +45,6 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.Esercizio
-import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.SchedaViewModel
 import com.matthew.sportiliapp.model.SchedaViewModelFactory
@@ -55,12 +54,14 @@ import com.matthew.sportiliapp.model.SchedaViewModelFactory
 fun GiornoScreen(navController: NavHostController, giornoId: String) {
     val context = LocalContext.current
     val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
-    val giorno = viewModel.scheda.value?.giorni?.get(giornoId)
+    val scheda by viewModel.scheda.observeAsState()
+    val isLoading by viewModel.isLoading.observeAsState(true)
+    val giorno = scheda?.giorni?.get(giornoId)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = { Text(text = giorno?.name ?: "Giorno") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro")
@@ -69,23 +70,43 @@ fun GiornoScreen(navController: NavHostController, giornoId: String) {
             )
         },
         content = { padding ->
-            Column(modifier = Modifier.padding(padding)) {
-                if (giorno != null) {
-                    // Mostra il giorno
-                    Text(
-                        text = giorno.name,
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.padding(16.dp)
-                    )
-
-                    LazyColumn {
-                        items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
-                            GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
+            if (giorno != null) {
+                LazyColumn(modifier = Modifier.padding(padding)) {
+                    items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
+                        GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator()
+                            Text("Caricamento esercizi...")
+                        }
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        ) {
+                            Text(
+                                text = "Questo giorno non è disponibile al momento.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center
+                            )
+                            OutlinedButton(onClick = { navController.popBackStack() }) {
+                                Text("Torna alla scheda")
+                            }
                         }
                     }
-                } else {
-                    // Se il giorno non esiste, mostra un messaggio di errore
-                    Text("Caricamento...")
                 }
             }
         }
@@ -121,7 +142,9 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
             .clickable { onClick() }
     ) {
 
@@ -138,7 +161,7 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
         ) {
             Image(
                 painter = painter,
-                contentDescription = null,
+                contentDescription = "Immagine esercizio ${esercizio.name}",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
                     .clip(RoundedCornerShape(10.dp))
@@ -160,7 +183,7 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
                     ) {
-                        Icon(Icons.Filled.Warning, contentDescription = null,
+                        Icon(Icons.Filled.Warning, contentDescription = "Errore immagine",
                             modifier = Modifier.align(Alignment.Center),
                         )
                     }
@@ -208,4 +231,3 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
         }
     }
 }
-
