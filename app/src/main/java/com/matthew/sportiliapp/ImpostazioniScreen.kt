@@ -38,9 +38,11 @@ fun ImpostazioniScreen(navController: NavHostController) {
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(text = "Impostazioni") }
+                title = { Text(text = "Impostazioni") },
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { paddingValues ->
@@ -100,12 +102,6 @@ fun ImpostazioniScreen(navController: NavHostController) {
 
             item {
                 SettingsSectionCard(title = "Account") {
-                    Text(
-                        text = "Esegui il logout se stai usando un dispositivo condiviso.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = { showLogoutDialog = true },
                         modifier = Modifier
@@ -118,9 +114,9 @@ fun ImpostazioniScreen(navController: NavHostController) {
             }
 
             item {
-                SettingsSectionCard(title = "Crediti") {
+                SettingsSectionCard(title = "Credits") {
                     Text(
-                        text = "Made by Matteo Ercolino",
+                        text = "Made with ❤️ by Matteo Ercolino",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()

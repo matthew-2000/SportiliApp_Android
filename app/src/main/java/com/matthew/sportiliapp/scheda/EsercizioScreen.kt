@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -199,6 +200,7 @@ fun EsercizioScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
@@ -208,6 +210,7 @@ fun EsercizioScreen(
                         overflow = TextOverflow.Ellipsis
                     )
                 },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
@@ -1118,6 +1121,7 @@ private fun NotesEditorSheet(
     ) {
         TopAppBar(
             title = { Text(title) },
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
                 TextButton(onClick = onClose) { Text("Chiudi") }
             },
@@ -1176,6 +1180,7 @@ private fun WeightEntrySheet(
     ) {
         TopAppBar(
             title = { Text(title) },
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
                 TextButton(onClick = onCancel) { Text("Annulla") }
             },

@@ -76,9 +76,11 @@ fun SchedaScreen(navController: NavHostController) {
     val submitReportUseCase = remember { ManualInjection.submitWorkoutIssueReportUseCase }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(getTitle(nomeUtente)) }
+                title = { Text(getTitle(nomeUtente)) },
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         content = { padding ->
