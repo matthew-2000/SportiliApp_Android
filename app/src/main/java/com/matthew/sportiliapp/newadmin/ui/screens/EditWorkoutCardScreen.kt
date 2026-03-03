@@ -28,6 +28,8 @@ import java.util.LinkedHashMap
 @Composable
 fun EditWorkoutCardScreen(
     scheda: Scheda,
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
     onDaySelected: (String, Giorno, Scheda) -> Unit,
     onSave: (Scheda) -> Unit,
     onCancel: () -> Unit
@@ -43,7 +45,7 @@ fun EditWorkoutCardScreen(
     var showScheduleSheet by remember { mutableStateOf(false) }
     var newDayName by remember { mutableStateOf("") }
 
-    BackHandler {
+    BackHandler(enabled = !isSaving) {
         val updatedScheda = scheda.copy(
             dataInizio = formatToSaveDate(startDate),
             durata = duration.toIntOrNull() ?: scheda.durata,
@@ -69,10 +71,10 @@ fun EditWorkoutCardScreen(
         topBar = { TopAppBar(
             title = { Text("Modifica Scheda")},
             actions = {
-                IconButton(onClick = { showScheduleSheet = true }) {
+                IconButton(onClick = { showScheduleSheet = true }, enabled = !isSaving) {
                     Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
                 }
-                IconButton(onClick = { showAddDayDialog = true }) {
+                IconButton(onClick = { showAddDayDialog = true }, enabled = !isSaving) {
                     Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
                 }
             })
@@ -84,6 +86,18 @@ fun EditWorkoutCardScreen(
                 .padding(16.dp)
                 .padding(padding)
         ) {
+            if (isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             // Campo Data Inizio con DatePicker
             OutlinedTextField(
                 value = startDate,
@@ -91,20 +105,22 @@ fun EditWorkoutCardScreen(
                 label = { Text("Data Inizio") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { datePickerDialog.show() },
+                    .clickable(enabled = !isSaving) { datePickerDialog.show() },
                 readOnly = true,
                 trailingIcon = {
-                    IconButton(onClick = { datePickerDialog.show() }) {
+                    IconButton(onClick = { datePickerDialog.show() }, enabled = !isSaving) {
                         Icon(imageVector = Icons.Default.DateRange, contentDescription = "Seleziona Data")
                     }
-                }
+                },
+                enabled = !isSaving
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = duration,
                 onValueChange = { duration = it },
                 label = { Text("Durata (settimane)") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text("Giorni di Allenamento", style = MaterialTheme.typography.titleMedium)
@@ -114,6 +130,7 @@ fun EditWorkoutCardScreen(
                     DayItem(
                         dayKey = dayKey,
                         day = giorno,
+                        enabled = !isSaving,
                         onMoveUp = {
                             val index = daysList.indexOfFirst { it.first == dayKey }
                             if (index > 0) {
@@ -156,7 +173,11 @@ fun EditWorkoutCardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
+                ) { Text("Annulla") }
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
                     val updatedScheda = scheda.copy(
@@ -166,7 +187,7 @@ fun EditWorkoutCardScreen(
                         cambioRichiesto = false
                     )
                     onSave(updatedScheda)
-                }, modifier = Modifier.weight(1f)) { Text("Salva") }
+                }, modifier = Modifier.weight(1f), enabled = !isSaving) { Text("Salva") }
             }
         }
 
@@ -188,10 +209,10 @@ fun EditWorkoutCardScreen(
                         daysList.add(newKey to Giorno(newDayName))
                         newDayName = ""
                         showAddDayDialog = false
-                    }) { Text("Aggiungi") }
+                    }, enabled = !isSaving) { Text("Aggiungi") }
                 },
                 dismissButton = {
-                    OutlinedButton(onClick = { showAddDayDialog = false }) { Text("Annulla") }
+                    OutlinedButton(onClick = { showAddDayDialog = false }, enabled = !isSaving) { Text("Annulla") }
                 },
                 shape = RoundedCornerShape(8.dp)
             )
@@ -217,6 +238,7 @@ fun EditWorkoutCardScreen(
 fun DayItem(
     dayKey: String,
     day: Giorno,
+    enabled: Boolean = true,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
@@ -247,7 +269,7 @@ fun DayItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { onEdit() },
+            .clickable(enabled = enabled) { onEdit() },
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
@@ -262,13 +284,13 @@ fun DayItem(
                 Text(text = "Gruppi Muscolari: ${day.gruppiMuscolari.size}", style = MaterialTheme.typography.bodySmall)
             }
             Row {
-                IconButton(onClick = onMoveUp) {
+                IconButton(onClick = onMoveUp, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")
                 }
-                IconButton(onClick = onMoveDown) {
+                IconButton(onClick = onMoveDown, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")
                 }
-                IconButton(onClick = { showRemoveDialog = true }) {
+                IconButton(onClick = { showRemoveDialog = true }, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.Delete, contentDescription = "Rimuovi")
                 }
             }

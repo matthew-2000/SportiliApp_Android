@@ -39,6 +39,8 @@ fun getCurrentFormattedDate(): String {
 @Composable
 fun EditUserScreen(
     initialUser: Utente? = null,
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
     onSave: (Utente) -> Unit,
     onRemove: (() -> Unit)? = null,
     onCancel: () -> Unit,
@@ -105,6 +107,17 @@ fun EditUserScreen(
                 .padding(padding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             // Se stiamo modificando un utente, mostriamo il suo code
             if (initialUser != null) {
                 Text(text = "Codice: ${initialUser.code}", style = MaterialTheme.typography.titleMedium)
@@ -113,7 +126,8 @@ fun EditUserScreen(
             // Pulsante per mostrare/nascondere la sezione di modifica
             OutlinedButton(
                 onClick = { showEditFields = !showEditFields },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
             ) {
                 Text(
                     text = if (!showEditFields) "Modifica Dati Utente" else "Nascondi Modifica"
@@ -126,14 +140,16 @@ fun EditUserScreen(
                     value = nome,
                     onValueChange = { nome = it },
                     label = { Text("Nome") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
                 )
 
                 OutlinedTextField(
                     value = cognome,
                     onValueChange = { cognome = it },
                     label = { Text("Cognome") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
                 )
 
                 // Pulsanti di Annulla/Salva
@@ -143,7 +159,8 @@ fun EditUserScreen(
                 ) {
                     OutlinedButton(
                         onClick = onCancel,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
                     ) {
                         Text("Annulla")
                     }
@@ -183,7 +200,8 @@ fun EditUserScreen(
                             )
                             onSave(user)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
                     ) {
                         Text("Salva")
                     }
@@ -226,7 +244,8 @@ fun EditUserScreen(
                     // Pulsante per modificare la scheda
                     Button(
                         onClick = { onEditWorkoutCard(initialUser!!.code) },
-                        modifier = Modifier.fillMaxWidth(1f)
+                        modifier = Modifier.fillMaxWidth(1f),
+                        enabled = !isSaving
                     ) {
                         Text("Modifica Scheda")
                     }
@@ -234,7 +253,8 @@ fun EditUserScreen(
                     Button(
                         onClick = { showRemoveDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.fillMaxWidth(1f)
+                        modifier = Modifier.fillMaxWidth(1f),
+                        enabled = !isSaving
                     ) {
                         Text("Rimuovi Utente", color = MaterialTheme.colorScheme.onError)
                     }

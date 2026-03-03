@@ -7,7 +7,6 @@ import com.matthew.sportiliapp.newadmin.domain.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 sealed class UiState<out T> {
@@ -33,7 +32,6 @@ class GymAdminViewModel(
     fun loadUsers() {
         viewModelScope.launch {
             getUsersUseCase()
-                .distinctUntilChanged()
                 .catch { e -> _usersState.value = UiState.Error(e) }
                 .collect { users ->
                     for (user in users) {
@@ -48,8 +46,6 @@ class GymAdminViewModel(
         viewModelScope.launch {
             val result = addUserUseCase(user)
             onResult(result)
-            // Ricarica la lista
-            loadUsers()
         }
     }
 
@@ -57,7 +53,6 @@ class GymAdminViewModel(
         viewModelScope.launch {
             val result = updateUserUseCase(user)
             onResult(result)
-            loadUsers()
         }
     }
 
@@ -65,7 +60,6 @@ class GymAdminViewModel(
         viewModelScope.launch {
             val result = removeUserUseCase(userCode)
             onResult(result)
-            loadUsers()
         }
     }
 }

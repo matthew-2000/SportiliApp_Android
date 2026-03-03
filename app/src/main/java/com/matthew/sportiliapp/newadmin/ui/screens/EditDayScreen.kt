@@ -27,6 +27,8 @@ import java.util.LinkedHashMap
 fun EditDayScreen(
     dayKey: String,
     day: Giorno,
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
     onSave: (Giorno) -> Unit,
     onCancel: () -> Unit,
     onMuscleGroupSelected: (String, GruppoMuscolare, Giorno) -> Unit
@@ -62,7 +64,7 @@ fun EditDayScreen(
         }
     }
 
-    BackHandler {
+    BackHandler(enabled = !isSaving) {
         val updatedDay = day.copy(
             name = dayName,
             gruppiMuscolari = LinkedHashMap(groupsList.toMap())
@@ -73,7 +75,7 @@ fun EditDayScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Modifica Giorno") },
             actions = {
-                IconButton(onClick = { showAddGroupDialog = true }) {
+                IconButton(onClick = { showAddGroupDialog = true }, enabled = !isSaving) {
                     Icon(Icons.Default.Add, contentDescription = "Aggiungi Gruppo")
                 }
             }) }
@@ -84,11 +86,24 @@ fun EditDayScreen(
                 .padding(16.dp)
                 .padding(padding)
         ) {
+            if (isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             OutlinedTextField(
                 value = dayName,
                 onValueChange = { dayName = it },
                 label = { Text("Nome del Giorno") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text("Gruppi Muscolari", style = MaterialTheme.typography.titleMedium)
@@ -97,6 +112,7 @@ fun EditDayScreen(
                 items(groupsList) { (groupKey, muscleGroup) ->
                     MuscleGroupItem(
                         muscleGroup = muscleGroup,
+                        enabled = !isSaving,
                         onMoveUp = {
                             val index = groupsList.indexOfFirst { it.first == groupKey }
                             if (index > 0) {
@@ -134,7 +150,7 @@ fun EditDayScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Annulla") }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f), enabled = !isSaving) { Text("Annulla") }
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(onClick = {
                     val updatedDay = day.copy(
@@ -142,7 +158,7 @@ fun EditDayScreen(
                         gruppiMuscolari = LinkedHashMap(groupsList.toMap())
                     )
                     onSave(updatedDay)
-                }, modifier = Modifier.weight(1f)) { Text("Salva") }
+                }, modifier = Modifier.weight(1f), enabled = !isSaving) { Text("Salva") }
             }
         }
     }
@@ -187,10 +203,16 @@ fun EditDayScreen(
                     }
                     selectedGruppi.keys.forEach { selectedGruppi[it] = false }
                     showAddGroupDialog = false
-                }) { Text("Aggiungi") }
+                }, enabled = !isSaving) { Text("Aggiungi") }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showAddGroupDialog = false; selectedGruppi.keys.forEach { selectedGruppi[it] = false } }) { Text("Annulla") }
+                OutlinedButton(
+                    onClick = {
+                        showAddGroupDialog = false
+                        selectedGruppi.keys.forEach { selectedGruppi[it] = false }
+                    },
+                    enabled = !isSaving
+                ) { Text("Annulla") }
             },
             shape = RoundedCornerShape(8.dp)
         )
@@ -201,6 +223,7 @@ fun EditDayScreen(
 @Composable
 fun MuscleGroupItem(
     muscleGroup: GruppoMuscolare,
+    enabled: Boolean = true,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
@@ -231,7 +254,7 @@ fun MuscleGroupItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { onEdit() },
+            .clickable(enabled = enabled) { onEdit() },
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
@@ -249,13 +272,13 @@ fun MuscleGroupItem(
                 Text(text = "Esercizi: ${muscleGroup.esercizi.count()}", style = MaterialTheme.typography.bodySmall)
             }
             Row {
-                IconButton(onClick = onMoveUp) {
+                IconButton(onClick = onMoveUp, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")
                 }
-                IconButton(onClick = onMoveDown) {
+                IconButton(onClick = onMoveDown, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")
                 }
-                IconButton(onClick = { showRemoveDialog = true }) {
+                IconButton(onClick = { showRemoveDialog = true }, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.Delete, contentDescription = "Rimuovi")
                 }
             }

@@ -9,8 +9,6 @@ import com.matthew.sportiliapp.newadmin.domain.RemoveMuscleGroupUseCase
 import com.matthew.sportiliapp.newadmin.domain.UpdateMuscleGroupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 sealed class MuscleGroupUiState {
@@ -29,10 +27,13 @@ class MuscleGroupViewModel(
 
     private val _state = MutableStateFlow<MuscleGroupUiState>(MuscleGroupUiState.Idle)
     val state: StateFlow<MuscleGroupUiState> = _state
+    private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
+    val actionState: StateFlow<AdminActionState> = _actionState
 
     fun loadGroup(userCode: String, dayKey: String, groupKey: String) {
         viewModelScope.launch {
             _state.value = MuscleGroupUiState.Loading
+            _actionState.value = AdminActionState.Idle
 
             val result = getMuscleGroupUseCase(userCode, dayKey, groupKey)
             result.fold(
@@ -62,16 +63,27 @@ class MuscleGroupViewModel(
         }
     }
 
-    fun updateMuscleGroup(userCode: String, dayKey: String, groupKey: String, group: GruppoMuscolare) {
+    fun updateMuscleGroup(
+        userCode: String,
+        dayKey: String,
+        groupKey: String,
+        group: GruppoMuscolare,
+        onSuccess: () -> Unit = {}
+    ) {
         viewModelScope.launch {
-            _state.value = MuscleGroupUiState.Loading
+            _actionState.value = AdminActionState.InProgress
             val result = updateMuscleGroupUseCase(userCode, dayKey, groupKey, group)
             result.fold(
                 onSuccess = {
+                    group.sortAll()
                     _state.value = MuscleGroupUiState.Success(group)
+                    _actionState.value = AdminActionState.Idle
+                    onSuccess()
                 },
                 onFailure = { e ->
-                    _state.value = MuscleGroupUiState.Error(e)
+                    _actionState.value = AdminActionState.Error(
+                        e.localizedMessage ?: "Errore durante il salvataggio del gruppo muscolare"
+                    )
                 }
             )
         }
@@ -91,6 +103,12 @@ class MuscleGroupViewModel(
                     _state.value = MuscleGroupUiState.Error(e)
                 }
             )
+        }
+    }
+
+    fun clearActionError() {
+        if (_actionState.value is AdminActionState.Error) {
+            _actionState.value = AdminActionState.Idle
         }
     }
 }

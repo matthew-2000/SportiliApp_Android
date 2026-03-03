@@ -18,6 +18,7 @@ import androidx.navigation.NavHostController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.database.FirebaseDatabase
+import com.matthew.sportiliapp.newadmin.utils.AdminAccessValidator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.matthew.sportiliapp.R
@@ -187,8 +188,13 @@ private suspend fun register(
         val snapshot = db.get().await()
         val authUsers = snapshot.value as? Map<String, Map<String, Any>>
 
-        val isAdmin = codice == FirebaseDatabase.getInstance().getReference("fausto").get().await().value
-        salvaIsAdminInSharedPreferences(context, isAdmin)  // Salva lo stato di admin nelle SharedPreferences
+        val isAdmin = AdminAccessValidator.isAdminCode(codice)
+        if (isAdmin) {
+            salvaCodeInSharedPreferences(context, "")
+            AdminAccessValidator.saveAdminSession(context, codice)
+        } else {
+            AdminAccessValidator.clearAdminSession(context)
+        }
 
         if (isAdmin) {
             FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
@@ -229,13 +235,6 @@ private suspend fun register(
     } catch (e: Exception) {
         onError("Errore durante il processo di registrazione: ${e.message}")
     }
-}
-
-fun salvaIsAdminInSharedPreferences(context: Context, isAdmin: Boolean) {
-    val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-    val editor = sharedPreferences.edit()
-    editor.putBoolean("isAdmin", isAdmin)
-    editor.apply()
 }
 
 fun salvaCodeInSharedPreferences(context: Context, code: String) {

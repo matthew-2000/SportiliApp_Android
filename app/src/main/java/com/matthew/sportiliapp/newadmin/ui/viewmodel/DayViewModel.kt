@@ -8,8 +8,6 @@ import com.matthew.sportiliapp.newadmin.domain.GetDayUseCase
 import com.matthew.sportiliapp.newadmin.domain.UpdateDayUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 sealed class DayUiState {
@@ -26,12 +24,14 @@ class DayViewModel(
 
     private val _state = MutableStateFlow<DayUiState>(DayUiState.Idle)
     val state: StateFlow<DayUiState> = _state
+    private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
+    val actionState: StateFlow<AdminActionState> = _actionState
 
     fun loadDay(userCode: String, dayKey: String) {
         viewModelScope.launch {
             _state.value = DayUiState.Loading
+            _actionState.value = AdminActionState.Idle
 
-            // Ora il getDayUseCase restituisce: Result<Giorno>
             val result = getDayUseCase(userCode, dayKey)
 
             result.fold(
@@ -46,19 +46,29 @@ class DayViewModel(
         }
     }
 
-    fun updateDay(userCode: String, dayKey: String, day: Giorno) {
+    fun updateDay(userCode: String, dayKey: String, day: Giorno, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
-            _state.value = DayUiState.Loading
+            _actionState.value = AdminActionState.InProgress
             val result = updateDayUseCase(userCode, dayKey, day)
             result.fold(
                 onSuccess = {
-                    // Se l'update va bene, aggiorna lo stato con i nuovi dati
+                    day.sortAll()
                     _state.value = DayUiState.Success(day)
+                    _actionState.value = AdminActionState.Idle
+                    onSuccess()
                 },
                 onFailure = { e ->
-                    _state.value = DayUiState.Error(e)
+                    _actionState.value = AdminActionState.Error(
+                        e.localizedMessage ?: "Errore durante il salvataggio del giorno"
+                    )
                 }
             )
+        }
+    }
+
+    fun clearActionError() {
+        if (_actionState.value is AdminActionState.Error) {
+            _actionState.value = AdminActionState.Idle
         }
     }
 }

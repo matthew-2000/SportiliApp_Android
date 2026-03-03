@@ -87,6 +87,8 @@ fun EditMuscleGroupScreen(
     userCode: String,
     dayKey: String,
     group: GruppoMuscolare,
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
     onSave: (GruppoMuscolare) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -162,7 +164,7 @@ fun EditMuscleGroupScreen(
     // Stato per mostrare la sheet degli esercizi selezionati
     var showSelectedSheet by remember { mutableStateOf(false) }
 
-    BackHandler {
+    BackHandler(enabled = !isSaving) {
         // Al back, salva l'ordine
         val exercisesMap = linkedMapOf<String, Esercizio>()
         selectedExercises.forEachIndexed { index, entry ->
@@ -181,7 +183,7 @@ fun EditMuscleGroupScreen(
                 title = { Text(groupName) },
                 actions = {
                     // Pulsante Info --> mostra la lista degli esercizi selezionati
-                    IconButton(onClick = { showSelectedSheet = true }) {
+                    IconButton(onClick = { showSelectedSheet = true }, enabled = !isSaving) {
                         Icon(Icons.Default.Info, contentDescription = "Visualizza Esercizi Aggiunti")
                     }
                     // Pulsante per aggiungere un nuovo esercizio
@@ -193,7 +195,7 @@ fun EditMuscleGroupScreen(
                             riposo = null,
                             notePT = ""
                         )
-                    }) {
+                    }, enabled = !isSaving) {
                         Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
                     }
                 }
@@ -206,11 +208,24 @@ fun EditMuscleGroupScreen(
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
+            if (isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
                 label = { Text("Cerca esercizio...") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -313,14 +328,16 @@ fun EditMuscleGroupScreen(
             ) {
                 OutlinedButton(
                     onClick = onCancel,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
                 ) {
                     Text("Annulla")
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(
                     onClick = { showSelectedSheet = true },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
                 ) {
                     Text("Visualizza")
                 }

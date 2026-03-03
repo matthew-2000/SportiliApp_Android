@@ -101,11 +101,11 @@ class FirebaseRepositoryImpl(
             val schedaRef = usersRef.child(userCode).child("scheda")
             schedaRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    // Converte il DataSnapshot in un oggetto Scheda;
-                    // se il valore esiste, lo invia nel Flow
                     val scheda = snapshot.getValue(Scheda::class.java)
                     if (scheda != null) {
                         cont.resume(Result.success(scheda))
+                    } else {
+                        cont.resume(Result.failure(NoSuchElementException("Scheda non trovata per l'utente $userCode")))
                     }
                 }
 
@@ -126,6 +126,12 @@ class FirebaseRepositoryImpl(
                     val giorno = snapshot.getValue(Giorno::class.java)
                     if (giorno != null) {
                         cont.resume(Result.success(giorno))
+                    } else {
+                        cont.resume(
+                            Result.failure(
+                                NoSuchElementException("Giorno $dayKey non trovato per l'utente $userCode")
+                            )
+                        )
                     }
                 }
 
@@ -176,6 +182,14 @@ class FirebaseRepositoryImpl(
                     val gruppo = snapshot.getValue(GruppoMuscolare::class.java)
                     if (gruppo != null) {
                         cont.resume(Result.success(gruppo))
+                    } else {
+                        cont.resume(
+                            Result.failure(
+                                NoSuchElementException(
+                                    "Gruppo muscolare $muscleGroupKey non trovato per il giorno $dayKey"
+                                )
+                            )
+                        )
                     }
                 }
 

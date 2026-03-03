@@ -18,6 +18,6 @@ fun AppNavHost(navController: NavHostController = rememberNavController(), start
     NavHost(navController = navController, startDestination = startDestination) {
         composable("login") { LoginScreen(navController) }
         composable("content") { ContentScreen(navController) }
-        composable("admin") { AdminNavGraph(navController = navController) }
+        composable("admin") { AdminNavGraph() }
     }
 }

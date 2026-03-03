@@ -4,16 +4,26 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.matthew.sportiliapp.newadmin.ui.navigation.AdminNavGraph
+import com.matthew.sportiliapp.newadmin.utils.AdminAccessValidator
 import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
+
+private sealed interface StartupUiState {
+    object Loading : StartupUiState
+    object Admin : StartupUiState
+    data class App(val startDestination: String) : StartupUiState
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,26 +33,53 @@ class MainActivity : ComponentActivity() {
             SportiliAppTheme {
                 val navController = rememberNavController()
                 val context = LocalContext.current
-                val startDestination = remember { mutableStateOf("login") }
+                val startupState by produceState<StartupUiState>(
+                    initialValue = StartupUiState.Loading,
+                    key1 = context
+                ) {
+                    val auth = FirebaseAuth.getInstance()
+                    val isLoggedIn = auth.currentUser != null
+                    val sharedPreferences =
+                        context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+                    val savedCode = sharedPreferences.getString("code", "") ?: ""
+                    val hasAdminSession = sharedPreferences.getBoolean("isAdmin", false)
 
-                val auth = FirebaseAuth.getInstance()
-                val isLoggedIn = auth.currentUser != null
-
-                val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-                val savedCode = sharedPreferences.getString("code", "") ?: ""
-                val isAdmin = sharedPreferences.getBoolean("isAdmin", false)
-
-                if (isAdmin) {
-                    AdminNavGraph(navController = navController)
-                } else {
-                    if (isLoggedIn && savedCode.isNotEmpty()) {
-                        startDestination.value = "content"
+                    value = if (hasAdminSession &&
+                        AdminAccessValidator.revalidateStoredAdminAccess(context)
+                    ) {
+                        StartupUiState.Admin
                     } else {
-                        startDestination.value = "login"
+                        StartupUiState.App(
+                            startDestination = if (isLoggedIn && savedCode.isNotEmpty()) {
+                                "content"
+                            } else {
+                                "login"
+                            }
+                        )
                     }
-                    AppNavHost(navController = navController, startDestination = startDestination.value)
+                }
+
+                when (val state = startupState) {
+                    StartupUiState.Loading -> StartupLoadingScreen()
+                    StartupUiState.Admin -> AdminNavGraph(navController = navController)
+                    is StartupUiState.App -> {
+                        AppNavHost(
+                            navController = navController,
+                            startDestination = state.startDestination
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StartupLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
     }
 }
