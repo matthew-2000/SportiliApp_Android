@@ -163,18 +163,55 @@ fun EditMuscleGroupScreen(
     var exerciseEntryInEdit by remember { mutableStateOf<ExerciseEntry?>(null) }
     // Stato per mostrare la sheet degli esercizi selezionati
     var showSelectedSheet by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    val initialExercises = remember(group) {
+        group.esercizi.values.map { exercise ->
+            exercise.copy(name = formatCompositeExerciseName(exercise.name))
+        }
+    }
+    val currentExercises = remember(selectedExercises.toList()) {
+        selectedExercises.map { entry ->
+            entry.exercise.copy(name = formatCompositeExerciseName(entry.exercise.name))
+        }
+    }
+    val isDirty = remember(groupName, currentExercises, group) {
+        groupName.trim() != group.nome || currentExercises != initialExercises
+    }
+
+    fun buildUpdatedGroup(): GruppoMuscolare {
+        val exercisesMap = linkedMapOf<String, Esercizio>()
+        currentExercises.forEachIndexed { index, exercise ->
+            exercisesMap["esercizio${index + 1}"] = exercise
+        }
+        return group.copy(nome = groupName.trim(), esercizi = exercisesMap)
+    }
+
+    fun requestExit() {
+        if (isSaving) return
+        if (isDirty) {
+            showExitDialog = true
+        } else {
+            onCancel()
+        }
+    }
 
     BackHandler(enabled = !isSaving) {
-        // Al back, salva l'ordine
-        val exercisesMap = linkedMapOf<String, Esercizio>()
-        selectedExercises.forEachIndexed { index, entry ->
-            val sanitizedExercise = entry.exercise.copy(
-                name = formatCompositeExerciseName(entry.exercise.name)
-            )
-            exercisesMap["esercizio${index + 1}"] = sanitizedExercise
-        }
-        val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
-        onSave(updatedGroup)
+        requestExit()
+    }
+
+    if (showExitDialog) {
+        UnsavedChangesDialog(
+            onSave = {
+                showExitDialog = false
+                onSave(buildUpdatedGroup())
+            },
+            onDiscard = {
+                showExitDialog = false
+                onCancel()
+            },
+            onDismiss = { showExitDialog = false }
+        )
     }
 
     Scaffold(
@@ -327,7 +364,7 @@ fun EditMuscleGroupScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 OutlinedButton(
-                    onClick = onCancel,
+                    onClick = { requestExit() },
                     modifier = Modifier.weight(1f),
                     enabled = !isSaving
                 ) {
@@ -384,15 +421,7 @@ fun EditMuscleGroupScreen(
                 selectedExercises = selectedExercises,
                 onClose = { showSelectedSheet = false },
                 onSave = {
-                    val exercisesMap = linkedMapOf<String, Esercizio>()
-                    selectedExercises.forEachIndexed { index, entry ->
-                        val sanitizedExercise = entry.exercise.copy(
-                            name = formatCompositeExerciseName(entry.exercise.name)
-                        )
-                        exercisesMap["esercizio${index + 1}"] = sanitizedExercise
-                    }
-                    val updatedGroup = group.copy(nome = groupName, esercizi = exercisesMap)
-                    onSave(updatedGroup)
+                    onSave(buildUpdatedGroup())
                 },
                 onEdit = { entry ->
                     // Quando si clicca su un item, apri il dialog in modalità editing

@@ -1,8 +1,17 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,16 +22,51 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Giorno
+import com.matthew.sportiliapp.model.Scheda
 import java.util.Calendar
 import java.util.LinkedHashMap
+
+private fun buildUpdatedScheda(
+    originalScheda: Scheda,
+    startDate: String,
+    duration: String,
+    daysList: List<Pair<String, Giorno>>
+): Scheda =
+    originalScheda.copy(
+        dataInizio = formatToSaveDate(startDate),
+        durata = duration.toIntOrNull() ?: originalScheda.durata,
+        giorni = LinkedHashMap(daysList.toMap()),
+        cambioRichiesto = false
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,49 +79,90 @@ fun EditWorkoutCardScreen(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
-    var startDate by remember { mutableStateOf(formatToDisplayDate(scheda.dataInizio)) }
-    var duration by remember { mutableStateOf(scheda.durata.toString()) }
-    // Manteniamo una lista modificabile dei giorni, preservando l'ordine
-    var daysList by remember { mutableStateOf(scheda.giorni.toList().toMutableStateList()) }
+    val initialDaysList = remember(scheda) { scheda.giorni.toList() }
 
-    // Stato per mostrare il dialog per aggiungere un nuovo giorno
+    var startDate by rememberSaveable(scheda.dataInizio) {
+        mutableStateOf(formatToDisplayDate(scheda.dataInizio))
+    }
+    var duration by rememberSaveable(scheda.dataInizio, scheda.durata) {
+        mutableStateOf(scheda.durata.toString())
+    }
+    var daysList by remember(scheda) { mutableStateOf(initialDaysList) }
     var showAddDayDialog by remember { mutableStateOf(false) }
     var showScheduleSheet by remember { mutableStateOf(false) }
-    var newDayName by remember { mutableStateOf("") }
+    var showExitDialog by remember { mutableStateOf(false) }
+    var newDayName by rememberSaveable { mutableStateOf("") }
+    var durationError by rememberSaveable(scheda.dataInizio, scheda.durata) { mutableStateOf<String?>(null) }
+    var newDayNameError by rememberSaveable { mutableStateOf<String?>(null) }
 
-    BackHandler(enabled = !isSaving) {
-        val updatedScheda = scheda.copy(
-            dataInizio = formatToSaveDate(startDate),
-            durata = duration.toIntOrNull() ?: scheda.durata,
-            giorni = LinkedHashMap(daysList.toMap()),
-        )
-        onSave(updatedScheda)
+    val currentScheda = remember(scheda, startDate, duration, daysList) {
+        buildUpdatedScheda(scheda, startDate, duration, daysList)
+    }
+    val isDirty = remember(startDate, duration, daysList, scheda) {
+        startDate != formatToDisplayDate(scheda.dataInizio) ||
+            duration != scheda.durata.toString() ||
+            daysList != initialDaysList
     }
 
-    // DatePickerDialog per selezionare la data
+    fun validateAndSave(onValidated: (Scheda) -> Unit) {
+        durationError = when (val parsed = duration.toIntOrNull()) {
+            null -> "Inserisci una durata valida"
+            in 1..52 -> null
+            else -> "La durata deve essere tra 1 e 52 settimane"
+        }
+
+        if (durationError != null) return
+        onValidated(currentScheda)
+    }
+
+    fun requestExit() {
+        if (isSaving) return
+        if (isDirty) {
+            showExitDialog = true
+        } else {
+            onCancel()
+        }
+    }
+
+    BackHandler(enabled = !isSaving) {
+        requestExit()
+    }
+
     val calendar = Calendar.getInstance()
-    val datePickerDialog = android.app.DatePickerDialog(
+    val datePickerDialog = DatePickerDialog(
         context,
         { _, year, month, dayOfMonth ->
-            val selectedDate = "$dayOfMonth/${month + 1}/$year"
-            startDate = selectedDate
+            startDate = "$dayOfMonth/${month + 1}/$year"
         },
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
+    if (showExitDialog) {
+        UnsavedChangesDialog(
+            onSave = { validateAndSave(onSave) },
+            onDiscard = {
+                showExitDialog = false
+                onCancel()
+            },
+            onDismiss = { showExitDialog = false }
+        )
+    }
+
     Scaffold(
-        topBar = { TopAppBar(
-            title = { Text("Modifica Scheda")},
-            actions = {
-                IconButton(onClick = { showScheduleSheet = true }, enabled = !isSaving) {
-                    Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
+        topBar = {
+            TopAppBar(
+                title = { Text("Modifica Scheda") },
+                actions = {
+                    IconButton(onClick = { showScheduleSheet = true }, enabled = !isSaving) {
+                        Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
+                    }
+                    IconButton(onClick = { showAddDayDialog = true }, enabled = !isSaving) {
+                        Icon(Icons.Default.Add, contentDescription = "Aggiungi Giorno")
+                    }
                 }
-                IconButton(onClick = { showAddDayDialog = true }, enabled = !isSaving) {
-                    Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
-                }
-            })
+            )
         }
     ) { padding ->
         Column(
@@ -98,7 +183,7 @@ fun EditWorkoutCardScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            // Campo Data Inizio con DatePicker
+
             OutlinedTextField(
                 value = startDate,
                 onValueChange = {},
@@ -109,22 +194,36 @@ fun EditWorkoutCardScreen(
                 readOnly = true,
                 trailingIcon = {
                     IconButton(onClick = { datePickerDialog.show() }, enabled = !isSaving) {
-                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "Seleziona Data")
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Seleziona Data"
+                        )
                     }
                 },
                 enabled = !isSaving
             )
             Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = duration,
-                onValueChange = { duration = it },
+                onValueChange = {
+                    duration = it.filter(Char::isDigit)
+                    if (durationError != null) durationError = null
+                },
                 label = { Text("Durata (settimane)") },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving
+                enabled = !isSaving,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                ),
+                isError = durationError != null,
+                supportingText = durationError?.let { { Text(it) } }
             )
             Spacer(modifier = Modifier.height(16.dp))
+
             Text("Giorni di Allenamento", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
+
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(daysList) { (dayKey, giorno) ->
                     DayItem(
@@ -134,85 +233,112 @@ fun EditWorkoutCardScreen(
                         onMoveUp = {
                             val index = daysList.indexOfFirst { it.first == dayKey }
                             if (index > 0) {
-                                val temp = daysList[index - 1]
-                                daysList[index - 1] = daysList[index]
-                                daysList[index] = temp
-                                daysList = daysList.mapIndexed { i, pair -> "giorno${i + 1}" to pair.second }
-                                    .toMutableStateList()
+                                daysList = daysList.toMutableList().apply {
+                                    val previous = this[index - 1]
+                                    this[index - 1] = this[index]
+                                    this[index] = previous
+                                }.mapIndexed { position, pair ->
+                                    "giorno${position + 1}" to pair.second
+                                }
                             }
                         },
                         onMoveDown = {
                             val index = daysList.indexOfFirst { it.first == dayKey }
-                            if (index < daysList.size - 1) {
-                                val temp = daysList[index + 1]
-                                daysList[index + 1] = daysList[index]
-                                daysList[index] = temp
-                                daysList = daysList.mapIndexed { i, pair -> "giorno${i + 1}" to pair.second }
-                                    .toMutableStateList()
+                            if (index in 0 until daysList.lastIndex) {
+                                daysList = daysList.toMutableList().apply {
+                                    val next = this[index + 1]
+                                    this[index + 1] = this[index]
+                                    this[index] = next
+                                }.mapIndexed { position, pair ->
+                                    "giorno${position + 1}" to pair.second
+                                }
                             }
                         },
                         onRemove = {
-                            daysList.removeAll { it.first == dayKey }
-                            daysList = daysList.mapIndexed { i, pair -> "giorno${i + 1}" to pair.second }
-                                .toMutableStateList()
+                            daysList = daysList
+                                .filterNot { it.first == dayKey }
+                                .mapIndexed { position, pair ->
+                                    "giorno${position + 1}" to pair.second
+                                }
                         },
                         onEdit = {
-                            val updatedScheda = scheda.copy(
-                                dataInizio = formatToSaveDate(startDate),
-                                durata = duration.toIntOrNull() ?: scheda.durata,
-                                giorni = LinkedHashMap(daysList.toMap()),
-                                cambioRichiesto = false // 👈 reset al salvataggio
-                            )
-                            onDaySelected(dayKey, giorno, updatedScheda)
+                            validateAndSave { updatedScheda ->
+                                onDaySelected(dayKey, giorno, updatedScheda)
+                            }
                         }
                     )
                 }
             }
+
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 OutlinedButton(
-                    onClick = onCancel,
+                    onClick = { requestExit() },
                     modifier = Modifier.weight(1f),
                     enabled = !isSaving
                 ) { Text("Annulla") }
                 Spacer(modifier = Modifier.width(12.dp))
-                Button(onClick = {
-                    val updatedScheda = scheda.copy(
-                        dataInizio = formatToSaveDate(startDate),
-                        durata = duration.toIntOrNull() ?: scheda.durata,
-                        giorni = LinkedHashMap(daysList.toMap()),
-                        cambioRichiesto = false
-                    )
-                    onSave(updatedScheda)
-                }, modifier = Modifier.weight(1f), enabled = !isSaving) { Text("Salva") }
+                Button(
+                    onClick = { validateAndSave(onSave) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
+                ) { Text("Salva") }
             }
         }
 
         if (showAddDayDialog) {
             AlertDialog(
-                onDismissRequest = { showAddDayDialog = false },
+                onDismissRequest = {
+                    showAddDayDialog = false
+                    newDayName = ""
+                    newDayNameError = null
+                },
                 title = { Text("Aggiungi Giorno") },
                 text = {
                     OutlinedTextField(
                         value = newDayName,
-                        onValueChange = { newDayName = it },
+                        onValueChange = {
+                            newDayName = it
+                            if (newDayNameError != null) newDayNameError = null
+                        },
                         label = { Text("Nome del Giorno") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = newDayNameError != null,
+                        supportingText = newDayNameError?.let { { Text(it) } },
+                        enabled = !isSaving
                     )
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        val newKey = "giorno${(daysList.size + 1)}"
-                        daysList.add(newKey to Giorno(newDayName))
-                        newDayName = ""
-                        showAddDayDialog = false
-                    }, enabled = !isSaving) { Text("Aggiungi") }
+                    Button(
+                        onClick = {
+                            val normalizedDayName = newDayName.trim()
+                            newDayNameError = if (normalizedDayName.isBlank()) {
+                                "Inserisci un nome per il giorno"
+                            } else {
+                                null
+                            }
+                            if (newDayNameError != null) return@Button
+
+                            val newKey = "giorno${daysList.size + 1}"
+                            daysList = daysList + (newKey to Giorno(normalizedDayName))
+                            newDayName = ""
+                            showAddDayDialog = false
+                        },
+                        enabled = !isSaving
+                    ) { Text("Aggiungi") }
                 },
                 dismissButton = {
-                    OutlinedButton(onClick = { showAddDayDialog = false }, enabled = !isSaving) { Text("Annulla") }
+                    OutlinedButton(
+                        onClick = {
+                            showAddDayDialog = false
+                            newDayName = ""
+                            newDayNameError = null
+                        },
+                        enabled = !isSaving
+                    ) { Text("Annulla") }
                 },
                 shape = RoundedCornerShape(8.dp)
             )
@@ -226,7 +352,7 @@ fun EditWorkoutCardScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 WorkoutCardSheet(
-                    scheda = scheda,
+                    scheda = currentScheda,
                     onClose = { showScheduleSheet = false }
                 )
             }
@@ -252,10 +378,13 @@ fun DayItem(
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo giorno?") },
             confirmButton = {
-                Button(onClick = {
-                    showRemoveDialog = false
-                    onRemove()
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Conferma") }
+                Button(
+                    onClick = {
+                        showRemoveDialog = false
+                        onRemove()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Conferma") }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
@@ -281,7 +410,10 @@ fun DayItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = day.name, style = MaterialTheme.typography.bodyLarge)
-                Text(text = "Gruppi Muscolari: ${day.gruppiMuscolari.size}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "Gruppi Muscolari: ${day.gruppiMuscolari.size}",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             Row {
                 IconButton(onClick = onMoveUp, enabled = enabled) {

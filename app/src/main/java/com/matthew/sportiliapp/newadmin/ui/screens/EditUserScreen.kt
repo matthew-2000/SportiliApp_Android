@@ -1,15 +1,44 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Scheda
@@ -18,22 +47,53 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val displayDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+private val saveDateFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
+private val inputDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
 fun formatToDisplayDate(dateString: String): String {
-    val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    return formatter.format(parser.parse(dateString) ?: Date())
+    val parsedDate = runCatching { saveDateFormatter.parse(dateString) }.getOrNull() ?: Date()
+    return displayDateFormatter.format(parsedDate)
 }
 
 fun formatToSaveDate(dateString: String): String {
-    val parser = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    return formatter.format(parser.parse(dateString) ?: Date())
+    val parsedDate = runCatching { inputDateFormatter.parse(dateString) }.getOrNull() ?: Date()
+    return saveDateFormatter.format(parsedDate)
 }
 
-fun getCurrentFormattedDate(): String {
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault())
-    return dateFormat.format(Date())
+fun getCurrentFormattedDate(): String = saveDateFormatter.format(Date())
+
+private fun normalizePersonName(rawValue: String): String =
+    rawValue
+        .trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { token ->
+            token.lowercase(Locale.getDefault()).replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+            }
+        }
+
+private fun normalizedLettersOnly(value: String): String =
+    value.filter { it.isLetter() }
+
+private fun generateUserCode(nome: String, cognome: String): String {
+    val baseName = normalizedLettersOnly(nome).take(3).padEnd(3, 'x')
+    val baseSurname = normalizedLettersOnly(cognome).take(3).padEnd(3, 'x')
+    val suffix = (0..9999).random().toString().padStart(4, '0')
+    return (baseName + baseSurname + suffix).lowercase(Locale.getDefault())
 }
+
+private fun defaultWorkoutCard(): Scheda =
+    Scheda(
+        dataInizio = getCurrentFormattedDate(),
+        durata = 7,
+        giorni = linkedMapOf(
+            "giorno1" to Giorno("A"),
+            "giorno2" to Giorno("B"),
+            "giorno3" to Giorno("C")
+        )
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,28 +107,84 @@ fun EditUserScreen(
     onEditWorkoutCard: (String) -> Unit
 ) {
     val isEditMode = initialUser != null
+    val initialNome = initialUser?.nome.orEmpty()
+    val initialCognome = initialUser?.cognome.orEmpty()
 
-    // Variabili di stato per nome e cognome
-    var nome by remember { mutableStateOf(initialUser?.nome ?: "") }
-    var cognome by remember { mutableStateOf(initialUser?.cognome ?: "") }
-
-    // Variabile per mostrare/nascondere la sezione di modifica dei campi utente
-    var showEditFields by remember { mutableStateOf(!isEditMode) }
-
-    // Stato per mostrare il dialog di rimozione
+    var nome by rememberSaveable(initialUser?.code) { mutableStateOf(initialNome) }
+    var cognome by rememberSaveable(initialUser?.code) { mutableStateOf(initialCognome) }
+    var showEditFields by rememberSaveable(initialUser?.code) { mutableStateOf(!isEditMode) }
     var showRemoveDialog by remember { mutableStateOf(false) }
-    // Stato per mostrare il bottom sheet con i dettagli della scheda
     var showScheduleSheet by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+    var nomeError by rememberSaveable(initialUser?.code) { mutableStateOf<String?>(null) }
+    var cognomeError by rememberSaveable(initialUser?.code) { mutableStateOf<String?>(null) }
 
-    // Dialog di conferma rimozione
+    val normalizedNome = remember(nome) { normalizePersonName(nome) }
+    val normalizedCognome = remember(cognome) { normalizePersonName(cognome) }
+    val isDirty = remember(nome, cognome, initialNome, initialCognome, isEditMode) {
+        if (isEditMode) {
+            normalizedNome != initialNome || normalizedCognome != initialCognome
+        } else {
+            normalizedNome.isNotBlank() || normalizedCognome.isNotBlank()
+        }
+    }
+
+    fun discardChanges() {
+        showExitDialog = false
+        onCancel()
+    }
+
+    fun validateAndSave() {
+        val nomeLetters = normalizedLettersOnly(normalizedNome)
+        val cognomeLetters = normalizedLettersOnly(normalizedCognome)
+
+        nomeError = when {
+            normalizedNome.isBlank() -> "Inserisci il nome"
+            nomeLetters.length < 2 -> "Il nome deve contenere almeno 2 lettere"
+            else -> null
+        }
+        cognomeError = when {
+            normalizedCognome.isBlank() -> "Inserisci il cognome"
+            cognomeLetters.length < 2 -> "Il cognome deve contenere almeno 2 lettere"
+            else -> null
+        }
+
+        if (nomeError != null || cognomeError != null) return
+
+        val user = Utente(
+            code = initialUser?.code ?: generateUserCode(normalizedNome, normalizedCognome),
+            nome = normalizedNome,
+            cognome = normalizedCognome,
+            scheda = initialUser?.scheda ?: defaultWorkoutCard()
+        )
+        showExitDialog = false
+        onSave(user)
+    }
+
+    fun requestExit() {
+        if (isSaving) return
+        if (isDirty) {
+            showExitDialog = true
+        } else {
+            onCancel()
+        }
+    }
+
+    BackHandler(enabled = !isSaving) {
+        requestExit()
+    }
+
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
             confirmButton = {
-                Button(onClick = {
-                    showRemoveDialog = false
-                    onRemove?.invoke()
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Conferma") }
+                Button(
+                    onClick = {
+                        showRemoveDialog = false
+                        onRemove?.invoke()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Conferma") }
             },
             dismissButton = {
                 OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
@@ -76,6 +192,14 @@ fun EditUserScreen(
             title = { Text("Conferma Rimozione") },
             text = { Text("Sei sicuro di voler rimuovere l'utente?") },
             shape = RoundedCornerShape(8.dp)
+        )
+    }
+
+    if (showExitDialog) {
+        UnsavedChangesDialog(
+            onSave = { validateAndSave() },
+            onDiscard = { discardChanges() },
+            onDismiss = { showExitDialog = false }
         )
     }
 
@@ -118,12 +242,10 @@ fun EditUserScreen(
                 )
             }
 
-            // Se stiamo modificando un utente, mostriamo il suo code
-            if (initialUser != null) {
-                Text(text = "Codice: ${initialUser.code}", style = MaterialTheme.typography.titleMedium)
+            initialUser?.let { user ->
+                Text(text = "Codice: ${user.code}", style = MaterialTheme.typography.titleMedium)
             }
 
-            // Pulsante per mostrare/nascondere la sezione di modifica
             OutlinedButton(
                 onClick = { showEditFields = !showEditFields },
                 modifier = Modifier.fillMaxWidth(),
@@ -134,31 +256,43 @@ fun EditUserScreen(
                 )
             }
 
-            // Se showEditFields è true, mostriamo la sezione di modifica
             if (showEditFields) {
                 OutlinedTextField(
                     value = nome,
-                    onValueChange = { nome = it },
+                    onValueChange = {
+                        nome = it
+                        if (nomeError != null) nomeError = null
+                    },
                     label = { Text("Nome") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
+                    isError = nomeError != null,
+                    supportingText = nomeError?.let { { Text(it) } },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
 
                 OutlinedTextField(
                     value = cognome,
-                    onValueChange = { cognome = it },
+                    onValueChange = {
+                        cognome = it
+                        if (cognomeError != null) cognomeError = null
+                    },
                     label = { Text("Cognome") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isSaving
+                    enabled = !isSaving,
+                    isError = cognomeError != null,
+                    supportingText = cognomeError?.let { { Text(it) } },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
 
-                // Pulsanti di Annulla/Salva
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     OutlinedButton(
-                        onClick = onCancel,
+                        onClick = { requestExit() },
                         modifier = Modifier.weight(1f),
                         enabled = !isSaving
                     ) {
@@ -166,40 +300,7 @@ fun EditUserScreen(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
-                        onClick = {
-                            // Logica di salvataggio
-                            val trimmedNome = nome.trim().lowercase().replaceFirstChar { it.uppercase() }
-                            val trimmedCognome = cognome.trim().lowercase().replaceFirstChar { it.uppercase() }
-
-                            val name = trimmedNome.filter { it.isLetter() }
-                            val surname = trimmedCognome.filter { it.isLetter() }
-                            // Generiamo (o recuperiamo) un code
-                            val userCode = initialUser?.code
-                                ?: ((name.take(3) + surname.take(3)).lowercase() + (0..999).random())
-
-                            // Se non esiste una scheda, ne creiamo una di default
-                            val scheda = initialUser?.scheda
-                                ?: Scheda(
-                                    dataInizio = getCurrentFormattedDate(),
-                                    durata = 7
-                                ).apply {
-                                    if (giorni.isEmpty()) {
-                                        giorni = mutableMapOf(
-                                            "giorno1" to Giorno("A"),
-                                            "giorno2" to Giorno("B"),
-                                            "giorno3" to Giorno("C")
-                                        )
-                                    }
-                                }
-
-                            val user = Utente(
-                                code = userCode,
-                                nome = trimmedNome,
-                                cognome = trimmedCognome,
-                                scheda = scheda
-                            )
-                            onSave(user)
-                        },
+                        onClick = { validateAndSave() },
                         modifier = Modifier.weight(1f),
                         enabled = !isSaving
                     ) {
@@ -208,7 +309,6 @@ fun EditUserScreen(
                 }
             }
 
-            // Se l'utente ha già una scheda, visualizziamo una card di riepilogo + pulsante
             if (initialUser?.scheda != null) {
                 Text(text = "Gestione scheda", style = MaterialTheme.typography.titleLarge)
                 Card(
@@ -216,7 +316,7 @@ fun EditUserScreen(
                     elevation = CardDefaults.cardElevation(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showScheduleSheet = true }
+                        .clickable(enabled = !isSaving) { showScheduleSheet = true }
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = "Scheda di Allenamento", style = MaterialTheme.typography.titleMedium)
@@ -233,27 +333,23 @@ fun EditUserScreen(
                 }
             }
 
-            // Se siamo in modalità modifica, mostriamo i pulsanti "Modifica Scheda" e "Rimuovi Utente"
             if (isEditMode) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween, // Spazio tra i pulsanti aumentato
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Pulsante per modificare la scheda
                     Button(
                         onClick = { onEditWorkoutCard(initialUser!!.code) },
-                        modifier = Modifier.fillMaxWidth(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         enabled = !isSaving
                     ) {
                         Text("Modifica Scheda")
                     }
-                    // Pulsante rosso per rimuovere l'utente
                     Button(
                         onClick = { showRemoveDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.fillMaxWidth(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         enabled = !isSaving
                     ) {
                         Text("Rimuovi Utente", color = MaterialTheme.colorScheme.onError)
@@ -277,7 +373,7 @@ fun WorkoutCardSheet(
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
-            text = "Durata: ${scheda.durata} giorni",
+            text = "Durata: ${scheda.durata} settimane",
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -285,7 +381,7 @@ fun WorkoutCardSheet(
         Text(text = "Giorni di Allenamento:", style = MaterialTheme.typography.titleSmall)
 
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(scheda.giorni.toList()) { (dayKey, giorno) ->
+            items(scheda.giorni.toList()) { (_, giorno) ->
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Text(
                         text = "- ${giorno.name}",
@@ -299,7 +395,7 @@ fun WorkoutCardSheet(
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
-                        giorno.gruppiMuscolari.forEach { (groupKey, gruppo) ->
+                        giorno.gruppiMuscolari.forEach { (_, gruppo) ->
                             val eserciziText = gruppo.esercizi.values.joinToString(separator = ", ") {
                                 "${it.name} - ${it.serie}"
                             }
