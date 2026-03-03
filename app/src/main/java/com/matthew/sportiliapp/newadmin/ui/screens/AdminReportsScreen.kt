@@ -17,12 +17,15 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -31,6 +34,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import com.matthew.sportiliapp.newadmin.ui.viewmodel.AdminActionState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.WorkoutReportsUiState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.WorkoutReportsViewModel
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.WorkoutReportsViewModelFactory
@@ -59,6 +66,8 @@ fun AdminReportsScreen(
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val actionState by viewModel.actionState.collectAsState()
+    var reportPendingDeletion by remember { mutableStateOf<WorkoutIssueReport?>(null) }
 
     Scaffold(
         topBar = {
@@ -72,62 +81,100 @@ fun AdminReportsScreen(
             )
         }
     ) { padding ->
-        when (val state = uiState) {
-            WorkoutReportsUiState.Loading -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Caricamento segnalazioni...")
-                }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (actionState is AdminActionState.InProgress) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            val actionError = (actionState as? AdminActionState.Error)?.message
+            actionError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
-            is WorkoutReportsUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Errore: ${state.throwable.localizedMessage ?: "Sconosciuto"}")
-                }
-            }
-
-            is WorkoutReportsUiState.Success -> {
-                val reports = state.reports
-                if (reports.isEmpty()) {
+            when (val state = uiState) {
+                WorkoutReportsUiState.Loading -> {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Nessuna segnalazione ricevuta")
+                        Text("Caricamento segnalazioni...")
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                }
+
+                is WorkoutReportsUiState.Error -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        items(reports, key = { it.id }) { report ->
-                            ReportCard(
-                                report = report,
-                                onToggleResolved = { viewModel.toggleResolved(report) },
-                                onRemove = { viewModel.removeReport(report.id) }
-                            )
+                        Text("Errore: ${state.throwable.localizedMessage ?: "Sconosciuto"}")
+                    }
+                }
+
+                is WorkoutReportsUiState.Success -> {
+                    val reports = state.reports
+                    if (reports.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Nessuna segnalazione ricevuta")
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(reports, key = { it.id }) { report ->
+                                ReportCard(
+                                    report = report,
+                                    onToggleResolved = {
+                                        viewModel.toggleResolved(report)
+                                    },
+                                    onRemove = { reportPendingDeletion = report }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    reportPendingDeletion?.let { report ->
+        AlertDialog(
+            onDismissRequest = { reportPendingDeletion = null },
+            title = { Text("Elimina segnalazione") },
+            text = {
+                Text("Vuoi eliminare la segnalazione di ${report.userName.ifBlank { report.userCode }}?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeReport(report.id)
+                        reportPendingDeletion = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Elimina")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { reportPendingDeletion = null }) {
+                    Text("Annulla")
+                }
+            }
+        )
     }
 }
 

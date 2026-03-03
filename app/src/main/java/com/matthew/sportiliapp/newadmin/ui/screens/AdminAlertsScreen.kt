@@ -24,8 +24,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -35,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -59,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import com.matthew.sportiliapp.newadmin.ui.viewmodel.AdminActionState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminUiState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminViewModel
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminViewModelFactory
@@ -81,9 +85,11 @@ fun AdminAlertsScreen(
     )
 ) {
     val uiState = viewModel.uiState.collectAsState().value
+    val actionState = viewModel.actionState.collectAsState().value
 
     var showDialog by remember { mutableStateOf(false) }
     var editingAlert by remember { mutableStateOf<Avviso?>(null) }
+    var alertPendingDeletion by remember { mutableStateOf<Avviso?>(null) }
 
     Scaffold(
         topBar = {
@@ -105,60 +111,71 @@ fun AdminAlertsScreen(
             }
         }
     ) { paddingValues ->
-        when (uiState) {
-            AlertsAdminUiState.Loading -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Caricamento avvisi...")
-                }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (actionState is AdminActionState.InProgress) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            val actionError = (actionState as? AdminActionState.Error)?.message
+            actionError?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
-            is AlertsAdminUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Errore: ${uiState.throwable.localizedMessage ?: "Sconosciuto"}")
-                }
-            }
-
-            is AlertsAdminUiState.Success -> {
-                val alerts = uiState.alerts
-                if (alerts.isEmpty()) {
+            when (uiState) {
+                AlertsAdminUiState.Loading -> {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
+                        modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Nessun avviso disponibile")
+                        Text("Caricamento avvisi...")
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                }
+
+                is AlertsAdminUiState.Error -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        items(alerts, key = { it.id }) { alert ->
-                            AlertAdminCard(
-                                alert = alert,
-                                onEdit = {
-                                    editingAlert = alert
-                                    showDialog = true
-                                },
-                                onDelete = { viewModel.removeAlert(alert.id) }
-                            )
+                        Text("Errore: ${uiState.throwable.localizedMessage ?: "Sconosciuto"}")
+                    }
+                }
+
+                is AlertsAdminUiState.Success -> {
+                    val alerts = uiState.alerts
+                    if (alerts.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Nessun avviso disponibile")
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(alerts, key = { it.id }) { alert ->
+                                AlertAdminCard(
+                                    alert = alert,
+                                    onEdit = {
+                                        viewModel.clearActionError()
+                                        editingAlert = alert
+                                        showDialog = true
+                                    },
+                                    onDelete = { alertPendingDeletion = alert }
+                                )
+                            }
                         }
                     }
                 }
@@ -169,7 +186,10 @@ fun AdminAlertsScreen(
     if (showDialog) {
         AlertEditorSheet(
             initialAlert = editingAlert,
-            onDismiss = { showDialog = false },
+            onDismiss = {
+                showDialog = false
+                viewModel.clearActionError()
+            },
             onConfirm = { alert ->
                 if (alert.id.isBlank()) {
                     viewModel.addAlert(alert)
@@ -177,6 +197,30 @@ fun AdminAlertsScreen(
                     viewModel.updateAlert(alert)
                 }
                 showDialog = false
+            }
+        )
+    }
+
+    alertPendingDeletion?.let { alert ->
+        AlertDialog(
+            onDismissRequest = { alertPendingDeletion = null },
+            title = { Text("Elimina avviso") },
+            text = { Text("Vuoi eliminare l'avviso \"${alert.titolo}\"?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeAlert(alert.id)
+                        alertPendingDeletion = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Elimina")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { alertPendingDeletion = null }) {
+                    Text("Annulla")
+                }
             }
         )
     }

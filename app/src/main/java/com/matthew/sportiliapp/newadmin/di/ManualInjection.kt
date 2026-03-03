@@ -6,36 +6,63 @@ import newadmin.data.FirebaseRepositoryImpl
 
 object ManualInjection {
     private val firebaseDatabase: FirebaseDatabase by lazy { FirebaseDatabase.getInstance() }
-    val firebaseRepository: FirebaseRepository by lazy { FirebaseRepositoryImpl(firebaseDatabase) }
-    val getUsersUseCase: GetUsersUseCase by lazy { GetUsersUseCase(firebaseRepository) }
-    val addUserUseCase: AddUserUseCase by lazy { AddUserUseCase(firebaseRepository) }
-    val updateUserUseCase: UpdateUserUseCase by lazy { UpdateUserUseCase(firebaseRepository) }
-    val removeUserUseCase: RemoveUserUseCase by lazy { RemoveUserUseCase(firebaseRepository) }
-    val updateWorkoutCardUseCase: UpdateWorkoutCardUseCase by lazy { UpdateWorkoutCardUseCase(firebaseRepository) }
-    val getWorkoutCardUseCase: GetWorkoutCardUseCase by lazy { GetWorkoutCardUseCase(firebaseRepository) }
-    val getDayUseCase: GetDayUseCase by lazy { GetDayUseCase(firebaseRepository) }
-    val updateDayUseCase: UpdateDayUseCase by lazy { UpdateDayUseCase(firebaseRepository) }
-    val getMuscleGroupUseCase: GetMuscleGroupUseCase by lazy { GetMuscleGroupUseCase(firebaseRepository) }
-    val addMuscleGroupUseCase: AddMuscleGroupUseCase by lazy { AddMuscleGroupUseCase(firebaseRepository) }
-    val updateMuscleGroupUseCase: UpdateMuscleGroupUseCase by lazy { UpdateMuscleGroupUseCase(firebaseRepository) }
-    val removeMuscleGroupUseCase: RemoveMuscleGroupUseCase by lazy { RemoveMuscleGroupUseCase(firebaseRepository) }
-    val addExerciseUseCase: AddExerciseUseCase by lazy { AddExerciseUseCase(firebaseRepository) }
-    val updateExerciseUseCase: UpdateExerciseUseCase by lazy { UpdateExerciseUseCase(firebaseRepository) }
-    val removeExerciseUseCase: RemoveExerciseUseCase by lazy { RemoveExerciseUseCase(firebaseRepository) }
-    val getAlertsUseCase: GetAlertsUseCase by lazy { GetAlertsUseCase(firebaseRepository) }
-    val addAlertUseCase: AddAlertUseCase by lazy { AddAlertUseCase(firebaseRepository) }
-    val updateAlertUseCase: UpdateAlertUseCase by lazy { UpdateAlertUseCase(firebaseRepository) }
-    val removeAlertUseCase: RemoveAlertUseCase by lazy { RemoveAlertUseCase(firebaseRepository) }
-    val getWorkoutIssueReportsUseCase: GetWorkoutIssueReportsUseCase by lazy {
-        GetWorkoutIssueReportsUseCase(firebaseRepository)
+    private val defaultRepository: FirebaseRepository by lazy { FirebaseRepositoryImpl(firebaseDatabase) }
+    private var repositoryOverride: FirebaseRepository? = null
+
+    val firebaseRepository: FirebaseRepository
+        get() = repositoryOverride ?: defaultRepository
+    val getUsersUseCase: GetUsersUseCase
+        get() = GetUsersUseCase(firebaseRepository)
+    val addUserUseCase: AddUserUseCase
+        get() = AddUserUseCase(firebaseRepository)
+    val updateUserUseCase: UpdateUserUseCase
+        get() = UpdateUserUseCase(firebaseRepository)
+    val removeUserUseCase: RemoveUserUseCase
+        get() = RemoveUserUseCase(firebaseRepository)
+    val updateWorkoutCardUseCase: UpdateWorkoutCardUseCase
+        get() = UpdateWorkoutCardUseCase(firebaseRepository)
+    val getWorkoutCardUseCase: GetWorkoutCardUseCase
+        get() = GetWorkoutCardUseCase(firebaseRepository)
+    val getDayUseCase: GetDayUseCase
+        get() = GetDayUseCase(firebaseRepository)
+    val updateDayUseCase: UpdateDayUseCase
+        get() = UpdateDayUseCase(firebaseRepository)
+    val getMuscleGroupUseCase: GetMuscleGroupUseCase
+        get() = GetMuscleGroupUseCase(firebaseRepository)
+    val addMuscleGroupUseCase: AddMuscleGroupUseCase
+        get() = AddMuscleGroupUseCase(firebaseRepository)
+    val updateMuscleGroupUseCase: UpdateMuscleGroupUseCase
+        get() = UpdateMuscleGroupUseCase(firebaseRepository)
+    val removeMuscleGroupUseCase: RemoveMuscleGroupUseCase
+        get() = RemoveMuscleGroupUseCase(firebaseRepository)
+    val addExerciseUseCase: AddExerciseUseCase
+        get() = AddExerciseUseCase(firebaseRepository)
+    val updateExerciseUseCase: UpdateExerciseUseCase
+        get() = UpdateExerciseUseCase(firebaseRepository)
+    val removeExerciseUseCase: RemoveExerciseUseCase
+        get() = RemoveExerciseUseCase(firebaseRepository)
+    val getAlertsUseCase: GetAlertsUseCase
+        get() = GetAlertsUseCase(firebaseRepository)
+    val addAlertUseCase: AddAlertUseCase
+        get() = AddAlertUseCase(firebaseRepository)
+    val updateAlertUseCase: UpdateAlertUseCase
+        get() = UpdateAlertUseCase(firebaseRepository)
+    val removeAlertUseCase: RemoveAlertUseCase
+        get() = RemoveAlertUseCase(firebaseRepository)
+    val getWorkoutIssueReportsUseCase: GetWorkoutIssueReportsUseCase
+        get() = GetWorkoutIssueReportsUseCase(firebaseRepository)
+    val submitWorkoutIssueReportUseCase: SubmitWorkoutIssueReportUseCase
+        get() = SubmitWorkoutIssueReportUseCase(firebaseRepository)
+    val updateWorkoutIssueReportUseCase: UpdateWorkoutIssueReportUseCase
+        get() = UpdateWorkoutIssueReportUseCase(firebaseRepository)
+    val removeWorkoutIssueReportUseCase: RemoveWorkoutIssueReportUseCase
+        get() = RemoveWorkoutIssueReportUseCase(firebaseRepository)
+
+    fun overrideRepositoryForTesting(repository: FirebaseRepository) {
+        repositoryOverride = repository
     }
-    val submitWorkoutIssueReportUseCase: SubmitWorkoutIssueReportUseCase by lazy {
-        SubmitWorkoutIssueReportUseCase(firebaseRepository)
-    }
-    val updateWorkoutIssueReportUseCase: UpdateWorkoutIssueReportUseCase by lazy {
-        UpdateWorkoutIssueReportUseCase(firebaseRepository)
-    }
-    val removeWorkoutIssueReportUseCase: RemoveWorkoutIssueReportUseCase by lazy {
-        RemoveWorkoutIssueReportUseCase(firebaseRepository)
+
+    fun resetOverrides() {
+        repositoryOverride = null
     }
 }

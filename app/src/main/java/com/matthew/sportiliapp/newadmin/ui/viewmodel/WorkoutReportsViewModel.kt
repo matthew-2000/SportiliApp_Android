@@ -28,6 +28,8 @@ class WorkoutReportsViewModel(
     private val _uiState: MutableStateFlow<WorkoutReportsUiState> =
         MutableStateFlow(WorkoutReportsUiState.Loading)
     val uiState: StateFlow<WorkoutReportsUiState> = _uiState
+    private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
+    val actionState: StateFlow<AdminActionState> = _actionState
 
     init {
         observeReports()
@@ -43,19 +45,39 @@ class WorkoutReportsViewModel(
         }
     }
 
-    fun toggleResolved(report: WorkoutIssueReport) {
+    fun toggleResolved(report: WorkoutIssueReport, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
+            _actionState.value = AdminActionState.InProgress
             val updated = report.copy(resolved = !report.resolved)
-            updateReportUseCase(updated)
+            val result = updateReportUseCase(updated)
+            _actionState.value = result.toActionState("Errore durante l'aggiornamento della segnalazione")
+            onResult(result)
         }
     }
 
-    fun removeReport(reportId: String) {
+    fun removeReport(reportId: String, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
-            removeReportUseCase(reportId)
+            _actionState.value = AdminActionState.InProgress
+            val result = removeReportUseCase(reportId)
+            _actionState.value = result.toActionState("Errore durante l'eliminazione della segnalazione")
+            onResult(result)
+        }
+    }
+
+    fun clearActionError() {
+        if (_actionState.value is AdminActionState.Error) {
+            _actionState.value = AdminActionState.Idle
         }
     }
 }
+
+private fun Result<Unit>.toActionState(defaultErrorMessage: String): AdminActionState =
+    fold(
+        onSuccess = { AdminActionState.Idle },
+        onFailure = { error ->
+            AdminActionState.Error(error.localizedMessage ?: defaultErrorMessage)
+        }
+    )
 
 class WorkoutReportsViewModelFactory(
     private val getReportsUseCase: GetWorkoutIssueReportsUseCase,

@@ -29,6 +29,8 @@ class AlertsAdminViewModel(
     private val _uiState: MutableStateFlow<AlertsAdminUiState> =
         MutableStateFlow(AlertsAdminUiState.Loading)
     val uiState: StateFlow<AlertsAdminUiState> = _uiState
+    private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
+    val actionState: StateFlow<AdminActionState> = _actionState
 
     init {
         observeAlerts()
@@ -46,22 +48,42 @@ class AlertsAdminViewModel(
 
     fun addAlert(avviso: Avviso, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
+            _actionState.value = AdminActionState.InProgress
             val result = addAlertUseCase(avviso)
+            _actionState.value = result.toActionState("Errore durante il salvataggio dell'avviso")
             onResult(result)
         }
     }
 
     fun updateAlert(avviso: Avviso, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
+            _actionState.value = AdminActionState.InProgress
             val result = updateAlertUseCase(avviso)
+            _actionState.value = result.toActionState("Errore durante l'aggiornamento dell'avviso")
             onResult(result)
         }
     }
 
     fun removeAlert(alertId: String, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
+            _actionState.value = AdminActionState.InProgress
             val result = removeAlertUseCase(alertId)
+            _actionState.value = result.toActionState("Errore durante l'eliminazione dell'avviso")
             onResult(result)
         }
     }
+
+    fun clearActionError() {
+        if (_actionState.value is AdminActionState.Error) {
+            _actionState.value = AdminActionState.Idle
+        }
+    }
 }
+
+private fun Result<Unit>.toActionState(defaultErrorMessage: String): AdminActionState =
+    fold(
+        onSuccess = { AdminActionState.Idle },
+        onFailure = { error ->
+            AdminActionState.Error(error.localizedMessage ?: defaultErrorMessage)
+        }
+    )

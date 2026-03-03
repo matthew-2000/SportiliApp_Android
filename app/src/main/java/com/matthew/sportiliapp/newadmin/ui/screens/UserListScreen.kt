@@ -25,6 +25,25 @@ import com.matthew.sportiliapp.newadmin.ui.viewmodel.GymAdminViewModel
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.GymAdminViewModelFactory
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.UiState
 
+private enum class UserWorkoutStatus { CHANGE_REQUESTED, MISSING, EXPIRED, ACTIVE }
+
+private data class AdminUserListItem(
+    val user: Utente,
+    val fullNameLower: String,
+    val codeLower: String,
+    val status: UserWorkoutStatus
+)
+
+private fun resolveUserWorkoutStatus(user: Utente): UserWorkoutStatus {
+    val scheda = user.scheda
+    return when {
+        scheda?.cambioRichiesto == true -> UserWorkoutStatus.CHANGE_REQUESTED
+        scheda == null -> UserWorkoutStatus.MISSING
+        scheda.isSchedaValida().not() -> UserWorkoutStatus.EXPIRED
+        else -> UserWorkoutStatus.ACTIVE
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListScreen(
@@ -86,6 +105,16 @@ fun UserListScreen(
             }
             is UiState.Success -> {
                 val allUsers = (uiState as UiState.Success<List<Utente>>).data
+                val indexedUsers = remember(allUsers) {
+                    allUsers.map { user ->
+                        AdminUserListItem(
+                            user = user,
+                            fullNameLower = "${user.nome} ${user.cognome}".lowercase(),
+                            codeLower = user.code.lowercase(),
+                            status = resolveUserWorkoutStatus(user)
+                        )
+                    }
+                }
 
                 Column(
                     modifier = Modifier
@@ -129,18 +158,23 @@ fun UserListScreen(
                     }
 
                     // LISTA UTENTI FILTRATA
-                    val filteredUsers = allUsers.filter { user ->
-                        val fullName = "${user.nome} ${user.cognome}".lowercase()
-                        val code = user.code?.lowercase().orEmpty()
-                        val matchSearch = searchText.lowercase() in fullName ||
-                                searchText.lowercase() in code ||
-                                searchText.isBlank()
+                    val normalizedSearch = searchText.trim().lowercase()
+                    val filteredUsers = indexedUsers.filter { item ->
+                        val matchSearch = normalizedSearch.isBlank() ||
+                            normalizedSearch in item.fullNameLower ||
+                            normalizedSearch in item.codeLower
 
-                        val isExpired = user.scheda == null || user.scheda?.isSchedaValida() == false
-                        val hasRequest = user.scheda?.cambioRichiesto == true
-
-                        val matchExpirationFilter = if (onlyExpired) isExpired else true
-                        val matchRequestFilter = if (onlyRequests) hasRequest else true
+                        val matchExpirationFilter = if (onlyExpired) {
+                            item.status == UserWorkoutStatus.MISSING ||
+                                item.status == UserWorkoutStatus.EXPIRED
+                        } else {
+                            true
+                        }
+                        val matchRequestFilter = if (onlyRequests) {
+                            item.status == UserWorkoutStatus.CHANGE_REQUESTED
+                        } else {
+                            true
+                        }
 
                         matchSearch && matchExpirationFilter && matchRequestFilter
                     }
@@ -149,10 +183,11 @@ fun UserListScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(8.dp)
                     ) {
-                        items(filteredUsers) { user ->
+                        items(filteredUsers, key = { it.user.code }) { item ->
                             UserCard(
-                                user = user,
-                                onUserClick = { onUserSelected(user) }
+                                user = item.user,
+                                status = item.status,
+                                onUserClick = { onUserSelected(item.user) }
                             )
                         }
                     }
@@ -173,8 +208,9 @@ fun UserListScreen(
 }
 
 @Composable
-fun UserCard(
+private fun UserCard(
     user: Utente,
+    status: UserWorkoutStatus = resolveUserWorkoutStatus(user),
     onUserClick: () -> Unit
 ) {
     Card(
@@ -214,17 +250,17 @@ fun UserCard(
                 }
 
                 // Stato scheda con colori personalizzati
-                when {
-                    user.scheda?.cambioRichiesto == true -> {
+                when (status) {
+                    UserWorkoutStatus.CHANGE_REQUESTED -> {
                         StatusChip("Cambio richiesto", MaterialTheme.colorScheme.error)
                     }
-                    user.scheda == null -> {
+                    UserWorkoutStatus.MISSING -> {
                         StatusChip("Mancante", Color.Gray)
                     }
-                    user.scheda?.isSchedaValida() == false -> {
+                    UserWorkoutStatus.EXPIRED -> {
                         StatusChip("Scaduta", MaterialTheme.colorScheme.primary)
                     }
-                    else -> {
+                    UserWorkoutStatus.ACTIVE -> {
                         StatusChip("Attiva", Color.Green)
                     }
                 }

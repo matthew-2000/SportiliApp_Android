@@ -271,14 +271,7 @@ class FirebaseRepositoryImpl(
                     val alert = ds.getValue(Avviso::class.java)?.apply {
                         id = ds.key ?: ""
                     }
-                    if (alert != null && alert.isExpired(now)) {
-                        if (alert.id.isNotBlank()) {
-                            alertsRef.child(alert.id).removeValue()
-                        }
-                        null
-                    } else {
-                        alert
-                    }
+                    alert?.takeUnless { it.isExpired(now) }
                 }.sortedWith(
                     compareByDescending<Avviso> { it.urgencyWeight() }
                         .thenBy { it.scadenza ?: Long.MAX_VALUE }
