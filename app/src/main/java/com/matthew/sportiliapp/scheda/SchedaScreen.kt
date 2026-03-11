@@ -10,16 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -28,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -67,8 +65,10 @@ fun SchedaScreen(navController: NavHostController) {
     val nomeUtente by viewModel.name.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true) // Osserviamo lo stato di caricamento
     val isOfflineMode by viewModel.isOfflineMode.observeAsState(false)
+    val userCode = viewModel.getCurrentUserCode().orEmpty()
 
     var showReportDialog by remember { mutableStateOf(false) }
+    var isCodeVisible by rememberSaveable { mutableStateOf(false) }
     var reportMessage by remember { mutableStateOf("") }
     var isSubmittingReport by remember { mutableStateOf(false) }
     var reportError by remember { mutableStateOf<String?>(null) }
@@ -80,6 +80,14 @@ fun SchedaScreen(navController: NavHostController) {
         topBar = {
             TopAppBar(
                 title = { Text(getTitle(nomeUtente)) },
+                actions = {
+                    TextButton(onClick = {
+                        reportError = null
+                        showReportDialog = true
+                    }) {
+                        Text("Segnala")
+                    }
+                },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
@@ -105,10 +113,12 @@ fun SchedaScreen(navController: NavHostController) {
             } else {
                 // Mostra la scheda o la schermata "non disponibile"
                 if (scheda == null || scheda!!.giorni.isEmpty()) {
-                    SchedaNonDisponibileScreen(isOfflineMode) {
-                        reportError = null
-                        showReportDialog = true
-                    }
+                    SchedaNonDisponibileScreen(
+                        isOffline = isOfflineMode,
+                        userCode = userCode,
+                        isCodeVisible = isCodeVisible,
+                        onToggleCodeVisibility = { isCodeVisible = !isCodeVisible }
+                    )
                 } else {
                     val currentScheda = scheda!!
                     val isExpired = !currentScheda.isSchedaValida()
@@ -253,10 +263,17 @@ fun SchedaScreen(navController: NavHostController) {
                             }
                         }
                         item {
-                            ReportProblemSection(onClick = {
-                                reportError = null
-                                showReportDialog = true
-                            })
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 16.dp),
+                                thickness = 1.dp,
+                                color = Color.LightGray
+                            )                        }
+                        item {
+                            UserCodeCard(
+                                code = userCode,
+                                isCodeVisible = isCodeVisible,
+                                onToggleCodeVisibility = { isCodeVisible = !isCodeVisible }
+                            )
                         }
                     }
                 }
@@ -338,12 +355,17 @@ private fun OfflineBanner() {
 }
 
 @Composable
-fun SchedaNonDisponibileScreen(isOffline: Boolean, onReportClick: () -> Unit) {
+fun SchedaNonDisponibileScreen(
+    isOffline: Boolean,
+    userCode: String,
+    isCodeVisible: Boolean,
+    onToggleCodeVisibility: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (isOffline) {
@@ -362,9 +384,6 @@ fun SchedaNonDisponibileScreen(isOffline: Boolean, onReportClick: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 24.dp)
         )
-        OutlinedButton(onClick = onReportClick) {
-            Text("Segnala un problema")
-        }
         if (isOffline) {
             Text(
                 text = "Quando tornerai online aggiorneremo automaticamente queste informazioni.",
@@ -372,6 +391,60 @@ fun SchedaNonDisponibileScreen(isOffline: Boolean, onReportClick: () -> Unit) {
                 textAlign = TextAlign.Center,
                 color = Color.Gray
             )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        UserCodeCard(
+            code = userCode,
+            isCodeVisible = isCodeVisible,
+            onToggleCodeVisibility = onToggleCodeVisibility
+        )
+    }
+}
+
+@Composable
+private fun UserCodeCard(
+    code: String,
+    isCodeVisible: Boolean,
+    onToggleCodeVisibility: () -> Unit
+) {
+    val hasCode = code.isNotBlank()
+    val shownCode = when {
+        !hasCode -> "Codice non disponibile"
+        isCodeVisible -> code
+        else -> "••••••"
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Il tuo codice",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = shownCode,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            TextButton(
+                onClick = onToggleCodeVisibility,
+                enabled = hasCode
+            ) {
+                Text(if (isCodeVisible) "Nascondi" else "Mostra")
+            }
         }
     }
 }
@@ -411,20 +484,6 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
                 contentDescription = "Apri giorno ${giorno.name}",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun ReportProblemSection(onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedButton(onClick = onClick) {
-            Text("Segnala un problema")
         }
     }
 }

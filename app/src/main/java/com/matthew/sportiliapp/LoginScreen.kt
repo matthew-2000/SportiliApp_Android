@@ -179,56 +179,46 @@ fun LoginScreen(navController: NavHostController) {
 
 private suspend fun register(
     codice: String,
-    context: Context, // Aggiunto il parametro del contesto
+    context: Context,
     navController: NavHostController,
     onError: (String) -> Unit
 ) {
     try {
-        val db = FirebaseDatabase.getInstance().getReference("users")
-        val snapshot = db.get().await()
-        val authUsers = snapshot.value as? Map<String, Map<String, Any>>
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) {
+            auth.signInAnonymously().await()
+        }
 
-        val isAdmin = AdminAccessValidator.isAdminCode(codice)
+        val db = FirebaseDatabase.getInstance().getReference("users")
+        val normalizedCode = codice.trim()
+        val userSnapshot = db.child(normalizedCode).get().await()
+
+        val isAdmin = AdminAccessValidator.isAdminCode(normalizedCode)
         if (isAdmin) {
             salvaCodeInSharedPreferences(context, "")
-            AdminAccessValidator.saveAdminSession(context, codice)
+            AdminAccessValidator.saveAdminSession(context, normalizedCode)
         } else {
             AdminAccessValidator.clearAdminSession(context)
         }
 
         if (isAdmin) {
-            FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    navController.navigate("admin") {
-                        popUpTo("login") { inclusive = true }
-                        launchSingleTop = true
-                    }
-                } else {
-                    // Errore durante l'accesso
-                    onError("Errore durante l'accesso. Riprova più tardi.")
-                }
-            }.await() // Aggiunto await per attendere il completamento dell'operazione
+            navController.navigate("admin") {
+                popUpTo("login") { inclusive = true }
+                launchSingleTop = true
+            }
         } else {
-            if (authUsers != null && authUsers[codice] != null) {
-                FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = task.result?.user
-                        val profileUpdates = userProfileChangeRequest {
-                            displayName = authUsers[codice]?.get("nome") as? String
-                        }
-                        user?.updateProfile(profileUpdates)
-                        salvaCodeInSharedPreferences(context, code = codice)
-                        navController.navigate("content") {
-                            popUpTo("login") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    } else {
-                        // Errore durante l'accesso
-                        onError("Errore durante l'accesso. Riprova più tardi.")
-                    }
-                }.await() // Aggiunto await per attendere il completamento dell'operazione
+            if (userSnapshot.exists()) {
+                val userName = userSnapshot.child("nome").getValue(String::class.java)
+                val profileUpdates = userProfileChangeRequest {
+                    displayName = userName
+                }
+                auth.currentUser?.updateProfile(profileUpdates)?.await()
+                salvaCodeInSharedPreferences(context, code = normalizedCode)
+                navController.navigate("content") {
+                    popUpTo("login") { inclusive = true }
+                    launchSingleTop = true
+                }
             } else {
-                // Codice non autorizzato
                 onError("Codice non autorizzato.")
             }
         }
