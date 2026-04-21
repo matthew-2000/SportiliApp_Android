@@ -89,9 +89,9 @@ data class Scheda(
         // Ottieni la data corrente
         val currentDate = Date()
 
-        // Calcola il numero di settimane rimanenti
+        // Calcola il numero di settimane rimanenti e non scendere sotto zero.
         val diffInMillis = endDate.time - currentDate.time
-        return (diffInMillis / (1000 * 60 * 60 * 24 * 7)).toInt()
+        return maxOf(0, (diffInMillis / (1000 * 60 * 60 * 24 * 7)).toInt())
     }
 
     override fun toString(): String {

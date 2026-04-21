@@ -456,7 +456,12 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         val db = FirebaseDatabase.getInstance().reference
         db.child("users").child(savedCode).child("scheda").child("cambioRichiesto")
             .setValue(true)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener {
+                val updatedScheda = _scheda.value?.copy(cambioRichiesto = true)
+                _scheda.postValue(updatedScheda)
+                saveSchedaToCache(sharedPreferences, updatedScheda)
+                onSuccess()
+            }
             .addOnFailureListener { e -> onError(e) }
     }
 

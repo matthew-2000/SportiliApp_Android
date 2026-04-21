@@ -1,11 +1,11 @@
 [versions]
-agp = "8.9.2"
+agp = "9.1.1"
 coilCompose = "2.0.0-rc01"
 composeBomVersion = "2025.03.00"
 dagger = "2.46.1"
 firebaseBom = "33.1.1"
 hiltAndroidCompiler = "2.44"
-kotlin = "1.9.0"
+kotlin = "2.2.10"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -56,4 +56,5 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
