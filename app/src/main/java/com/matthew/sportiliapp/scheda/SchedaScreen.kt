@@ -123,7 +123,7 @@ fun SchedaScreen(navController: NavHostController) {
                     val currentScheda = scheda!!
                     val isExpired = !currentScheda.isSchedaValida()
                     val weeksLeft = currentScheda.getSettimaneMancanti()
-                    val canRequestCambio = weeksLeft == 0
+                    val canRequestCambio = isExpired
 
                     LazyColumn(
                         modifier = Modifier
@@ -157,85 +157,85 @@ fun SchedaScreen(navController: NavHostController) {
                         }
 
                         item {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 16.dp),
-                                thickness = 1.dp,
-                                color = Color.LightGray
+                            Text(
+                                text = settimaneRimanentiLabel(weeksLeft),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Left,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 16.dp)
-                                    .padding(horizontal = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = if (isExpired) "⚠️ Scheda scaduta" else "Stato scheda",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(bottom = 8.dp)
+                        if (isExpired) {
+                            item {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 16.dp),
+                                    thickness = 1.dp,
+                                    color = Color.LightGray
                                 )
-
-                                Text(
-                                    text = settimaneRimanentiLabel(weeksLeft),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(bottom = 12.dp)
-                                )
-
-                                val statusMessage = when {
-                                    currentScheda.cambioRichiesto ->
-                                        "Hai già richiesto una nuova scheda. Attendi il caricamento da parte del personal trainer."
-                                    canRequestCambio ->
-                                        "La tua scheda è scaduta. Puoi inviare la richiesta di cambio."
-                                    else ->
-                                        "Il cambio scheda può essere richiesto solo alla scadenza, quando le settimane rimanenti sono pari a 0."
-                                }
-                                Text(
-                                    text = statusMessage,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(bottom = 12.dp)
-                                )
-
-                                Text(
-                                    text = "Le modifiche delle schede vengono gestite nel weekend, indicativamente il sabato. Per agevolare il cambio, invia la richiesta tra le 20:00 di venerdì e le 10:00 di sabato; durante la settimana l'aggiornamento potrebbe non essere effettuato.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                )
-
-                                Button(
-                                    onClick = {
-                                        viewModel.inviaRichiestaCambioScheda(
-                                            onSuccess = {
-                                                Toast.makeText(context, "Richiesta inviata!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            onError = { e ->
-                                                Toast.makeText(context, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    },
-                                    enabled = canRequestCambio && !currentScheda.cambioRichiesto,
+                            }
+                            item {
+                                Column(
                                     modifier = Modifier
-                                        .wrapContentWidth()
-                                        .height(40.dp)
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp)
+                                        .padding(horizontal = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = if (currentScheda.cambioRichiesto) "Richiesta inviata" else "Richiedi nuova scheda",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        fontWeight = FontWeight.SemiBold
+                                        text = "⚠️ Scheda scaduta",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(bottom = 8.dp)
                                     )
+
+                                    val statusMessage = if (currentScheda.cambioRichiesto) {
+                                        "Hai già richiesto una nuova scheda. Attendi il caricamento da parte del personal trainer."
+                                    } else {
+                                        "La tua scheda è scaduta. Puoi inviare la richiesta di cambio."
+                                    }
+                                    Text(
+                                        text = statusMessage,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(bottom = 12.dp)
+                                    )
+
+                                    Text(
+                                        text = "Le modifiche delle schede vengono gestite nel weekend, indicativamente il sabato. Per agevolare il cambio, invia la richiesta tra le 20:00 di venerdì e le 10:00 di sabato; durante la settimana l'aggiornamento potrebbe non essere effettuato.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    )
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.inviaRichiestaCambioScheda(
+                                                onSuccess = {
+                                                    Toast.makeText(context, "Richiesta inviata!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                onError = { e ->
+                                                    Toast.makeText(context, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        },
+                                        enabled = canRequestCambio && !currentScheda.cambioRichiesto,
+                                        modifier = Modifier
+                                            .wrapContentWidth()
+                                            .height(40.dp)
+                                    ) {
+                                        Text(
+                                            text = if (currentScheda.cambioRichiesto) "Richiesta inviata" else "Richiedi nuova scheda",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -293,9 +293,7 @@ fun EditDayScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val existingNames = groupsList.map { it.second.nome }.toSet()
                         val selectedNames = selectedGruppi.filterValues { it }.keys
-                            .filterNot { it in existingNames }
 
                         selectedNames.forEachIndexed { offset, groupName ->
                             val newKey = "gruppo${groupsList.size + offset + 1}"
