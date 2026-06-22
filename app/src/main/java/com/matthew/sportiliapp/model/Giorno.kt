@@ -16,9 +16,9 @@ data class Giorno(
     }
 
     fun sortAll() {
-        gruppiMuscolari = gruppiMuscolari.toSortedMap()
+        gruppiMuscolari = gruppiMuscolari.sortedByIndexedKey()
         gruppiMuscolari.forEach { gruppo ->
-            gruppo.value.esercizi = gruppo.value.esercizi.toSortedMap()
+            gruppo.value.esercizi = gruppo.value.esercizi.sortedExercises()
         }
     }
 

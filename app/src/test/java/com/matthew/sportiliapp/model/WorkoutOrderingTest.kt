@@ -1,0 +1,111 @@
+package com.matthew.sportiliapp.model
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class WorkoutOrderingTest {
+
+    @Test
+    fun `group sort keeps numeric exercise order instead of lexicographic order`() {
+        val group = GruppoMuscolare(
+            nome = "Circuito",
+            esercizi = linkedMapOf(
+                "esercizio10" to Esercizio(name = "Exercise 10", serie = "3x10"),
+                "esercizio2" to Esercizio(name = "Exercise 2", serie = "3x10"),
+                "esercizio1" to Esercizio(name = "Exercise 1", serie = "3x10")
+            )
+        )
+
+        group.sortAll()
+
+        assertEquals(
+            listOf("esercizio1", "esercizio2", "esercizio10"),
+            group.esercizi.keys.toList()
+        )
+    }
+
+    @Test
+    fun `group sort prefers explicit exercise order when present`() {
+        val group = GruppoMuscolare(
+            nome = "Circuito",
+            esercizi = linkedMapOf(
+                "esercizio1" to Esercizio(name = "Exercise 1", serie = "3x10", ordine = 2),
+                "esercizio2" to Esercizio(name = "Exercise 2", serie = "3x10", ordine = 0),
+                "esercizio3" to Esercizio(name = "Exercise 3", serie = "3x10", ordine = 1)
+            )
+        )
+
+        group.sortAll()
+
+        assertEquals(
+            listOf("Exercise 2", "Exercise 3", "Exercise 1"),
+            group.esercizi.values.map { it.name }
+        )
+    }
+
+    @Test
+    fun `scheda sort keeps numeric order for days and groups`() {
+        val scheda = Scheda(
+            dataInizio = "2026-01-01T00:00:00+0000",
+            durata = 4,
+            giorni = linkedMapOf(
+                "giorno10" to Giorno(
+                    name = "Giorno 10",
+                    gruppiMuscolari = linkedMapOf(
+                        "gruppo10" to GruppoMuscolare(nome = "Gruppo 10"),
+                        "gruppo2" to GruppoMuscolare(nome = "Gruppo 2")
+                    )
+                ),
+                "giorno2" to Giorno(name = "Giorno 2"),
+                "giorno1" to Giorno(name = "Giorno 1")
+            )
+        )
+
+        scheda.sortAll()
+
+        assertEquals(listOf("giorno1", "giorno2", "giorno10"), scheda.giorni.keys.toList())
+        assertEquals(
+            listOf("gruppo2", "gruppo10"),
+            scheda.giorni.getValue("giorno10").gruppiMuscolari.keys.toList()
+        )
+    }
+
+    @Test
+    fun `normalized snapshot rewrites legacy keys and backfills explicit order`() {
+        val scheda = Scheda(
+            dataInizio = "2026-01-01T00:00:00+0000",
+            durata = 4,
+            giorni = linkedMapOf(
+                "giorno10" to Giorno(
+                    name = "Legacy Day",
+                    gruppiMuscolari = linkedMapOf(
+                        "gruppo7" to GruppoMuscolare(
+                            nome = "Circuito",
+                            esercizi = linkedMapOf(
+                                "esercizio10" to Esercizio(name = "Exercise 10", serie = "3x10"),
+                                "esercizio2" to Esercizio(name = "Exercise 2", serie = "3x10"),
+                                "esercizio1" to Esercizio(name = "Exercise 1", serie = "3x10")
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val normalized = scheda.normalizedOrderSnapshot()
+        val normalizedExercises = normalized.giorni
+            .getValue("giorno1")
+            .gruppiMuscolari
+            .getValue("gruppo1")
+            .esercizi
+
+        assertEquals(listOf("giorno1"), normalized.giorni.keys.toList())
+        assertEquals(listOf("gruppo1"), normalized.giorni.getValue("giorno1").gruppiMuscolari.keys.toList())
+        assertEquals(listOf("esercizio1", "esercizio2", "esercizio3"), normalizedExercises.keys.toList())
+        assertEquals(
+            listOf("Exercise 1", "Exercise 2", "Exercise 10"),
+            normalizedExercises.values.map { it.name }
+        )
+        assertEquals(listOf(0, 1, 2), normalizedExercises.values.map { it.ordine })
+    }
+}

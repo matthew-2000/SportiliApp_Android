@@ -182,7 +182,7 @@ fun EditMuscleGroupScreen(
     fun buildUpdatedGroup(): GruppoMuscolare {
         val exercisesMap = linkedMapOf<String, Esercizio>()
         currentExercises.forEachIndexed { index, exercise ->
-            exercisesMap["esercizio${index + 1}"] = exercise
+            exercisesMap["esercizio${index + 1}"] = exercise.copy(ordine = index)
         }
         return group.copy(nome = groupName.trim(), esercizi = exercisesMap)
     }

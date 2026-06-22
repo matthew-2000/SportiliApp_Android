@@ -41,7 +41,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             isLoading.postValue(true)
 
             val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-            val cachedScheda = getCachedScheda(sharedPreferences)?.apply { sortAll() }
+            val cachedScheda = getCachedScheda(sharedPreferences)?.normalizedOrderSnapshot()
             val cachedName = getCachedName(sharedPreferences)
 
             if (cachedScheda != null) {
@@ -85,13 +85,16 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val snapshot = task.result
-                        val data = snapshot.getValue(Scheda::class.java)
-                        data?.sortAll()
-                        _scheda.postValue(data)
-                        saveSchedaToCache(sharedPreferences, data)
+                        val originalData = snapshot.getValue(Scheda::class.java)
+                        val normalizedData = originalData?.normalizedOrderSnapshot()
+                        _scheda.postValue(normalizedData)
+                        saveSchedaToCache(sharedPreferences, normalizedData)
                         _isOfflineMode.postValue(false)
+                        if (originalData != null && normalizedData != null && normalizedData != originalData) {
+                            persistNormalizedScheda(savedCode, normalizedData)
+                        }
                     } else {
-                        val fallbackScheda = getCachedScheda(sharedPreferences)?.apply { sortAll() }
+                        val fallbackScheda = getCachedScheda(sharedPreferences)?.normalizedOrderSnapshot()
                         if (fallbackScheda != null) {
                             _scheda.postValue(fallbackScheda)
                         }
@@ -116,6 +119,15 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
                     }
                 }
         }
+    }
+
+    private fun persistNormalizedScheda(userCode: String, scheda: Scheda) {
+        FirebaseDatabase.getInstance()
+            .reference
+            .child("users")
+            .child(userCode)
+            .child("scheda")
+            .setValue(scheda.toMap())
     }
 
     private fun saveSchedaToCache(sharedPreferences: SharedPreferences, scheda: Scheda?) {

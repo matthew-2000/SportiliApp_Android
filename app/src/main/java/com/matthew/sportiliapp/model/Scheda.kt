@@ -30,11 +30,11 @@ data class Scheda(
 
 
     fun sortAll() {
-        giorni = giorni.toSortedMap()
+        giorni = giorni.sortedByIndexedKey()
         giorni.forEach { giorno ->
-            giorno.value.gruppiMuscolari = giorno.value.gruppiMuscolari.toSortedMap()
+            giorno.value.gruppiMuscolari = giorno.value.gruppiMuscolari.sortedByIndexedKey()
             giorno.value.gruppiMuscolari.forEach { gruppo ->
-                gruppo.value.esercizi = gruppo.value.esercizi.toSortedMap()
+                gruppo.value.esercizi = gruppo.value.esercizi.sortedExercises()
             }
         }
     }
