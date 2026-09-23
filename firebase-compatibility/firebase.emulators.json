@@ -1,0 +1,10 @@
+{
+  "emulators": {
+    "database": { "host": "127.0.0.1", "port": 19000 },
+    "storage": { "host": "127.0.0.1", "port": 19199 },
+    "hub": { "host": "127.0.0.1", "port": 19400 },
+    "logging": { "host": "127.0.0.1", "port": 19440 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}
