@@ -57,6 +57,37 @@ i test; non è previsto un ripiego su regole aperte.
 
 ## Cosa verificano i test
 
+### Prove native Android
+
+Con un Android Emulator avviato, dalla root della repository:
+
+```sh
+./gradlew :app:connectedDebugAndroidTest --console=plain
+```
+
+Le prove di interfaccia usano i componenti reali con dati in memoria: salvataggio
+ordinario, completamento esplicito della richiesta, apertura giorno, durata non
+valida, pulsanti disabilitati durante il salvataggio e recupero degli avvisi
+dopo un errore. Non accedono al database di produzione.
+
+Per verificare anche `FirebaseRepositoryImpl` con il vero SDK Android e RTDB
+locale, da questa cartella, con Java 21 sul PATH:
+
+```sh
+npm run test:android-repository
+```
+
+Questo comando avvia RTDB sul computer, carica regole fittizie e avvia soltanto
+`FirebaseRepositoryEmulatorTest` con l'abilitazione esplicita del test locale.
+Richiede un Android Emulator, non un telefono fisico: usa `10.0.2.2:19000` e
+un'istanza Firebase separata con project ID `demo-sportili-compat`. Le due prove
+verificano conservazione di scheda/storico/campi sconosciuti e gestione di un
+rifiuto di scrittura. Nella suite nativa ordinaria queste due prove sono saltate
+finché non viene passato l'argomento `sportiliLocalDatabase=1` dal comando sopra.
+I test non hanno un ripiego sul backend reale.
+
+### Contratti delle regole Firebase
+
 `compatibility.test.mjs` verifica 12 scenari di accesso osservati nel codice:
 
 - iOS legge `/fausto` e tutto `/users` prima di `signInAnonymously`;
@@ -112,4 +143,6 @@ questa suite.
 
 Fonti Firebase: [test delle regole](https://firebase.google.com/docs/rules/unit-tests),
 [Realtime Database Emulator](https://firebase.google.com/docs/emulator-suite/connect_rtdb).
-Il piano di transizione e i vincoli sono in [ROLLOUT.md](ROLLOUT.md).
+Il piano dei miglioramenti compatibili con l'accesso tramite codice e i relativi
+vincoli sono in [ROLLOUT.md](ROLLOUT.md).
+Gli esiti delle prove native e delle build sono in [VERIFICATION.md](VERIFICATION.md).
