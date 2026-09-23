@@ -28,30 +28,17 @@ private fun String.numericSuffix(): Int? =
         .takeIf { it.isNotEmpty() }
         ?.toIntOrNull()
 
-internal fun Scheda.normalizedOrderSnapshot(): Scheda {
-    val normalizedDays = giorni
+// Reading a workout must never change the keys used by navigation and Firebase writes.
+internal fun Scheda.sortedSnapshot(): Scheda {
+    val sortedDays = giorni
         .sortedByIndexedKey()
-        .values
-        .mapIndexed { dayIndex, day ->
-            val normalizedGroups = day.gruppiMuscolari
+        .mapValues { (_, day) ->
+            val sortedGroups = day.gruppiMuscolari
                 .sortedByIndexedKey()
-                .values
-                .mapIndexed { groupIndex, group ->
-                    val normalizedExercises = group.esercizi
-                        .sortedExercises()
-                        .values
-                        .mapIndexed { exerciseIndex, exercise ->
-                            "esercizio${exerciseIndex + 1}" to exercise.copy(ordine = exerciseIndex)
-                        }
-                        .associateTo(LinkedHashMap()) { it }
-
-                    "gruppo${groupIndex + 1}" to group.copy(esercizi = normalizedExercises)
+                .mapValues { (_, group) ->
+                    group.copy(esercizi = group.esercizi.sortedExercises())
                 }
-                .associateTo(LinkedHashMap()) { it }
-
-            "giorno${dayIndex + 1}" to day.copy(gruppiMuscolari = normalizedGroups)
+            day.copy(gruppiMuscolari = sortedGroups)
         }
-        .associateTo(LinkedHashMap()) { it }
-
-    return copy(giorni = normalizedDays)
+    return copy(giorni = sortedDays)
 }

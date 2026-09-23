@@ -55,7 +55,7 @@ import com.matthew.sportiliapp.model.Scheda
 import java.util.Calendar
 import java.util.LinkedHashMap
 
-private fun buildUpdatedScheda(
+internal fun buildUpdatedScheda(
     originalScheda: Scheda,
     startDate: String,
     duration: String,
@@ -64,8 +64,7 @@ private fun buildUpdatedScheda(
     originalScheda.copy(
         dataInizio = formatToSaveDate(startDate),
         durata = duration.toIntOrNull() ?: originalScheda.durata,
-        giorni = LinkedHashMap(daysList.toMap()),
-        cambioRichiesto = false
+        giorni = LinkedHashMap(daysList.toMap())
     )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -271,6 +270,18 @@ fun EditWorkoutCardScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            if (scheda.cambioRichiesto) {
+                OutlinedButton(
+                    onClick = {
+                        validateAndSave { updatedScheda ->
+                            onSave(updatedScheda.copy(cambioRichiesto = false))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
+                ) { Text("Salva e segna il cambio come completato") }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly

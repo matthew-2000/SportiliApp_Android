@@ -71,10 +71,10 @@ class FirebaseRepositoryImpl(
             val userRef = usersRef.child(utente.code)
             val userDict = mapOf(
                 "cognome" to utente.cognome,
-                "nome" to utente.nome,
-                "scheda" to utente.scheda?.toMap()
+                "nome" to utente.nome
             )
-            userRef.setValue(userDict)
+            // Profile edits must preserve the workout and exercise history.
+            userRef.updateChildren(userDict)
                 .addOnSuccessListener { cont.resume(Result.success(Unit)) }
                 .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
         }

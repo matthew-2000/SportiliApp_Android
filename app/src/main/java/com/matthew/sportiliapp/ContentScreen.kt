@@ -37,6 +37,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.matthew.sportiliapp.avvisi.AlertsFeedUiState
+import com.matthew.sportiliapp.avvisi.AlertsFeedViewModel
+import com.matthew.sportiliapp.avvisi.AlertsFeedViewModelFactory
 import com.matthew.sportiliapp.avvisi.AvvisiScreen
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
@@ -58,9 +62,11 @@ fun ContentScreen(navController: NavHostController) {
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
-    val alertsFlow = remember { ManualInjection.getAlertsUseCase() }
-    val alerts by alertsFlow.collectAsState(initial = emptyList())
-    val alertsCount = alerts.size
+    val alertsViewModel: AlertsFeedViewModel = viewModel(
+        factory = AlertsFeedViewModelFactory(ManualInjection.getAlertsUseCase)
+    )
+    val alertsState by alertsViewModel.uiState.collectAsState()
+    val alertsCount = (alertsState as? AlertsFeedUiState.Success)?.alerts?.size ?: 0
 
     Scaffold(
         bottomBar = {
@@ -97,6 +103,9 @@ fun ContentScreen(navController: NavHostController) {
                             indicatorColor = MaterialTheme.colorScheme.primary,
                         ),
                         onClick = {
+                            if (alertsState is AlertsFeedUiState.Error) {
+                                alertsViewModel.retry()
+                            }
                             navController2.navigate(item.route) {
                                 // Prevents building a large back stack
                                 popUpTo(navController2.graph.startDestinationId) { saveState = true }

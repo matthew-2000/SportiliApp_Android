@@ -1,6 +1,8 @@
 package com.matthew.sportiliapp.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WorkoutOrderingTest {
@@ -71,7 +73,7 @@ class WorkoutOrderingTest {
     }
 
     @Test
-    fun `normalized snapshot rewrites legacy keys and backfills explicit order`() {
+    fun `sorted snapshot preserves legacy keys and does not mutate the source`() {
         val scheda = Scheda(
             dataInizio = "2026-01-01T00:00:00+0000",
             durata = 4,
@@ -92,20 +94,45 @@ class WorkoutOrderingTest {
             )
         )
 
-        val normalized = scheda.normalizedOrderSnapshot()
+        val normalized = scheda.sortedSnapshot()
         val normalizedExercises = normalized.giorni
-            .getValue("giorno1")
+            .getValue("giorno10")
             .gruppiMuscolari
-            .getValue("gruppo1")
+            .getValue("gruppo7")
             .esercizi
 
-        assertEquals(listOf("giorno1"), normalized.giorni.keys.toList())
-        assertEquals(listOf("gruppo1"), normalized.giorni.getValue("giorno1").gruppiMuscolari.keys.toList())
-        assertEquals(listOf("esercizio1", "esercizio2", "esercizio3"), normalizedExercises.keys.toList())
+        assertEquals(listOf("giorno10"), normalized.giorni.keys.toList())
+        assertEquals(listOf("gruppo7"), normalized.giorni.getValue("giorno10").gruppiMuscolari.keys.toList())
+        assertEquals(listOf("esercizio1", "esercizio2", "esercizio10"), normalizedExercises.keys.toList())
         assertEquals(
             listOf("Exercise 1", "Exercise 2", "Exercise 10"),
             normalizedExercises.values.map { it.name }
         )
-        assertEquals(listOf(0, 1, 2), normalizedExercises.values.map { it.ordine })
+        normalizedExercises.values.forEach { assertNull(it.ordine) }
+        assertEquals(
+            listOf("esercizio10", "esercizio2", "esercizio1"),
+            scheda.giorni.getValue("giorno10").gruppiMuscolari.getValue("gruppo7").esercizi.keys.toList()
+        )
+    }
+
+    @Test
+    fun `sorted snapshot honors explicit order while preserving data and Firebase paths`() {
+        val logs = mapOf("log1" to WeightLogEntry(weight = 42.5, timestamp = 1700000000000))
+        val first = Esercizio("First", "3x10", ordine = 0, noteUtente = "Keep", weightLogs = logs)
+        val second = Esercizio("Second", "3x8", ordine = 1)
+        val scheda = Scheda("2026-01-01T00:00:00+0000", 4, linkedMapOf(
+            "giorno3" to Giorno("C", mapOf("gruppo8" to GruppoMuscolare("Gambe", linkedMapOf(
+                "esercizio2" to second, "esercizio10" to first
+            ))))
+        ), cambioRichiesto = true)
+
+        val sorted = scheda.sortedSnapshot()
+        val exercises = sorted.giorni.getValue("giorno3").gruppiMuscolari.getValue("gruppo8").esercizi
+
+        assertEquals(listOf("esercizio10", "esercizio2"), exercises.keys.toList())
+        assertEquals(first, exercises.getValue("esercizio10"))
+        assertEquals(second, exercises.getValue("esercizio2"))
+        assertTrue(sorted.cambioRichiesto)
+        assertEquals(scheda.toMap(), sorted.toMap())
     }
 }
