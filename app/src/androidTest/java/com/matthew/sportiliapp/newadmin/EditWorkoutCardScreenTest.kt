@@ -24,16 +24,24 @@ class EditWorkoutCardScreenTest {
     private var saved: Scheda? = null
     private var selected: Triple<String, Giorno, Scheda>? = null
 
-    private fun show(scheda: Scheda = original, isSaving: Boolean = false) {
+    private fun show(scheda: Scheda = original, isSaving: Boolean = false, errorMessage: String? = null) {
         compose.setContent {
             MaterialTheme {
                 EditWorkoutCardScreen(
-                    scheda = scheda, isSaving = isSaving,
+                    scheda = scheda, isSaving = isSaving, errorMessage = errorMessage,
                     onSave = { saved = it }, onCancel = {},
                     onDaySelected = { key, day, card -> selected = Triple(key, day, card) }
                 )
             }
         }
+    }
+
+    @Test fun conflictIsVisibleAndEditorCanBeClosed() {
+        val message = "La scheda è cambiata durante la modifica. Riaprila e applica nuovamente le modifiche. Nessun dato è stato sovrascritto."
+        show(errorMessage = message)
+        compose.onNodeWithText(message).assertIsDisplayed()
+        compose.onNodeWithText("Annulla", substring = false).assertIsEnabled()
+        compose.runOnIdle { assertNull(saved) }
     }
 
     @Test fun ordinarySavePreservesPendingRequestAndDayKeys() {

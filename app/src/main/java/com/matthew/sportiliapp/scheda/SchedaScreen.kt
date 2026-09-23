@@ -122,7 +122,6 @@ fun SchedaScreen(navController: NavHostController) {
                 } else {
                     val currentScheda = scheda!!
                     val isExpired = !currentScheda.isSchedaValida()
-                    val weeksLeft = currentScheda.getSettimaneMancanti()
                     val canRequestCambio = isExpired
 
                     LazyColumn(
@@ -158,7 +157,7 @@ fun SchedaScreen(navController: NavHostController) {
 
                         item {
                             Text(
-                                text = settimaneRimanentiLabel(weeksLeft),
+                                text = currentScheda.tempoRimanente(),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
@@ -322,14 +321,6 @@ fun SchedaScreen(navController: NavHostController) {
                 }
             }
         )
-    }
-}
-
-private fun settimaneRimanentiLabel(weeksLeft: Int): String {
-    return when (weeksLeft) {
-        0 -> "0 settimane rimanenti"
-        1 -> "1 settimana rimanente"
-        else -> "$weeksLeft settimane rimanenti"
     }
 }
 

@@ -1,3 +1,70 @@
+# Aggiornamento: login, concorrenza, osservatori e giorni residui — 23 settembre 2026
+
+I quattro interventi elencati nella sezione storica sotto sono implementati.
+Accessi tramite codice, schema, regole, Auth, Storage e istanti di scadenza
+restano compatibili. Nessun deploy Firebase o pubblicazione negli store.
+
+## Modifiche
+
+- **iOS:** lettura del solo `/users/{code}` dopo il controllo admin `/fausto`;
+  errori, cancellazione, timeout di 20 secondi, nuovo tentativo e protezione da
+  risposte tardive. I caratteri non validi non raggiungono un percorso utente;
+  il confronto del codice admin continua a precedere questa validazione.
+- **iOS:** un osservatore scheda per manager, rimozione al refresh/cambio utente,
+  cancellazione e deinit; callback vecchie escluse anche dopo il dispatch sulla UI.
+- **Android admin:** creazione utente con transazione; salvataggio scheda tramite
+  confronto tra snapshot iniziale, modifiche locali e stato corrente, all’interno
+  di una transazione. Lo snapshot locale è escluso dalla serializzazione Firebase.
+  Solo i campi modificati vengono applicati; dati correnti e campi sconosciuti
+  restano intatti. Eliminazioni intenzionali consentite, salvo modifiche remote
+  sul contenuto eliminato. Il riordino conserva i dati sconosciuti insieme al
+  giorno e rifiuta il salvataggio se nel frattempo è cambiato il sottoalbero giorni.
+  I conflitti mostrano un messaggio che invita a riaprire la scheda. Una scheda
+  eliminata da un altro client non viene ricreata dal salvataggio.
+- **Entrambi:** giorni interi di calendario sotto una settimana, singolare/plurale
+  e meno di un giorno. Nessuna modifica alle condizioni della richiesta.
+  Il salvataggio Android conserva anche l’orario iniziale se la data non è editata.
+
+## Verifiche automatiche
+
+- Android: `testDebugUnitTest`, **27 test superati**; build Debug e Release riuscite.
+- Android UI/strumentali ordinari: **9 test superati**, incluso errore di conflitto
+  visibile; 5 test RTDB saltati in questa esecuzione perché eseguiti separatamente.
+- SDK Android + RTDB locale: **5 test superati**, inclusi due client indipendenti
+  che creano lo stesso codice e due editor concorrenti (un solo vincitore).
+  Verificati conflitti, richieste, note, storico, campi sconosciuti, interi a 64 bit,
+  eliminazione intenzionale, mancata ricreazione e rifiuto di scrittura.
+- Emulatori RTDB/Storage: **17 test superati** sui contratti legacy esistenti.
+- iOS: **6 gruppi** sulle scadenze; runner su codice reale con doppi SDK per login
+  e osservatori, compresi timeout, retry, cambio utente e deinit, tutti superati.
+- iOS: build Debug Simulator e Release dispositivo, `CODE_SIGNING_ALLOWED=NO`.
+
+Comandi riproducibili: quelli sotto per build e Android; in iOS eseguire
+`python3 Tests/run_model_tests.py` e `python3 Tests/run_lifecycle_tests.py`.
+Le prove RTDB scrivono soltanto sul progetto `demo-sportili-compat` locale.
+
+## Verifiche visive e limiti
+
+Tre anteprime locali iOS controllate su iPhone 17 Pro / iOS 26.2: giorni residui
+non rossi, scadenza con pulsante richiesta, richiesta già inviata senza pulsante.
+Screenshot e log di questa esecuzione in `/tmp/sportili-home-final`.
+Le etichette Android sono verificate automaticamente, non con ispezione visiva.
+
+Il runner iOS simula il confine Firebase: non prova rete/Auth con il vero SDK né
+un login completo su dispositivo. Le build sono senza distribuzione e non sono
+stati installati i binari degli store. Le vecchie versioni possono ancora usare
+scritture integrali: queste correzioni non impediscono successive sovrascritture
+provenienti da client legacy. Le regole legacy restano esposte come documentato.
+Un booleano senza revisione non permette di distinguere una richiesta cancellata
+e poi reinviata con lo stesso valore durante l’editing; non si aggiunge uno schema
+per aggirare questo limite. Gli altri editor specifici di giorno/gruppo/esercizio
+non sono stati riprogettati da questo intervento sul salvataggio della scheda.
+
+Prossimo passo: prima di distribuire, assegnare versioni/build appropriate e
+provare login/retry e cambio utente con il vero SDK iOS in ambiente locale.
+
+---
+
 # Verifica delle cinque correzioni — 23 settembre 2026
 
 Ambito: conservazione dei dati nel cambio nome admin, ordinamento senza
@@ -61,7 +128,7 @@ delle schermate. Le build complete sono state eseguite con lo schema
 - I test verdi documentano le correzioni e la compatibilità degli scenari
   coperti; non risolvono l'esposizione delle regole legacy.
 
-## Prossimi interventi circoscritti
+## Interventi allora rimasti (completati nell’aggiornamento sopra)
 
 1. **Login iOS:** `SportiliApp/LoginView.swift` legge tutto `/users` e non gestisce
    la cancellazione delle letture di `/users` e `/fausto`. Leggere soltanto il

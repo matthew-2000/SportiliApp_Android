@@ -80,9 +80,10 @@ npm run test:android-repository
 Questo comando avvia RTDB sul computer, carica regole fittizie e avvia soltanto
 `FirebaseRepositoryEmulatorTest` con l'abilitazione esplicita del test locale.
 Richiede un Android Emulator, non un telefono fisico: usa `10.0.2.2:19000` e
-un'istanza Firebase separata con project ID `demo-sportili-compat`. Le due prove
-verificano conservazione di scheda/storico/campi sconosciuti e gestione di un
-rifiuto di scrittura. Nella suite nativa ordinaria queste due prove sono saltate
+un'istanza Firebase separata con project ID `demo-sportili-compat`. Le cinque prove
+verificano conservazione di scheda/storico/campi sconosciuti, rifiuto di scrittura,
+creazione e salvataggio concorrenti con due client, modifiche obsolete e conflitti.
+Nella suite nativa ordinaria queste cinque prove sono saltate
 finché non viene passato l'argomento `sportiliLocalDatabase=1` dal comando sopra.
 I test non hanno un ripiego sul backend reale.
 
@@ -90,7 +91,8 @@ I test non hanno un ripiego sul backend reale.
 
 `compatibility.test.mjs` verifica 12 scenari di accesso osservati nel codice:
 
-- iOS legge `/fausto` e tutto `/users` prima di `signInAnonymously`;
+- iOS legacy legge `/fausto` e tutto `/users` prima di `signInAnonymously`
+  (la versione corretta legge soltanto `/users/{code}`; il contratto legacy resta coperto);
 - Android legge `/users/{code}` e `/fausto` con autenticazione anonima;
 - entrambi leggono scheda, profilo, storico, catalogo e avvisi;
 - entrambi salvano/modificano/eliminano note e pesi in `exerciseData` e scrivono

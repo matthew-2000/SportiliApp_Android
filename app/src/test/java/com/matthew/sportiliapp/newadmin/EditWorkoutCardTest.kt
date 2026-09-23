@@ -16,6 +16,7 @@ class EditWorkoutCardTest {
         val unchanged = buildUpdatedScheda(original, formatToDisplayDate(original.dataInizio), "4", original.giorni.toList())
         val edited = buildUpdatedScheda(original, "22/09/2026", "6", original.giorni.toList())
 
+        assertEquals(original.dataInizio, unchanged.dataInizio)
         assertTrue(unchanged.cambioRichiesto)
         assertTrue(edited.cambioRichiesto)
         assertEquals(6, edited.durata)

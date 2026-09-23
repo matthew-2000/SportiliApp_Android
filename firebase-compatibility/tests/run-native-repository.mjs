@@ -2,12 +2,12 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 
-// Only a named test user is writable. The second test exercises real permission denial.
+// Local emulator only: synthetic users writable except the permission-denial fixture.
 const env = await initializeTestEnvironment({
   projectId: 'demo-sportili-compat',
   database: {
     host: '127.0.0.1', port: 19000,
-    rules: JSON.stringify({ rules: { '.read': true, '.write': false, users: { 'native-test': { '.write': true } } } })
+    rules: JSON.stringify({ rules: { '.read': true, '.write': false, users: { '$code': { '.write': "$code !== 'denied'" } } } })
   }
 });
 try {

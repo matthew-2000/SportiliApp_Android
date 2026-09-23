@@ -1,5 +1,8 @@
 package newadmin.data
 
+import com.google.firebase.database.MutableData
+import com.google.firebase.database.Transaction
+import com.matthew.sportiliapp.model.WorkoutEditBaseline
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -48,22 +51,23 @@ class FirebaseRepositoryImpl(
     override suspend fun addUser(utente: Utente): Result<Unit> =
         suspendCancellableCoroutine { cont ->
             val userRef = usersRef.child(utente.code)
-            userRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (!snapshot.exists()) {
-                        val userDict = mapOf("cognome" to utente.cognome, "nome" to utente.nome, "scheda" to (utente.scheda?.toMap()
-                            ?: Scheda()))
-                        userRef.setValue(userDict)
-                            .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                            .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
-                    } else {
-                        cont.resume(Result.failure(Exception("User already exists")))
-                    }
+            val userDict = mapOf("cognome" to utente.cognome, "nome" to utente.nome,
+                "scheda" to (utente.scheda ?: Scheda()).toMap())
+            userRef.runTransaction(object : Transaction.Handler {
+                override fun doTransaction(data: MutableData): Transaction.Result {
+                    if (data.value != null) return Transaction.abort()
+                    data.value = userDict
+                    return Transaction.success(data)
                 }
-                override fun onCancelled(error: DatabaseError) {
-                    cont.resume(Result.failure(Exception(error.message)))
+                override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                    if (!cont.isActive) return
+                    cont.resume(when {
+                        error != null -> Result.failure(error.toException())
+                        !committed -> Result.failure(IllegalStateException("Il codice è già utilizzato. Scegli un altro codice."))
+                        else -> Result.success(Unit)
+                    })
                 }
-            })
+            }, false)
         }
 
     override suspend fun updateUser(utente: Utente): Result<Unit> =
@@ -89,11 +93,31 @@ class FirebaseRepositoryImpl(
     // --- Gestione della Scheda (Workout Card) ---
     override suspend fun updateWorkoutCard(userCode: String, scheda: Scheda): Result<Unit> =
         suspendCancellableCoroutine { cont ->
-            val schedaDict = scheda.toMap()
-            usersRef.child(userCode).child("scheda")
-                .setValue(schedaDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+            val baseline = scheda.editBaseline
+            if (baseline == null || baseline.userCode != userCode) {
+                cont.resume(Result.failure(IllegalStateException("Riapri la scheda prima di salvarla.")))
+                return@suspendCancellableCoroutine
+            }
+            val edited = firebaseTree(scheda.toMap())
+            usersRef.child(userCode).child("scheda").runTransaction(object : Transaction.Handler {
+                override fun doTransaction(data: MutableData): Transaction.Result {
+                    // A cold cache can supply null first. A no-op commit asks the server
+                    // to validate it and retry with current data; never recreate a deleted card.
+                    if (data.value == null) return Transaction.success(data)
+                    return try {
+                        data.value = mergeWorkout(baseline, edited, firebaseTree(data.value), scheda.dayOrigins)
+                        Transaction.success(data)
+                    } catch (_: WorkoutConflict) { Transaction.abort() }
+                }
+                override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                    if (!cont.isActive) return
+                    cont.resume(when {
+                        error != null -> Result.failure(error.toException())
+                        !committed || snapshot?.exists() != true -> Result.failure(WorkoutConflict())
+                        else -> Result.success(Unit)
+                    })
+                }
+            }, false)
         }
 
     override suspend fun getWorkoutCard(userCode: String): Result<Scheda> {
@@ -103,7 +127,9 @@ class FirebaseRepositoryImpl(
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val scheda = snapshot.getValue(Scheda::class.java)
                     if (scheda != null) {
-                        cont.resume(Result.success(scheda))
+                        if (cont.isActive) cont.resume(Result.success(scheda.copy(editBaseline = WorkoutEditBaseline(
+                            userCode, firebaseTree(snapshot.value), firebaseTree(scheda.toMap())
+                        ))))
                     } else {
                         cont.resume(Result.failure(NoSuchElementException("Scheda non trovata per l'utente $userCode")))
                     }

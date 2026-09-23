@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.model
 import com.google.firebase.database.IgnoreExtraProperties
+import com.google.firebase.database.Exclude
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -8,7 +9,9 @@ data class Scheda(
     var dataInizio: String,
     var durata: Int,
     var giorni: Map<String, Giorno> = mapOf(),
-    var cambioRichiesto: Boolean = false // 👈 nuovo campo
+    var cambioRichiesto: Boolean = false,
+    @get:Exclude val editBaseline: WorkoutEditBaseline? = null,
+    @get:Exclude val dayOrigins: Map<String, String>? = null
 ) {
     fun toMap(): Map<String, Any> {
         val result: MutableMap<String, Any> = HashMap()
@@ -92,6 +95,23 @@ data class Scheda(
         // Calcola il numero di settimane rimanenti e non scendere sotto zero.
         val diffInMillis = endDate.time - currentDate.time
         return maxOf(0, (diffInMillis / (1000 * 60 * 60 * 24 * 7)).toInt())
+    }
+
+    fun tempoRimanente(now: Date = Date(), zone: TimeZone = TimeZone.getDefault()): String {
+        val start = try { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ROOT).parse(dataInizio) }
+            catch (_: Exception) { null } ?: return "Scheda scaduta"
+        val end = Calendar.getInstance(zone).apply { time = start; add(Calendar.WEEK_OF_YEAR, durata) }
+        if (!now.before(end.time)) return "Scheda scaduta"
+        // Calendar days, not fixed 24-hour intervals: also valid over DST changes.
+        val from = now.toInstant().atZone(zone.toZoneId())
+        val days = java.time.temporal.ChronoUnit.DAYS.between(from, end.time.toInstant().atZone(zone.toZoneId())).toInt()
+        return when {
+            days >= 14 -> "${days / 7} settimane rimanenti"
+            days >= 7 -> "1 settimana rimanente"
+            days == 1 -> "1 giorno rimanente"
+            days > 1 -> "$days giorni rimanenti"
+            else -> "Meno di un giorno rimanente"
+        }
     }
 
     override fun toString(): String {

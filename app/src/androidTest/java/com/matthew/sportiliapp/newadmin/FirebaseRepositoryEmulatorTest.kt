@@ -8,6 +8,8 @@ import com.google.firebase.database.FirebaseDatabase
 import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.Utente
 import java.util.UUID
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -77,6 +79,88 @@ class FirebaseRepositoryEmulatorTest {
             assertEquals(1790000000000L, saved.child("exerciseData/panca/weightLogs/entry1/timestamp").value)
             assertEquals("Conservare anche questo", saved.child("unknownField").value)
             userRef.removeValue().await()
+        }
+    }
+
+    @Test fun concurrentCreationHasExactlyOneWinner() = runBlocking<Unit> {
+        withTimeout(20_000) {
+            val db = database!!
+            val otherApp = FirebaseApp.initializeApp(
+                InstrumentationRegistry.getInstrumentation().targetContext, app!!.options, "other-${UUID.randomUUID()}"
+            )
+            val other = FirebaseDatabase.getInstance(otherApp).apply { useEmulator("10.0.2.2", 19000) }
+            try {
+                val code = "race-${UUID.randomUUID()}"
+                val attempts = listOf(
+                    async { FirebaseRepositoryImpl(db).addUser(Utente(code, "Test", "Uno")) },
+                    async { FirebaseRepositoryImpl(other).addUser(Utente(code, "Test", "Due")) }
+                ).awaitAll()
+                assertEquals(1, attempts.count { it.isSuccess })
+                val saved = db.getReference("users/$code").get().await()
+                assertEquals(if (attempts[0].isSuccess) "Uno" else "Due", saved.child("nome").value)
+                db.getReference("users/$code").removeValue().await()
+            } finally { other.goOffline(); otherApp.delete() }
+        }
+    }
+
+    @Test fun concurrentWorkoutEditsHaveOneWinner() = runBlocking<Unit> {
+        withTimeout(20_000) {
+            val db = database!!
+            val otherApp = FirebaseApp.initializeApp(
+                InstrumentationRegistry.getInstrumentation().targetContext, app!!.options, "editor-${UUID.randomUUID()}"
+            )
+            val other = FirebaseDatabase.getInstance(otherApp).apply { useEmulator("10.0.2.2", 19000) }
+            try {
+                val code = "edit-race-${UUID.randomUUID()}"
+                val ref = db.getReference("users/$code/scheda")
+                ref.setValue(mapOf("dataInizio" to "2026-09-01T12:00:00+0200", "durata" to 4,
+                    "future" to Long.MAX_VALUE)).await()
+                val first = FirebaseRepositoryImpl(db)
+                val second = FirebaseRepositoryImpl(other)
+                val a = first.getWorkoutCard(code).getOrThrow()
+                val b = second.getWorkoutCard(code).getOrThrow()
+                val results = listOf(async { first.updateWorkoutCard(code, a.copy(durata = 6)) },
+                    async { second.updateWorkoutCard(code, b.copy(durata = 8)) }).awaitAll()
+                assertEquals(1, results.count { it.isSuccess })
+                assertEquals(if (results[0].isSuccess) 6L else 8L, ref.child("durata").get().await().value)
+                assertEquals(Long.MAX_VALUE, ref.child("future").get().await().value)
+                db.getReference("users/$code").removeValue().await()
+            } finally { other.goOffline(); otherApp.delete() }
+        }
+    }
+
+    @Test fun staleWorkoutMergesIndependentChangesAndRejectsConflicts() = runBlocking<Unit> {
+        withTimeout(20_000) {
+            val db = database!!
+            val code = "stale-${UUID.randomUUID()}"
+            val ref = db.getReference("users/$code")
+            val exercise = mapOf("name" to "Panca", "serie" to "3x10", "noteUtente" to "prima", "future" to "keep")
+            ref.setValue(mapOf("nome" to "Test", "exerciseData" to mapOf("panca" to mapOf("weightLogs" to mapOf("a" to 42))),
+                "scheda" to mapOf("dataInizio" to "2026-09-01T12:00:00+0200", "durata" to 4,
+                    "future" to "keep", "giorni" to mapOf("giorno1" to mapOf("name" to "A", "future" to "day",
+                        "gruppiMuscolari" to mapOf("gruppo1" to mapOf("nome" to "Petto", "esercizi" to mapOf("esercizio1" to exercise))))))
+            )).await()
+            val repository = FirebaseRepositoryImpl(db)
+            val original = repository.getWorkoutCard(code).getOrThrow()
+            val notePath = "scheda/giorni/giorno1/gruppiMuscolari/gruppo1/esercizi/esercizio1/noteUtente"
+            ref.updateChildren(mapOf("scheda/cambioRichiesto" to true, notePath to "nuova", "scheda/anotherFuture" to 9)).await()
+            assertTrue(repository.updateWorkoutCard(code, original.copy(durata = 6)).isSuccess)
+            val saved = ref.get().await()
+            assertEquals(true, saved.child("scheda/cambioRichiesto").value)
+            assertEquals("nuova", saved.child(notePath).value)
+            assertEquals("keep", saved.child("scheda/future").value)
+            assertEquals(9L, saved.child("scheda/anotherFuture").value)
+            assertEquals(42L, saved.child("exerciseData/panca/weightLogs/a").value)
+            assertFalse(saved.child("scheda/editBaseline").exists())
+            assertTrue(repository.updateWorkoutCard(code, original.copy(durata = 8)).isFailure)
+            assertTrue(repository.updateWorkoutCard(code, original.copy(giorni = emptyMap())).isFailure)
+            val fresh = repository.getWorkoutCard(code).getOrThrow()
+            assertTrue(repository.updateWorkoutCard(code, fresh.copy(giorni = emptyMap(), cambioRichiesto = false)).isSuccess)
+            assertFalse(ref.child("scheda/giorni").get().await().exists())
+            assertEquals(false, ref.child("scheda/cambioRichiesto").get().await().value)
+            ref.removeValue().await()
+            assertTrue(repository.updateWorkoutCard(code, fresh.copy(durata = 10)).isFailure)
+            assertFalse(ref.get().await().exists())
         }
     }
 

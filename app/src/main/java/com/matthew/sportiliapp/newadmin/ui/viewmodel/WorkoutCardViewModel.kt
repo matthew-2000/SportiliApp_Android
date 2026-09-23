@@ -54,7 +54,7 @@ class WorkoutCardViewModel(
             result.fold(
                 onSuccess = {
                     scheda.sortAll()
-                    _state.value = WorkoutCardUiState.Success(scheda)
+                    loadWorkoutCard(userCode)
                     _actionState.value = AdminActionState.Idle
                     onSuccess()
                 },

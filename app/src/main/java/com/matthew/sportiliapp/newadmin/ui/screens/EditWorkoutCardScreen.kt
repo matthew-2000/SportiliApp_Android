@@ -62,9 +62,12 @@ internal fun buildUpdatedScheda(
     daysList: List<Pair<String, Giorno>>
 ): Scheda =
     originalScheda.copy(
-        dataInizio = formatToSaveDate(startDate),
+        dataInizio = if (startDate == formatToDisplayDate(originalScheda.dataInizio)) originalScheda.dataInizio else formatToSaveDate(startDate),
         durata = duration.toIntOrNull() ?: originalScheda.durata,
-        giorni = LinkedHashMap(daysList.toMap())
+        giorni = LinkedHashMap(daysList.toMap()),
+        dayOrigins = daysList.mapNotNull { (key, day) ->
+            originalScheda.giorni.entries.firstOrNull { it.value === day }?.let { key to it.key }
+        }.toMap()
     )
 
 @OptIn(ExperimentalMaterial3Api::class)
