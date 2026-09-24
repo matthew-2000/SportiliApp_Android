@@ -15,7 +15,11 @@ import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-class SchedaViewModel(private val context: Context) : ViewModel() {
+class SchedaViewModel(
+    private val context: Context,
+    private val database: FirebaseDatabase = FirebaseDatabase.getInstance(),
+    private val preferences: SharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+) : ViewModel() {
     private val gson = Gson()
     private val _scheda = MutableLiveData<Scheda?>()
     private val _name = MutableLiveData<String?>()
@@ -25,100 +29,138 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     val name: LiveData<String?> = _name
     val isOfflineMode: LiveData<Boolean> = _isOfflineMode
     val userExerciseData: LiveData<Map<String, UserExerciseData>> = _userExerciseData
-    val isLoading = MutableLiveData(true) // Stato di caricamento
+    val isLoading = MutableLiveData(true)
+    val loadError = MutableLiveData<String?>(null)
 
     private var userCode: String? = null
     private var exerciseDataRef: DatabaseReference? = null
     private var exerciseDataListener: ValueEventListener? = null
 
-    init {
-        loadScheda()
+    private var generation = 0L
+    private var closed = false
+    private val observations = mutableMapOf<String, Pair<DatabaseReference, ValueEventListener>>()
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (!closed && (key == null || key == "code")) refresh()
     }
 
-    private fun loadScheda() {
-        viewModelScope.launch {
-            // Imposta lo stato di caricamento a true di default
-            isLoading.postValue(true)
+    init {
+        preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
+        refresh()
+    }
 
-            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
-            val cachedScheda = getCachedScheda(sharedPreferences)?.sortedSnapshot()
-            val cachedName = getCachedName(sharedPreferences)
-
-            if (cachedScheda != null) {
-                _scheda.postValue(cachedScheda)
-            }
-            if (cachedName != null) {
-                _name.postValue(cachedName)
-            }
-
-            if (cachedScheda != null || cachedName != null) {
-                // Mostra immediatamente i dati in cache mentre attendiamo la rete
-                isLoading.postValue(false)
-            }
-
-            val savedCode = sharedPreferences.getString("code", "") ?: ""
-            if (savedCode.isEmpty()) {
-                if (cachedScheda == null && cachedName == null) {
-                    isLoading.postValue(false)
-                }
-                _isOfflineMode.postValue(true)
-                return@launch
-            }
-
-            userCode = savedCode
-            observeUserExerciseData(savedCode)
-
-            if (!isNetworkAvailable()) {
-                if (cachedScheda == null && cachedName == null) {
-                    isLoading.postValue(false)
-                }
-                _isOfflineMode.postValue(true)
-                return@launch
-            }
-
-            _isOfflineMode.postValue(false)
-
-            val database = FirebaseDatabase.getInstance()
-
-            val schedaRef = database.reference.child("users").child(savedCode).child("scheda")
-            schedaRef.get()
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val snapshot = task.result
-                        val sortedData = snapshot.getValue(Scheda::class.java)?.sortedSnapshot()
-                        _scheda.postValue(sortedData)
-                        saveSchedaToCache(sharedPreferences, sortedData)
-                        _isOfflineMode.postValue(false)
-                    } else {
-                        val fallbackScheda = getCachedScheda(sharedPreferences)?.sortedSnapshot()
-                        if (fallbackScheda != null) {
-                            _scheda.postValue(fallbackScheda)
-                        }
-                        _isOfflineMode.postValue(true)
-                    }
-                    // Caricamento completato, imposta isLoading a false
-                    isLoading.postValue(false)
-                }
-
-            val nameRef = database.reference.child("users").child(savedCode).child("nome")
-            nameRef.get()
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val data = task.result.getValue(String::class.java)
-                        _name.postValue(data)
-                        saveNameToCache(sharedPreferences, data)
-                    } else {
-                        val fallbackName = getCachedName(sharedPreferences)
-                        if (fallbackName != null) {
-                            _name.postValue(fallbackName)
-                        }
-                    }
-                }
+    /** One subscription set for the signed-in code, also registered when starting offline. */
+    fun refresh() {
+        if (closed) return
+        stopObserving()
+        val token = generation
+        val savedCode = preferences.getString("code", "").orEmpty()
+        userCode = savedCode.takeIf { it.isNotBlank() }
+        loadError.value = null
+        _userExerciseData.value = emptyMap()
+        var cacheOwner = preferences.getString(CACHED_OWNER_KEY, null)
+        // Legacy logout clears these preferences, so an untagged cache belongs to
+        // the existing signed-in code. Adopt it once to preserve offline upgrades.
+        if (cacheOwner == null && savedCode.isNotEmpty()) {
+            cacheOwner = savedCode
+            preferences.edit().putString(CACHED_OWNER_KEY, savedCode).apply()
         }
+        val ownsCache = cacheOwner == savedCode && savedCode.isNotEmpty()
+        if (!ownsCache) {
+            preferences.edit().remove(CACHED_SCHEDA_KEY).remove(CACHED_NAME_KEY).remove(CACHED_OWNER_KEY).apply()
+        }
+        _scheda.value = if (ownsCache) getCachedScheda(preferences)?.sortedSnapshot() else null
+        _name.value = if (ownsCache) getCachedName(preferences) else null
+        isLoading.value = _scheda.value == null
+        _isOfflineMode.value = !isNetworkAvailable()
+        if (savedCode.isBlank() || savedCode.any { it in ".#$[]/" || it.code < 32 || it.code == 127 }) {
+            isLoading.value = false
+            loadError.value = "Codice utente mancante o non valido. Effettua di nuovo l'accesso."
+            return
+        }
+
+        observeUserExerciseData(savedCode)
+        var workoutFailed = false
+        var nameFailed = false
+        fun current() = !closed && generation == token && preferences.getString("code", "") == savedCode
+
+        fun observeWorkout() {
+            replaceObservation("scheda", database.getReference("users/$savedCode/scheda"), { snapshot ->
+                if (current()) {
+                    try {
+                        val sorted = snapshot.getValue(Scheda::class.java)?.sortedSnapshot()
+                        _scheda.value = sorted
+                        saveSchedaToCache(preferences, sorted)
+                        workoutFailed = false
+                        loadError.value = null
+                    } catch (_: Exception) {
+                        workoutFailed = true
+                        loadError.value = "Impossibile leggere la scheda. Riprova con Aggiorna."
+                    }
+                    isLoading.value = false
+                }
+            }, {
+                if (current()) {
+                    workoutFailed = true
+                    loadError.value = "Impossibile aggiornare la scheda. Riprova con Aggiorna."
+                    isLoading.value = false
+                }
+            })
+        }
+        fun observeName() {
+            replaceObservation("nome", database.getReference("users/$savedCode/nome"), { snapshot ->
+                if (current()) {
+                    val name = snapshot.getValue(String::class.java)
+                    _name.value = name
+                    saveNameToCache(preferences, name)
+                    nameFailed = false
+                }
+            }, { if (current()) nameFailed = true })
+        }
+        observeWorkout()
+        observeName()
+        var wasConnected = false
+        replaceObservation("connection", database.getReference(".info/connected"), { snapshot ->
+            if (current()) {
+                val connected = snapshot.getValue(Boolean::class.java) == true
+                _isOfflineMode.value = !connected
+                if (!connected) isLoading.value = false
+                if (connected && !wasConnected) {
+                    if (workoutFailed) observeWorkout()
+                    if (nameFailed) observeName()
+                }
+                wasConnected = connected
+            }
+        }, { if (current()) { _isOfflineMode.value = true; isLoading.value = false } })
+    }
+
+    private fun replaceObservation(
+        key: String, reference: DatabaseReference,
+        onData: (DataSnapshot) -> Unit, onError: (DatabaseError) -> Unit
+    ) {
+        observations.remove(key)?.let { (ref, listener) -> ref.removeEventListener(listener) }
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (observations[key]?.second === this) onData(snapshot)
+            }
+            override fun onCancelled(error: DatabaseError) {
+                if (observations[key]?.second === this) onError(error)
+            }
+        }
+        observations[key] = reference to listener
+        reference.addValueEventListener(listener)
+    }
+
+    private fun stopObserving() {
+        generation++
+        observations.values.forEach { (ref, listener) -> ref.removeEventListener(listener) }
+        observations.clear()
+        exerciseDataListener?.let { exerciseDataRef?.removeEventListener(it) }
+        exerciseDataListener = null
+        exerciseDataRef = null
     }
 
     private fun saveSchedaToCache(sharedPreferences: SharedPreferences, scheda: Scheda?) {
-        val editor = sharedPreferences.edit()
+        val editor = sharedPreferences.edit().putString(CACHED_OWNER_KEY, userCode)
         if (scheda != null) {
             editor.putString(CACHED_SCHEDA_KEY, gson.toJson(scheda))
         } else {
@@ -137,7 +179,7 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun saveNameToCache(sharedPreferences: SharedPreferences, name: String?) {
-        val editor = sharedPreferences.edit()
+        val editor = sharedPreferences.edit().putString(CACHED_OWNER_KEY, userCode)
         if (!name.isNullOrEmpty()) {
             editor.putString(CACHED_NAME_KEY, name)
         } else {
@@ -186,14 +228,13 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
 
         viewModelScope.launch {
-            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val sharedPreferences = preferences
             val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
             }
 
-            val database = FirebaseDatabase.getInstance()
 
             val esercizioRef = database.reference
                 .child("users")
@@ -247,14 +288,13 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
 
         viewModelScope.launch {
-            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val sharedPreferences = preferences
             val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
             }
 
-            val database = FirebaseDatabase.getInstance()
 
             val esercizioRef = database.reference
                 .child("users")
@@ -296,14 +336,13 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
 
         viewModelScope.launch {
-            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val sharedPreferences = preferences
             val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
             }
 
-            val database = FirebaseDatabase.getInstance()
 
             val esercizioRef = database.reference
                 .child("users")
@@ -338,14 +377,13 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         }
 
         viewModelScope.launch {
-            val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+            val sharedPreferences = preferences
             val savedCode = userCode ?: sharedPreferences.getString("code", "") ?: ""
             if (savedCode.isEmpty()) {
                 onFailure("Codice utente non trovato")
                 return@launch
             }
 
-            val database = FirebaseDatabase.getInstance()
             val esercizioRef = database.reference
                 .child("users")
                 .child(savedCode)
@@ -380,7 +418,6 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun observeUserExerciseData(code: String) {
-        val database = FirebaseDatabase.getInstance()
         val reference = database.reference
             .child("users")
             .child(code)
@@ -392,13 +429,14 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (closed || exerciseDataListener !== this || preferences.getString("code", "") != code) return
                 val data = snapshot.children.mapNotNull { child ->
                     val key = child.key ?: return@mapNotNull null
                     val value = child.getValue(UserExerciseData::class.java) ?: UserExerciseData()
                     val hasContent = !value.noteUtente.isNullOrEmpty() || (value.weightLogs != null && value.weightLogs!!.isNotEmpty())
                     if (hasContent) key to value else null
                 }.toMap()
-                _userExerciseData.postValue(data)
+                _userExerciseData.value = data
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -406,9 +444,9 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
             }
         }
 
-        reference.addValueEventListener(listener)
         exerciseDataRef = reference
         exerciseDataListener = listener
+        reference.addValueEventListener(listener)
     }
 
     private fun updateLocalExerciseData(
@@ -427,17 +465,17 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
     }
 
     override fun onCleared() {
+        closed = true
+        preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+        stopObserving()
         super.onCleared()
-        exerciseDataListener?.let { listener ->
-            exerciseDataRef?.removeEventListener(listener)
-        }
     }
 
     fun getCurrentUserCode(): String? {
         if (!userCode.isNullOrBlank()) {
             return userCode
         }
-        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+        val sharedPreferences = preferences
         return sharedPreferences.getString("code", null)
     }
 
@@ -445,14 +483,14 @@ class SchedaViewModel(private val context: Context) : ViewModel() {
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        val sharedPreferences = context.getSharedPreferences("shared", Context.MODE_PRIVATE)
+        val sharedPreferences = preferences
         val savedCode = sharedPreferences.getString("code", "") ?: ""
         if (savedCode.isEmpty()) {
             onError(Exception("Codice utente non trovato"))
             return
         }
 
-        val db = FirebaseDatabase.getInstance().reference
+        val db = database.reference
         db.child("users").child(savedCode).child("scheda").child("cambioRichiesto")
             .setValue(true)
             .addOnSuccessListener {
@@ -479,3 +517,5 @@ class SchedaViewModelFactory(private val context: Context) : ViewModelProvider.F
 
 private const val CACHED_SCHEDA_KEY = "cached_scheda"
 private const val CACHED_NAME_KEY = "cached_user_name"
+
+private const val CACHED_OWNER_KEY = "cached_workout_user_code"

@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptions
@@ -47,7 +46,6 @@ import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.model.Scheda
 import com.matthew.sportiliapp.model.SchedaViewModel
-import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -57,10 +55,10 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SchedaScreen(navController: NavHostController) {
+fun SchedaScreen(navController: NavHostController, viewModel: SchedaViewModel) {
     val context = LocalContext.current
-    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
 
+    val loadError by viewModel.loadError.observeAsState()
     val scheda by viewModel.scheda.observeAsState()
     val nomeUtente by viewModel.name.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true) // Osserviamo lo stato di caricamento
@@ -78,18 +76,22 @@ fun SchedaScreen(navController: NavHostController) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text(getTitle(nomeUtente)) },
-                actions = {
-                    TextButton(onClick = {
-                        reportError = null
-                        showReportDialog = true
-                    }) {
-                        Text("Segnala")
-                    }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            )
+            Column {
+                TopAppBar(
+                    title = { Text(getTitle(nomeUtente)) },
+                    actions = {
+                        TextButton(onClick = viewModel::refresh, enabled = !isLoading) { Text("Aggiorna") }
+                        TextButton(onClick = {
+                            reportError = null
+                            showReportDialog = true
+                        }) {
+                            Text("Segnala")
+                        }
+                    },
+                    windowInsets = WindowInsets(0, 0, 0, 0)
+                )
+                loadError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+            }
         },
         content = { padding ->
             if (isLoading) {

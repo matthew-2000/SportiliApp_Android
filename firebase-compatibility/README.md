@@ -77,14 +77,17 @@ locale, da questa cartella, con Java 21 sul PATH:
 npm run test:android-repository
 ```
 
-Questo comando avvia RTDB sul computer, carica regole fittizie e avvia soltanto
-`FirebaseRepositoryEmulatorTest` con l'abilitazione esplicita del test locale.
+Questo comando avvia RTDB sul computer, carica regole fittizie e avvia
+`FirebaseRepositoryEmulatorTest` e `SchedaRealtimeEmulatorTest` con l'abilitazione esplicita del test locale.
 Richiede un Android Emulator, non un telefono fisico: usa `10.0.2.2:19000` e
-un'istanza Firebase separata con project ID `demo-sportili-compat`. Le cinque prove
+un'istanza Firebase separata con project ID `demo-sportili-compat`. Le nove prove
 verificano conservazione di scheda/storico/campi sconosciuti, rifiuto di scrittura,
 creazione e salvataggio concorrenti con due client, modifiche obsolete e conflitti.
-Nella suite nativa ordinaria queste cinque prove sono saltate
+Coprono anche avvio offline, riconnessione, cache, cambio utente e rilascio.
+Nella suite nativa ordinaria queste nove prove sono saltate
 finché non viene passato l'argomento `sportiliLocalDatabase=1` dal comando sopra.
+Il runner configura e rimuove un tunnel `adb reverse` locale per permettere
+anche le riconnessioni all’host annunciato dall’emulatore.
 I test non hanno un ripiego sul backend reale.
 
 ### Contratti delle regole Firebase

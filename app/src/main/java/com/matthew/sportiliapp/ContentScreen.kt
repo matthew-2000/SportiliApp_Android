@@ -42,6 +42,9 @@ import com.matthew.sportiliapp.avvisi.AlertsFeedUiState
 import com.matthew.sportiliapp.avvisi.AlertsFeedViewModel
 import com.matthew.sportiliapp.avvisi.AlertsFeedViewModelFactory
 import com.matthew.sportiliapp.avvisi.AvvisiScreen
+import androidx.compose.ui.platform.LocalContext
+import com.matthew.sportiliapp.model.SchedaViewModel
+import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Utente
@@ -54,6 +57,9 @@ import com.matthew.sportiliapp.newadmin.di.ManualInjection
 @Composable
 fun ContentScreen(navController: NavHostController) {
     val navController2 = rememberNavController()
+    val workoutViewModel: SchedaViewModel = viewModel(
+        factory = SchedaViewModelFactory(LocalContext.current.applicationContext)
+    )
 
     // Bottom navigation items
     val items = listOf(
@@ -127,7 +133,7 @@ fun ContentScreen(navController: NavHostController) {
                     .padding(padding)
             ) {
                 composable("scheda") {
-                    SchedaScreen(navController = navController2)
+                    SchedaScreen(navController = navController2, viewModel = workoutViewModel)
                 }
                 composable("avvisi") {
                     AvvisiScreen()
@@ -145,7 +151,7 @@ fun ContentScreen(navController: NavHostController) {
                     exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
                 ) { backStackEntry ->
                     val giornoId = backStackEntry.arguments?.getString("giornoId") ?: return@composable
-                    GiornoScreen(navController = navController2, giornoId = giornoId)
+                    GiornoScreen(navController = navController2, giornoId = giornoId, viewModel = workoutViewModel)
                 }
                 composable(
                     "esercizio/{giornoId}/{gruppoMuscolareId}/{esercizioId}",
@@ -161,6 +167,7 @@ fun ContentScreen(navController: NavHostController) {
                         giornoId = giornoId,
                         gruppoMuscolareId = gruppoMuscolareId,
                         esercizioId = esercizioId,
+                        viewModel = workoutViewModel,
                     )
                 }
             }

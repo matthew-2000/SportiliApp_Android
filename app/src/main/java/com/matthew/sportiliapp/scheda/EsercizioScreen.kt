@@ -85,12 +85,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.SchedaViewModel
-import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import com.matthew.sportiliapp.model.WeightLogEntry
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -115,9 +113,9 @@ fun EsercizioScreen(
     giornoId: String,
     gruppoMuscolareId: String,
     esercizioId: String,
+    viewModel: SchedaViewModel,
 ) {
     val context = LocalContext.current
-    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
     val scheda by viewModel.scheda.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true)
     val esercizio = scheda?.giorni?.get(giornoId)

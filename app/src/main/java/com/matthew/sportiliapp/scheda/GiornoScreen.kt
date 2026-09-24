@@ -37,25 +37,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.SchedaViewModel
-import com.matthew.sportiliapp.model.SchedaViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GiornoScreen(navController: NavHostController, giornoId: String) {
-    val context = LocalContext.current
-    val viewModel: SchedaViewModel = viewModel(factory = SchedaViewModelFactory(context))
+fun GiornoScreen(navController: NavHostController, giornoId: String, viewModel: SchedaViewModel) {
     val scheda by viewModel.scheda.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true)
     val giorno = scheda?.giorni?.get(giornoId)

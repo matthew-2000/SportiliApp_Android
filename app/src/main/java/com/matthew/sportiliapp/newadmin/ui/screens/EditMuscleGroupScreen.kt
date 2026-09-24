@@ -790,7 +790,7 @@ fun EsercizioDialog(
                         } else {
                             if (secondiRiposo < 10) "${minutiRiposo}'0${secondiRiposo}\"" else "${minutiRiposo}'${secondiRiposo}\""
                         }
-                        val nuovoEsercizio = Esercizio(
+                        val nuovoEsercizio = initialExercise.copy(
                             name = finalName,
                             serie = finalSerie,
                             riposo = riposoString,

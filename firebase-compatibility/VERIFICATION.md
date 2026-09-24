@@ -1,3 +1,6 @@
+> Aggiornamento del 24 settembre 2026: i punti residui 5, 6 e 11 sono descritti
+> in [REMAINING-FINDINGS.md](REMAINING-FINDINGS.md), insieme al limite backend del punto 2.
+
 # Aggiornamento: login, concorrenza, osservatori e giorni residui — 23 settembre 2026
 
 I quattro interventi elencati nella sezione storica sotto sono implementati.
