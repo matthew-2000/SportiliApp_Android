@@ -5,7 +5,8 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "npx -y firebase-tools@latest emulators:exec --project demo-sportili-compat --config firebase.emulators.json --only database,storage \"node --test --test-concurrency=1 --test-timeout=30000 tests/*.test.mjs\"",
-    "test:android-repository": "npx -y firebase-tools@latest emulators:exec --project demo-sportili-compat --config firebase.emulators.json --only database \"node tests/run-native-repository.mjs\""
+    "test:android-repository": "npx -y firebase-tools@latest emulators:exec --project demo-sportili-compat --config firebase.emulators.json --only database \"node tests/run-native-repository.mjs\"",
+    "test:ios-sdk": "npx -y firebase-tools@latest emulators:exec --project demo-sportili-compat --config firebase.emulators.json --only auth,database \"node tests/run-ios-sdk.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",

@@ -2,6 +2,7 @@ package com.matthew.sportiliapp.model
 
 import android.os.Parcel
 import android.os.Parcelable
+import com.google.firebase.database.Exclude
 
 data class Esercizio(
     var name: String,
@@ -11,7 +12,8 @@ data class Esercizio(
     var notePT: String? = null,
     var noteUtente: String? = null,
     var weightLogs: Map<String, WeightLogEntry>? = null,
-    var ordine: Int? = null
+    var ordine: Int? = null,
+    @get:Exclude var editBaseline: WorkoutEditBaseline? = null
 ) : Parcelable {
 
     constructor() : this(name = "", serie = "")
@@ -24,7 +26,8 @@ data class Esercizio(
         parcel.readString(),
         parcel.readString(),
         readWeightLogs(parcel),
-        parcel.readValue(Int::class.java.classLoader) as? Int
+        parcel.readValue(Int::class.java.classLoader) as? Int,
+        null
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {

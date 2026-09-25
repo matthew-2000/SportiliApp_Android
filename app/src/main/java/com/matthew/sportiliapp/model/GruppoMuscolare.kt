@@ -2,10 +2,12 @@ package com.matthew.sportiliapp.model
 
 import android.os.Parcel
 import android.os.Parcelable
+import com.google.firebase.database.Exclude
 
 data class GruppoMuscolare(
     var nome: String,
-    var esercizi: Map<String, Esercizio> = mapOf()
+    var esercizi: Map<String, Esercizio> = mapOf(),
+    @get:Exclude var editBaseline: WorkoutEditBaseline? = null
 ) : Parcelable {
 
     fun toMap(): Map<String, Any> {
@@ -25,7 +27,8 @@ data class GruppoMuscolare(
         parcel.readString() ?: "",
         mutableMapOf<String, Esercizio>().apply {
             parcel.readMap(this, Esercizio::class.java.classLoader)
-        }
+        },
+        null
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {

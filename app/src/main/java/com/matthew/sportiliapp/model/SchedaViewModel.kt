@@ -408,13 +408,7 @@ class SchedaViewModel(
     }
 
     fun exerciseKeyFromName(name: String): String {
-        val normalized = name.trim().lowercase(Locale.getDefault())
-        val sanitized = normalized.replace("[^a-z0-9]+".toRegex(), "_").trim('_')
-        return if (sanitized.isNotEmpty()) {
-            sanitized
-        } else {
-            "exercise_${name.trim().hashCode()}"
-        }
+        return ExerciseDataKey.resolve(name, _userExerciseData.value?.keys.orEmpty())
     }
 
     private fun observeUserExerciseData(code: String) {

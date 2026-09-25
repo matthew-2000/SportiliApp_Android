@@ -6,6 +6,7 @@ import com.matthew.sportiliapp.model.WorkoutEditBaseline
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.ValueEventListener
 import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.model.Utente
@@ -29,6 +30,83 @@ class FirebaseRepositoryImpl(
     private val alertsRef = firebaseDatabase.getReference("alerts")
     private val reportsRef = firebaseDatabase.getReference("workoutIssueReports")
 
+    private fun withBaseline(userCode: String, exercise: Esercizio, snapshot: DataSnapshot): Esercizio =
+        exercise.copy(editBaseline = WorkoutEditBaseline(
+            userCode, firebaseTree(snapshot.value), firebaseTree(exercise.toMap())
+        ))
+
+    private fun withBaselines(userCode: String, group: GruppoMuscolare, snapshot: DataSnapshot): GruppoMuscolare =
+        group.copy(
+            esercizi = group.esercizi.mapValues { (key, exercise) ->
+                withBaseline(userCode, exercise, snapshot.child("esercizi").child(key))
+            },
+            editBaseline = WorkoutEditBaseline(userCode, firebaseTree(snapshot.value), firebaseTree(group.toMap()))
+        )
+
+    private fun withBaselines(userCode: String, day: Giorno, snapshot: DataSnapshot): Giorno =
+        day.copy(
+            gruppiMuscolari = day.gruppiMuscolari.mapValues { (key, group) ->
+                withBaselines(userCode, group, snapshot.child("gruppiMuscolari").child(key))
+            },
+            editBaseline = WorkoutEditBaseline(userCode, firebaseTree(snapshot.value), firebaseTree(day.toMap()))
+        )
+
+    private suspend fun createIfAbsent(reference: DatabaseReference, value: Any?): Result<Unit> =
+        suspendCancellableCoroutine { cont ->
+            reference.runTransaction(object : Transaction.Handler {
+                override fun doTransaction(data: MutableData): Transaction.Result {
+                    if (data.value != null) return Transaction.abort()
+                    data.value = value
+                    return Transaction.success(data)
+                }
+
+                override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                    if (!cont.isActive) return
+                    cont.resume(when {
+                        error != null -> Result.failure(error.toException())
+                        !committed -> Result.failure(IllegalStateException("Esiste già un elemento con questo identificativo."))
+                        else -> Result.success(Unit)
+                    })
+                }
+            }, false)
+        }
+
+    private suspend fun updateFromBaseline(
+        reference: DatabaseReference,
+        userCode: String,
+        baseline: WorkoutEditBaseline?,
+        edited: Any?,
+        onCommitted: (DataSnapshot) -> Unit = {}
+    ): Result<Unit> = suspendCancellableCoroutine { cont ->
+        if (baseline == null || baseline.userCode != userCode) {
+            cont.resume(Result.failure(IllegalStateException("Riapri i dati prima di salvarli.")))
+            return@suspendCancellableCoroutine
+        }
+        reference.runTransaction(object : Transaction.Handler {
+            override fun doTransaction(data: MutableData): Transaction.Result {
+                if (data.value == null) return Transaction.success(data)
+                return try {
+                    data.value = mergeEditedTree(baseline, edited, data.value)
+                    Transaction.success(data)
+                } catch (_: WorkoutConflict) {
+                    Transaction.abort()
+                }
+            }
+
+            override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                if (!cont.isActive) return
+                cont.resume(when {
+                    error != null -> Result.failure(error.toException())
+                    !committed || snapshot?.exists() != true -> Result.failure(WorkoutConflict())
+                    else -> {
+                        onCommitted(snapshot)
+                        Result.success(Unit)
+                    }
+                })
+            }
+        }, false)
+    }
+
     // --- Gestione utenti ---
     override fun getUsers(): Flow<List<Utente>> = callbackFlow {
         val listener = object : ValueEventListener {
@@ -49,26 +127,17 @@ class FirebaseRepositoryImpl(
     }
 
     override suspend fun addUser(utente: Utente): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val userRef = usersRef.child(utente.code)
-            val userDict = mapOf("cognome" to utente.cognome, "nome" to utente.nome,
-                "scheda" to (utente.scheda ?: Scheda()).toMap())
-            userRef.runTransaction(object : Transaction.Handler {
-                override fun doTransaction(data: MutableData): Transaction.Result {
-                    if (data.value != null) return Transaction.abort()
-                    data.value = userDict
-                    return Transaction.success(data)
-                }
-                override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
-                    if (!cont.isActive) return
-                    cont.resume(when {
-                        error != null -> Result.failure(error.toException())
-                        !committed -> Result.failure(IllegalStateException("Il codice è già utilizzato. Scegli un altro codice."))
-                        else -> Result.success(Unit)
-                    })
-                }
-            }, false)
-        }
+        createIfAbsent(usersRef.child(utente.code), mapOf(
+            "cognome" to utente.cognome,
+            "nome" to utente.nome,
+            "scheda" to (utente.scheda ?: Scheda()).toMap()
+        )).fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { error ->
+                if (error is IllegalStateException) Result.failure(IllegalStateException("Il codice è già utilizzato. Scegli un altro codice."))
+                else Result.failure(error)
+            }
+        )
 
     override suspend fun updateUser(utente: Utente): Result<Unit> =
         suspendCancellableCoroutine { cont ->
@@ -151,7 +220,7 @@ class FirebaseRepositoryImpl(
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val giorno = snapshot.getValue(Giorno::class.java)
                     if (giorno != null) {
-                        cont.resume(Result.success(giorno))
+                        cont.resume(Result.success(withBaselines(userCode, giorno, snapshot)))
                     } else {
                         cont.resume(
                             Result.failure(
@@ -169,21 +238,16 @@ class FirebaseRepositoryImpl(
     }
 
     override suspend fun addDay(userCode: String, dayKey: String, giorno: Giorno): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val dayDict = giorno.toMap()
-            usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .setValue(dayDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
-        }
+        createIfAbsent(usersRef.child(userCode).child("scheda").child("giorni").child(dayKey), giorno.toMap())
 
     override suspend fun updateDay(userCode: String, dayKey: String, giorno: Giorno): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val dayDict = giorno.toMap()
-            usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .setValue(dayDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+        updateFromBaseline(
+            usersRef.child(userCode).child("scheda").child("giorni").child(dayKey),
+            userCode, giorno.editBaseline, giorno.toMap()
+        ) { snapshot ->
+            giorno.editBaseline = WorkoutEditBaseline(
+                userCode, firebaseTree(snapshot.value), firebaseTree(giorno.toMap())
+            )
         }
 
     override suspend fun removeDay(userCode: String, dayKey: String): Result<Unit> =
@@ -207,7 +271,7 @@ class FirebaseRepositoryImpl(
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val gruppo = snapshot.getValue(GruppoMuscolare::class.java)
                     if (gruppo != null) {
-                        cont.resume(Result.success(gruppo))
+                        cont.resume(Result.success(withBaselines(userCode, gruppo, snapshot)))
                     } else {
                         cont.resume(
                             Result.failure(
@@ -227,23 +291,20 @@ class FirebaseRepositoryImpl(
     }
 
     override suspend fun addMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val groupDict = gruppo.toMap()
+        createIfAbsent(
             usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .child("gruppiMuscolari").child(muscleGroupKey)
-                .setValue(groupDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
-        }
+                .child("gruppiMuscolari").child(muscleGroupKey), gruppo.toMap()
+        )
 
     override suspend fun updateMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String, gruppo: GruppoMuscolare): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val groupDict = gruppo.toMap()
+        updateFromBaseline(
             usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .child("gruppiMuscolari").child(muscleGroupKey)
-                .setValue(groupDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+                .child("gruppiMuscolari").child(muscleGroupKey),
+            userCode, gruppo.editBaseline, gruppo.toMap()
+        ) { snapshot ->
+            gruppo.editBaseline = WorkoutEditBaseline(
+                userCode, firebaseTree(snapshot.value), firebaseTree(gruppo.toMap())
+            )
         }
 
     override suspend fun removeMuscleGroup(userCode: String, dayKey: String, muscleGroupKey: String): Result<Unit> =
@@ -257,25 +318,21 @@ class FirebaseRepositoryImpl(
 
     // --- Gestione degli Esercizi (Exercise) ---
     override suspend fun addExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String, esercizio: Esercizio): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val exerciseDict = esercizio.toMap()
+        createIfAbsent(
             usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .child("gruppiMuscolari").child(muscleGroupKey)
-                .child("esercizi").child(exerciseKey)
-                .setValue(exerciseDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
-        }
+                .child("gruppiMuscolari").child(muscleGroupKey).child("esercizi").child(exerciseKey),
+            esercizio.toMap()
+        )
 
     override suspend fun updateExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String, esercizio: Esercizio): Result<Unit> =
-        suspendCancellableCoroutine { cont ->
-            val exerciseDict = esercizio.toMap()
+        updateFromBaseline(
             usersRef.child(userCode).child("scheda").child("giorni").child(dayKey)
-                .child("gruppiMuscolari").child(muscleGroupKey)
-                .child("esercizi").child(exerciseKey)
-                .setValue(exerciseDict)
-                .addOnSuccessListener { cont.resume(Result.success(Unit)) }
-                .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+                .child("gruppiMuscolari").child(muscleGroupKey).child("esercizi").child(exerciseKey),
+            userCode, esercizio.editBaseline, esercizio.toMap()
+        ) { snapshot ->
+            esercizio.editBaseline = WorkoutEditBaseline(
+                userCode, firebaseTree(snapshot.value), firebaseTree(esercizio.toMap())
+            )
         }
 
     override suspend fun removeExercise(userCode: String, dayKey: String, muscleGroupKey: String, exerciseKey: String): Result<Unit> =

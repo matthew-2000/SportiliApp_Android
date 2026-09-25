@@ -1,4 +1,4 @@
-# Chiusura dei problemi residui — 24 settembre 2026
+# Chiusura dei problemi residui — aggiornata il 25 settembre 2026
 
 ## Stato degli 11 punti dell’elenco originale
 
@@ -28,10 +28,17 @@ a trovare percorsi e formati invariati e possono continuare le proprie scritture
 
 **Android admin — esercizi:** `EsercizioDialog` usa `initialExercise.copy(...)`.
 Conserva `noteUtente`, `weightLogs`, `priorita` e `ordine`, assenti dal dialog.
-La correzione riguarda la ricostruzione del modello nel dialog: non estende
-le transazioni della scheda agli editor specifici di giorno/gruppo/esercizio.
-Questi ultimi possono tuttora sovrascrivere modifiche concorrenti o campi
-sconosciuti durante le loro scritture integrali; non sono dichiarati protetti.
+Gli editor specifici di giorno, gruppo ed esercizio ora conservano uno snapshot
+locale escluso da Firebase e salvano con transazioni a confronto tra originale,
+modifica locale e stato corrente. Modifiche indipendenti, note, storico e campi
+sconosciuti vengono conservati; modifiche incompatibili mostrano un conflitto e
+non scrivono. Anche le creazioni di questi elementi sono atomiche.
+
+**Entrambi i client — chiavi dello storico:** la chiave di `exerciseData` usa ora
+normalizzazione indipendente dalla lingua e un hash FNV-1a stabile quando il nome
+non produce caratteri ASCII. iOS e Android generano lo stesso valore. Se esiste
+già una chiave prodotta dall'algoritmo precedente, viene riutilizzata senza
+migrare o duplicare i dati. Percorsi e struttura Firebase restano invariati.
 
 **Android utente — scheda:** un solo ViewModel, fornito da `ContentScreen`,
 alimenta Home → giorno → esercizio. Le sottoscrizioni a scheda, nome e stato
@@ -50,11 +57,13 @@ Nessun cambiamento a percorsi, tipi o scritture Firebase dovuto al caricamento.
 - iOS: `python3 Tests/run_note_tests.py`, `python3 Tests/run_lifecycle_tests.py`,
   `python3 Tests/run_model_tests.py`, build Debug Simulator e Release dispositivo
   con `CODE_SIGNING_ALLOWED=NO`.
+- Con un iOS Simulator avviato, da `firebase-compatibility`:
+  `npm run test:ios-sdk` usa Auth e RTDB emulator con dati fittizi.
 
-Esiti finali: **27 test unitari Android**, **10 test nativi/UI ordinari** (9 prove
-RTDB saltate qui ed eseguite separatamente), **9 prove SDK/RTDB** e **17 test di
-compatibilità RTDB/Storage** superati. Tutti e tre i runner iOS superati, inclusi
-6 gruppi sulle scadenze. Build Debug e Release di entrambe le app riuscite.
+Esiti dell'aggiornamento: **30 test unitari Android**, **11 prove SDK/RTDB Android**
+e **17 test di compatibilità RTDB/Storage** superati. Tutti e tre i runner iOS
+superati, inclusi 6 gruppi sulle scadenze; anche l'host iOS con SDK Firebase reale
+ha superato login, retry, cambio utente, realtime e conservazione delle note.
 Gli avvisi di compilazione preesistenti non sono stati oggetto di refactoring.
 
 La suite SDK locale comprende cinque prove del repository admin e quattro prove
@@ -70,9 +79,11 @@ viene rimosso alla fine se creato dal runner; un mapping preesistente diverso
 fa fallire il test. Non vengono modificati endpoint dell’app reale.
 
 Il test Compose esercita il dialog reale e verifica che cambiare il nome preservi
-nota, pesi, priorità e ordine. Il runner iOS esegue le azioni note della View e il
-ViewModel reali contro doppi SDK in memoria: scrittura unica, parti distinte,
-errore/retry, eliminazione e conservazione dei pesi. Non prova rete/Auth iOS reale.
+nota, pesi, priorità e ordine. Il runner iOS in memoria esegue le azioni note della
+View e il ViewModel reali: scrittura unica, parti distinte, errore/retry,
+eliminazione e conservazione dei pesi. Il nuovo host temporaneo verifica inoltre
+il vero SDK iOS contro emulatori Auth/RTDB locali, senza includere codice di test
+nel target di produzione.
 Non sono state effettuate nuove verifiche visive manuali di queste schermate.
 
 ## Limite backend e passi successivi
@@ -85,6 +96,6 @@ non revoca l’accesso pubblico esistente. Le esposizioni delle regole documenta
 in `ROLLOUT.md` restano irrisolte. Non è stato implementato un nuovo sistema di
 accesso, né modificato Auth, regole, Storage o dati di produzione.
 
-Prima di un rilascio facoltativo: provare il login/retry e le note con SDK iOS
-reale in ambiente locale, verificare le app distribuite e assegnare build/versioni
-appropriate. Nessuna pubblicazione negli store è inclusa in questo intervento.
+Prima di un rilascio facoltativo restano la verifica dei binari già distribuiti e
+l'assegnazione di build/versioni appropriate. Nessuna pubblicazione negli store
+è inclusa in questo intervento.

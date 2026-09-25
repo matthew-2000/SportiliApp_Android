@@ -80,15 +80,32 @@ npm run test:android-repository
 Questo comando avvia RTDB sul computer, carica regole fittizie e avvia
 `FirebaseRepositoryEmulatorTest` e `SchedaRealtimeEmulatorTest` con l'abilitazione esplicita del test locale.
 Richiede un Android Emulator, non un telefono fisico: usa `10.0.2.2:19000` e
-un'istanza Firebase separata con project ID `demo-sportili-compat`. Le nove prove
+un'istanza Firebase separata con project ID `demo-sportili-compat`. Le undici prove
 verificano conservazione di scheda/storico/campi sconosciuti, rifiuto di scrittura,
-creazione e salvataggio concorrenti con due client, modifiche obsolete e conflitti.
+creazioni atomiche, salvataggi concorrenti con due client, modifiche obsolete e
+conflitti anche negli editor di giorno ed esercizio.
 Coprono anche avvio offline, riconnessione, cache, cambio utente e rilascio.
-Nella suite nativa ordinaria queste nove prove sono saltate
+Nella suite nativa ordinaria queste undici prove sono saltate
 finché non viene passato l'argomento `sportiliLocalDatabase=1` dal comando sopra.
 Il runner configura e rimuove un tunnel `adb reverse` locale per permettere
 anche le riconnessioni all’host annunciato dall’emulatore.
 I test non hanno un ripiego sul backend reale.
+
+### Prova nativa iOS con SDK Firebase
+
+Con un iOS Simulator avviato:
+
+```sh
+IOS_SIMULATOR_UDID=UDID npm run test:ios-sdk
+```
+
+Il comando crea una copia temporanea del progetto iOS e sostituisce soltanto il
+punto di avvio con un host di test. Il target reale viene compilato con Firebase
+Auth e Realtime Database puntati a `127.0.0.1`, sul progetto demo. Verifica login
+valido, codice assente/non valido, lettura negata e retry, refresh ripetuti, cambio
+utente, aggiornamenti realtime e scrittura note senza perdere storico o campi
+sconosciuti. L'app temporanea viene rimossa al termine e non usa credenziali o
+dati di produzione.
 
 ### Contratti delle regole Firebase
 

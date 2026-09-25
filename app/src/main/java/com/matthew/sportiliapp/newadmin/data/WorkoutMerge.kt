@@ -60,3 +60,6 @@ internal fun mergeWorkout(baseline: WorkoutEditBaseline, edited: Any?, current: 
     if (days.isNotEmpty()) result["giorni"] = days
     return result
 }
+
+internal fun mergeEditedTree(baseline: WorkoutEditBaseline, edited: Any?, current: Any?): Any? =
+    merge(baseline.modeled, firebaseTree(edited), baseline.raw, firebaseTree(current))

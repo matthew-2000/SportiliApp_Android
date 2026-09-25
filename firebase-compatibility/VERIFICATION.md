@@ -1,6 +1,24 @@
 > Aggiornamento del 24 settembre 2026: i punti residui 5, 6 e 11 sono descritti
 > in [REMAINING-FINDINGS.md](REMAINING-FINDINGS.md), insieme al limite backend del punto 2.
 
+# Aggiornamento: editor secondari, chiavi storico e SDK iOS — 25 settembre 2026
+
+- Gli editor admin di giorno, gruppo ed esercizio usano transazioni con snapshot
+  iniziale: conservano modifiche remote indipendenti e campi sconosciuti, mentre
+  rifiutano i conflitti senza sovrascrivere. Le creazioni sono atomiche.
+- iOS e Android producono chiavi `exerciseData` stabili e indipendenti dalla
+  lingua; le chiavi legacy presenti continuano a essere usate senza migrazione.
+- Un host temporaneo compila il client iOS reale e prova Firebase Auth/RTDB sugli
+  emulatori locali: login valido, assente/non valido, errore e retry, refresh,
+  cambio utente, realtime e note con storico/campi sconosciuti preservati.
+
+Esiti: 30 test unitari Android, 11 test Android con SDK/RTDB locale, 17 test di
+compatibilità Firebase, i tre runner Swift e l'host SDK iOS superati. Nessuna
+regola, configurazione Auth o dato di produzione modificato. Il codice admin del
+punto 2 resta intenzionalmente invariato su richiesta.
+
+---
+
 # Aggiornamento: login, concorrenza, osservatori e giorni residui — 23 settembre 2026
 
 I quattro interventi elencati nella sezione storica sotto sono implementati.

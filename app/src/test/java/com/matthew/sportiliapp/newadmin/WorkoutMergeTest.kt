@@ -50,4 +50,19 @@ class WorkoutMergeTest {
         val base = WorkoutEditBaseline("test", firebaseTree(raw + ("cambioRichiesto" to true)), firebaseTree(original))
         assertEquals(firebaseTree(raw), mergeWorkout(base, firebaseTree(known), base.raw, null))
     }
+
+    @Test fun childEditorPreservesUnknownAndIndependentRemoteFields() {
+        val childRaw = mapOf("name" to "A", "future" to "keep", "note" to "prima")
+        val childModeled = mapOf("name" to "A", "note" to "prima")
+        val childBaseline = WorkoutEditBaseline("test", firebaseTree(childRaw), firebaseTree(childModeled))
+        val current = childRaw + mapOf("note" to "remota", "newFuture" to 9)
+        val edited = childModeled + ("name" to "B")
+        assertEquals(firebaseTree(current + ("name" to "B")), mergeEditedTree(childBaseline, edited, current))
+    }
+
+    @Test(expected = WorkoutConflict::class)
+    fun childEditorRejectsConflictingRemoteChange() {
+        val childBaseline = WorkoutEditBaseline("test", mapOf("name" to "A"), mapOf("name" to "A"))
+        mergeEditedTree(childBaseline, mapOf("name" to "B"), mapOf("name" to "C"))
+    }
 }

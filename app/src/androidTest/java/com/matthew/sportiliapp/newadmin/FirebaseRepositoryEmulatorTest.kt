@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.database.FirebaseDatabase
 import com.matthew.sportiliapp.model.Scheda
+import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Utente
 import java.util.UUID
 import kotlinx.coroutines.async
@@ -163,6 +164,77 @@ class FirebaseRepositoryEmulatorTest {
             assertFalse(ref.get().await().exists())
         }
     }
+
+    @Test fun staleDayEditorMergesIndependentChangesAndRejectsConflicts() = runBlocking<Unit> {
+        withTimeout(20_000) {
+            val db = database!!
+            val code = "day-stale-${UUID.randomUUID()}"
+            val dayRef = db.getReference("users/$code/scheda/giorni/giorno1")
+            dayRef.setValue(mapOf(
+                "name" to "A",
+                "future" to "keep",
+                "gruppiMuscolari" to mapOf("gruppo1" to mapOf(
+                    "nome" to "Petto",
+                    "esercizi" to mapOf("esercizio1" to mapOf(
+                        "name" to "Panca", "serie" to "3x10", "noteUtente" to "prima",
+                        "weightLogs" to mapOf("log1" to mapOf("weight" to 40, "timestamp" to 1790000000000L)),
+                        "futureExercise" to true
+                    )),
+                    "futureGroup" to 7
+                ))
+            )).await()
+            val repository = FirebaseRepositoryImpl(db)
+            val original = repository.getDay(code, "giorno1").getOrThrow()
+            dayRef.updateChildren(mapOf(
+                "gruppiMuscolari/gruppo1/esercizi/esercizio1/noteUtente" to "remota",
+                "remoteRequest" to true
+            )).await()
+            assertTrue(repository.updateDay(code, "giorno1", original.copy(name = "B")).isSuccess)
+            val saved = dayRef.get().await()
+            assertEquals("B", saved.child("name").value)
+            assertEquals("remota", saved.child("gruppiMuscolari/gruppo1/esercizi/esercizio1/noteUtente").value)
+            assertEquals(40L, saved.child("gruppiMuscolari/gruppo1/esercizi/esercizio1/weightLogs/log1/weight").value)
+            assertEquals(true, saved.child("gruppiMuscolari/gruppo1/esercizi/esercizio1/futureExercise").value)
+            assertEquals(7L, saved.child("gruppiMuscolari/gruppo1/futureGroup").value)
+            assertEquals("keep", saved.child("future").value)
+            assertEquals(true, saved.child("remoteRequest").value)
+            assertFalse(saved.child("editBaseline").exists())
+            assertTrue(repository.updateDay(code, "giorno1", original.copy(name = "C")).isFailure)
+
+            val group = repository.getMuscleGroup(code, "giorno1", "gruppo1").getOrThrow()
+            val exercise = group.esercizi.getValue("esercizio1")
+            assertTrue(repository.updateExercise(
+                code, "giorno1", "gruppo1", "esercizio1", exercise.copy(serie = "4x8")
+            ).isSuccess)
+            val savedExercise = dayRef.child("gruppiMuscolari/gruppo1/esercizi/esercizio1").get().await()
+            assertEquals("4x8", savedExercise.child("serie").value)
+            assertEquals("remota", savedExercise.child("noteUtente").value)
+            assertEquals(40L, savedExercise.child("weightLogs/log1/weight").value)
+            assertEquals(true, savedExercise.child("futureExercise").value)
+            assertTrue(repository.updateExercise(
+                code, "giorno1", "gruppo1", "esercizio1", exercise.copy(serie = "5x5")
+            ).isFailure)
+            db.getReference("users/$code").removeValue().await()
+        }
+    }
+
+    @Test fun concurrentDayCreationHasExactlyOneWinner() = runBlocking<Unit> {
+        withTimeout(20_000) {
+            val db = database!!
+            val code = "day-race-${UUID.randomUUID()}"
+            val repository = FirebaseRepositoryImpl(db)
+            val attempts = listOf(
+                async { repository.addDay(code, "giorno1", Giorno("Uno")) },
+                async { repository.addDay(code, "giorno1", Giorno("Due")) }
+            ).awaitAll()
+            assertEquals(1, attempts.count { it.isSuccess })
+            assertTrue(dayName(db, code) in setOf("Uno", "Due"))
+            db.getReference("users/$code").removeValue().await()
+        }
+    }
+
+    private suspend fun dayName(db: FirebaseDatabase, code: String): String? =
+        db.getReference("users/$code/scheda/giorni/giorno1/name").get().await().getValue(String::class.java)
 
     @Test fun deniedProfileEditReturnsFailureAndCreatesNoUser() = runBlocking<Unit> {
         withTimeout(15_000) {
