@@ -16,8 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,9 +36,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.matthew.sportiliapp.avvisi.AlertsFeedUiState
-import com.matthew.sportiliapp.avvisi.AlertsFeedViewModel
-import com.matthew.sportiliapp.avvisi.AlertsFeedViewModelFactory
 import com.matthew.sportiliapp.avvisi.AvvisiScreen
 import androidx.compose.ui.platform.LocalContext
 import com.matthew.sportiliapp.model.SchedaViewModel
@@ -51,7 +46,6 @@ import com.matthew.sportiliapp.model.Utente
 import com.matthew.sportiliapp.scheda.EsercizioScreen
 import com.matthew.sportiliapp.scheda.GiornoScreen
 import com.matthew.sportiliapp.scheda.SchedaScreen
-import com.matthew.sportiliapp.newadmin.di.ManualInjection
 
 
 @Composable
@@ -68,12 +62,6 @@ fun ContentScreen(navController: NavHostController) {
         BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
     )
 
-    val alertsViewModel: AlertsFeedViewModel = viewModel(
-        factory = AlertsFeedViewModelFactory(ManualInjection.getAlertsUseCase)
-    )
-    val alertsState by alertsViewModel.uiState.collectAsState()
-    val alertsCount = (alertsState as? AlertsFeedUiState.Success)?.alerts?.size ?: 0
-
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -82,25 +70,7 @@ fun ContentScreen(navController: NavHostController) {
 
                 items.forEach { item ->
                     NavigationBarItem(
-                        icon = {
-                            if (item.route == "avvisi" && alertsCount > 0) {
-                                val badgeText = if (alertsCount > 99) "99+" else alertsCount.toString()
-                                BadgedBox(
-                                    badge = {
-                                        Badge {
-                                            Text(badgeText)
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        item.icon,
-                                        contentDescription = "${item.title}, $badgeText nuovi avvisi"
-                                    )
-                                }
-                            } else {
-                                Icon(item.icon, contentDescription = item.title)
-                            }
-                        },
+                        icon = { Icon(item.icon, contentDescription = item.title) },
                         label = { Text(item.title) },
                         selected = currentRoute == item.route,
                         colors = NavigationBarItemDefaults.colors(
@@ -109,9 +79,6 @@ fun ContentScreen(navController: NavHostController) {
                             indicatorColor = MaterialTheme.colorScheme.primary,
                         ),
                         onClick = {
-                            if (alertsState is AlertsFeedUiState.Error) {
-                                alertsViewModel.retry()
-                            }
                             navController2.navigate(item.route) {
                                 // Prevents building a large back stack
                                 popUpTo(navController2.graph.startDestinationId) { saveState = true }

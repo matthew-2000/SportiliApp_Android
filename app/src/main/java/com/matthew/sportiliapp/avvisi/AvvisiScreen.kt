@@ -2,6 +2,8 @@ package com.matthew.sportiliapp.avvisi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,13 +35,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.Avviso
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +54,15 @@ fun AvvisiScreen() {
     )
     val state by viewModel.uiState.collectAsState()
 
+    AvvisiContent(state = state, onRetry = viewModel::retry)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AvvisiContent(
+    state: AlertsFeedUiState,
+    onRetry: () -> Unit
+) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -76,8 +90,7 @@ fun AvvisiScreen() {
             is AlertsFeedUiState.Error -> {
                 ErrorScreen(
                     padding = padding,
-                    message = uiState.throwable.localizedMessage,
-                    onRetry = viewModel::retry
+                    onRetry = onRetry
                 )
             }
 
@@ -105,7 +118,8 @@ fun AvvisiScreen() {
                         if (activeAlerts.isNotEmpty()) {
                             item {
                                 AlertsSectionTitle(
-                                    title = "Da leggere",
+                                    title = "Attivi",
+                                    count = activeAlerts.size,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -118,6 +132,7 @@ fun AvvisiScreen() {
                             item {
                                 AlertsSectionTitle(
                                     title = "Scaduti",
+                                    count = expiredAlerts.size,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -135,7 +150,6 @@ fun AvvisiScreen() {
 @Composable
 fun ErrorScreen(
     padding: PaddingValues,
-    message: String?,
     onRetry: () -> Unit
 ) {
     Column(
@@ -151,16 +165,14 @@ fun ErrorScreen(
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
-        if (!message.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Controlla la connessione e riprova.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onRetry) {
             Text("Riprova")
@@ -200,9 +212,9 @@ fun EmptyAlertsScreen(padding: PaddingValues) {
 }
 
 @Composable
-private fun AlertsSectionTitle(title: String, color: Color) {
+private fun AlertsSectionTitle(title: String, count: Int, color: Color) {
     Text(
-        text = title,
+        text = "$title ($count)",
         style = MaterialTheme.typography.headlineSmall,
         color = color,
         fontWeight = FontWeight.SemiBold
@@ -214,6 +226,7 @@ private fun AlertsSectionTitle(title: String, color: Color) {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AlertCardClean(alert: Avviso) {
     val weight = alert.urgencyWeight()
@@ -228,15 +241,17 @@ fun AlertCardClean(alert: Avviso) {
     val description = buildString {
         append(alert.titolo)
         append(". ")
+        append(alert.descrizione.trim().trimEnd('.'))
+        append(". ")
         append(if (isExpired) "Avviso scaduto. " else "Avviso attivo. ")
         alert.urgenza?.takeIf { it.isNotBlank() }?.let {
-            append("Urgenza $it. ")
+            append("Priorità $it. ")
         }
         alert.scadenza?.let { deadline ->
             val date = Instant.ofEpochMilli(deadline)
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate()
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                .format(alertDateFormatter)
             append(if (isExpired) "Scaduto il $date." else "Scade il $date.")
         }
     }
@@ -279,9 +294,9 @@ fun AlertCardClean(alert: Avviso) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (isExpired) {
                     MetaChip(
@@ -294,7 +309,7 @@ fun AlertCardClean(alert: Avviso) {
                     val date = Instant.ofEpochMilli(deadline)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
-                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        .format(alertDateFormatter)
                     MetaChip(
                         text = if (isExpired) "Scaduto il $date" else "Scade il $date",
                         accent = accent
@@ -303,7 +318,7 @@ fun AlertCardClean(alert: Avviso) {
 
                 alert.urgenza?.takeIf { it.isNotBlank() }?.let { urgency ->
                     MetaChip(
-                        text = "Urgenza: ${urgency.replaceFirstChar { it.uppercase() }}",
+                        text = "Priorità: ${urgency.replaceFirstChar { it.uppercase() }}",
                         accent = accent
                     )
                 }
@@ -325,6 +340,82 @@ private fun MetaChip(text: String, accent: Color) {
             style = MaterialTheme.typography.labelMedium,
             color = accent,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+private val alertDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ITALIAN)
+
+private val previewAlerts = listOf(
+    Avviso(
+        id = "urgent",
+        titolo = "Chiusura straordinaria della sala pesi",
+        descrizione = "La sala pesi chiude alle 19:00 per manutenzione.",
+        urgenza = "alta",
+        scadenza = System.currentTimeMillis() + 86_400_000L
+    ),
+    Avviso(
+        id = "course",
+        titolo = "Nuovo orario corso mobility",
+        descrizione = "Da lunedì il corso inizierà alle 18:30.",
+        urgenza = "media",
+        scadenza = System.currentTimeMillis() + 604_800_000L
+    ),
+    Avviso(
+        id = "expired",
+        titolo = "Orario festivo",
+        descrizione = "Comunicazione non più attiva.",
+        urgenza = "bassa",
+        scadenza = System.currentTimeMillis() - 86_400_000L
+    )
+)
+
+@Preview(name = "Avvisi", showBackground = true, widthDp = 360, heightDp = 760)
+@Composable
+private fun AvvisiPreview() {
+    SportiliAppTheme {
+        AvvisiContent(AlertsFeedUiState.Success(previewAlerts), onRetry = {})
+    }
+}
+
+@Preview(name = "Avvisi dark", showBackground = true, widthDp = 360, heightDp = 760)
+@Composable
+private fun AvvisiDarkPreview() {
+    SportiliAppTheme(isDarkTheme = true) {
+        AvvisiContent(AlertsFeedUiState.Success(previewAlerts), onRetry = {})
+    }
+}
+
+@Preview(
+    name = "Avvisi font grandi",
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 760,
+    fontScale = 1.6f
+)
+@Composable
+private fun AvvisiLargeFontPreview() {
+    SportiliAppTheme {
+        AvvisiContent(AlertsFeedUiState.Success(previewAlerts), onRetry = {})
+    }
+}
+
+@Preview(name = "Avvisi vuoti", showBackground = true, widthDp = 360, heightDp = 760)
+@Composable
+private fun AvvisiEmptyPreview() {
+    SportiliAppTheme {
+        AvvisiContent(AlertsFeedUiState.Success(emptyList()), onRetry = {})
+    }
+}
+
+@Preview(name = "Errore avvisi", showBackground = true, widthDp = 360, heightDp = 760)
+@Composable
+private fun AvvisiErrorPreview() {
+    SportiliAppTheme {
+        AvvisiContent(
+            state = AlertsFeedUiState.Error(IllegalStateException("Permission denied")),
+            onRetry = {}
         )
     }
 }

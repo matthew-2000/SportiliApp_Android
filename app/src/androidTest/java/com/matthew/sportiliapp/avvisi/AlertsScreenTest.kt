@@ -39,12 +39,15 @@ class AlertsScreenTest {
 
         compose.setContent { MaterialTheme { AvvisiScreen() } }
         compose.onNodeWithText("Errore durante il caricamento degli avvisi").assertIsDisplayed()
-        compose.onNodeWithText("Permission denied (test)").assertIsDisplayed()
+        compose.onNodeWithText("Controlla la connessione e riprova.").assertIsDisplayed()
+        compose.onNodeWithText("Permission denied (test)").assertDoesNotExist()
         compose.onNodeWithText("Riprova").performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithText("Avviso locale").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Avviso locale").assertIsDisplayed()
+        compose.onNodeWithText("Attivi (1)").assertIsDisplayed()
+        compose.onNodeWithText("Da leggere").assertDoesNotExist()
         compose.onNodeWithText("Riprova").assertDoesNotExist()
         assertEquals(2, attempts.get())
     }
