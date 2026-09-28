@@ -8,41 +8,90 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+data class SportiliStatusColors(
+    val successContainer: Color,
+    val onSuccessContainer: Color,
+    val warningContainer: Color,
+    val onWarningContainer: Color,
+    val infoContainer: Color,
+    val onInfoContainer: Color
+)
+
+private val LightStatusColors = SportiliStatusColors(
+    successContainer = SuccessContainerLight,
+    onSuccessContainer = OnSuccessContainerLight,
+    warningContainer = WarningContainerLight,
+    onWarningContainer = OnWarningContainerLight,
+    infoContainer = InfoContainerLight,
+    onInfoContainer = OnInfoContainerLight
+)
+
+private val DarkStatusColors = SportiliStatusColors(
+    successContainer = SuccessContainerDark,
+    onSuccessContainer = OnSuccessContainerDark,
+    warningContainer = WarningContainerDark,
+    onWarningContainer = OnWarningContainerDark,
+    infoContainer = InfoContainerDark,
+    onInfoContainer = OnInfoContainerDark
+)
+
+private val LocalSportiliStatusColors = staticCompositionLocalOf { LightStatusColors }
+
+val MaterialTheme.sportiliStatusColors: SportiliStatusColors
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSportiliStatusColors.current
+
 private val DarkColorScheme = darkColorScheme(
-    primary = Orange80,
-    secondary = OrangeGrey80,
-    tertiary = OrangePink80,
-    background = Color(0xFF121212), // Dark background
-    surface = Color(0xFF1E1E1E),    // Dark surface
-    surfaceVariant = Color(0xFF3A2E28),
-    onPrimary = Color.White,        // Text on primary color
-    onSecondary = Color.White,      // Text on secondary color
-    onTertiary = Color.White,       // Text on tertiary color
-    onBackground = Color.White,     // Text on dark background
-    onSurface = Color.White,        // Text on dark surface
-    onSurfaceVariant = Color(0xFFEAD9CF),
-    outline = Color(0xFFB39A8D),
-    outlineVariant = Color(0xFF5B4A42)
+    primary = PrimaryDark,
+    onPrimary = OnPrimaryDark,
+    primaryContainer = SurfaceMutedDark,
+    onPrimaryContainer = OnSurfaceMutedDark,
+    secondary = PrimaryDark,
+    onSecondary = OnPrimaryDark,
+    tertiary = BrandAccent,
+    onTertiary = OnBrandAccent,
+    background = BackgroundDark,
+    onBackground = OnSurfaceDark,
+    surface = SurfaceDark,
+    onSurface = OnSurfaceDark,
+    surfaceVariant = SurfaceMutedDark,
+    onSurfaceVariant = OnSurfaceMutedDark,
+    outline = OutlineDark,
+    outlineVariant = SurfaceMutedDark,
+    error = OnCriticalContainerDark,
+    onError = CriticalContainerDark,
+    errorContainer = CriticalContainerDark,
+    onErrorContainer = OnCriticalContainerDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Orange40,
-    secondary = OrangeGrey40,
-    tertiary = OrangePink40,
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    surfaceVariant = Color(0xFFF4E9E2),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    onSurfaceVariant = Color(0xFF5A4D45),
-    outline = Color(0xFF8F7D72),
-    outlineVariant = Color(0xFFD9C9BF)
+    primary = PrimaryLight,
+    onPrimary = OnPrimaryLight,
+    primaryContainer = SurfaceMutedLight,
+    onPrimaryContainer = OnSurfaceMutedLight,
+    secondary = PrimaryLight,
+    onSecondary = OnPrimaryLight,
+    tertiary = BrandAccent,
+    onTertiary = OnBrandAccent,
+    background = BackgroundLight,
+    onBackground = OnSurfaceLight,
+    surface = SurfaceLight,
+    onSurface = OnSurfaceLight,
+    surfaceVariant = SurfaceMutedLight,
+    onSurfaceVariant = OnSurfaceMutedLight,
+    outline = OutlineLight,
+    outlineVariant = SurfaceMutedLight,
+    error = OnCriticalContainerLight,
+    onError = CriticalContainerLight,
+    errorContainer = CriticalContainerLight,
+    onErrorContainer = OnCriticalContainerLight
 )
 
 @Composable
@@ -51,26 +100,20 @@ fun SportiliAppTheme(
     isDynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-
-    /**
-     * Dynamic Colors are supported on API level 31 and above
-     * */
     val dynamicColor = isDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val colorScheme = when {
-        dynamicColor && isDarkTheme -> {
-            dynamicDarkColorScheme(LocalContext.current)
-        }
-        dynamicColor && !isDarkTheme -> {
-            dynamicLightColorScheme(LocalContext.current)
-        }
+        dynamicColor && isDarkTheme -> dynamicDarkColorScheme(LocalContext.current)
+        dynamicColor -> dynamicLightColorScheme(LocalContext.current)
         isDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    val statusColors = if (isDarkTheme) DarkStatusColors else LightStatusColors
 
-    // Make use of Material3 imports
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = CustomTypography,
-        content = content
-    )
+    CompositionLocalProvider(LocalSportiliStatusColors provides statusColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = CustomTypography,
+            content = content
+        )
+    }
 }
