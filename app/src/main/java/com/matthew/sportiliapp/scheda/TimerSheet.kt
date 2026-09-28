@@ -1,5 +1,6 @@
 package com.matthew.sportiliapp.scheda
 
+import android.content.res.Configuration
 import android.content.Context
 import android.media.RingtoneManager
 import android.os.Build
@@ -8,14 +9,17 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,7 +31,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 import kotlinx.coroutines.delay
 
 @Composable
@@ -37,6 +49,7 @@ fun TimerSheet(riposo: String) {
     var timeRemaining by remember(riposo) { mutableIntStateOf(initialDuration) }
     var timerIsActive by remember { mutableStateOf(false) }
     var timerPaused by remember { mutableStateOf(false) }
+    var timerAnnouncement by remember { mutableStateOf("") }
     val context = LocalContext.current
     val setDuration: (Int) -> Unit = { seconds ->
         totalTime = seconds
@@ -50,6 +63,7 @@ fun TimerSheet(riposo: String) {
         if (timerIsActive && timeRemaining > 0) {
             delay(1000L)
             timeRemaining -= 1
+            timerAnnouncement = timerAnnouncementFor(timeRemaining).orEmpty()
             if (timeRemaining <= 0) {
                 timeRemaining = 0
                 timerIsActive = false
@@ -62,12 +76,14 @@ fun TimerSheet(riposo: String) {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center  // Centra verticalmente il contenuto
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Tempo di Recupero", style = MaterialTheme.typography.headlineLarge)
+        Text("Timer recupero", style = MaterialTheme.typography.headlineSmall)
         if (initialDuration > 0) {
             Text(
                 text = "Recupero impostato: ${formatTime(initialDuration)}",
@@ -75,25 +91,37 @@ fun TimerSheet(riposo: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (totalTime > 0) {
-            // Animazione circolare che mostra il progresso
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
-            ) {
-                CircularProgressIndicator(
-                    progress = {
-                        ((totalTime - timeRemaining).coerceAtLeast(0)).toFloat() / totalTime.toFloat()
-                    },
-                    strokeWidth = 10.dp,
-                    modifier = Modifier.size(200.dp)
-                )
-                Text(formatTime(timeRemaining), style = MaterialTheme.typography.headlineLarge)
+            val progress = ((totalTime - timeRemaining).coerceAtLeast(0)).toFloat() / totalTime.toFloat()
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val gaugeSize = minOf(maxWidth, 220.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(gaugeSize)
+                        .align(Alignment.Center)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "Tempo rimanente ${formatTime(timeRemaining)}"
+                            progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
+                        }
+                ) {
+                    CircularProgressIndicator(
+                        progress = { progress },
+                        strokeWidth = 10.dp,
+                        modifier = Modifier.size(gaugeSize)
+                    )
+                    Text(formatTime(timeRemaining), style = MaterialTheme.typography.headlineLarge)
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = timerAnnouncement,
+                modifier = Modifier.semantics {
+                    if (timerAnnouncement.isNotEmpty()) liveRegion = LiveRegionMode.Assertive
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -111,6 +139,7 @@ fun TimerSheet(riposo: String) {
                     Button(
                         onClick = {
                             if (timeRemaining <= 0) timeRemaining = totalTime
+                            timerAnnouncement = ""
                             timerIsActive = true
                             timerPaused = false
                         },
@@ -123,6 +152,7 @@ fun TimerSheet(riposo: String) {
                 OutlinedButton(
                     onClick = {
                         timeRemaining = totalTime
+                        timerAnnouncement = ""
                         timerIsActive = false
                         timerPaused = false
                     },
@@ -133,7 +163,6 @@ fun TimerSheet(riposo: String) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Suggerimento: usa il timer ad ogni fine serie per mantenere costante il recupero.",
                 style = MaterialTheme.typography.labelMedium,
@@ -145,23 +174,30 @@ fun TimerSheet(riposo: String) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = { setDuration(60) }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { setDuration(60) }, modifier = Modifier.fillMaxWidth()) {
                     Text("60 sec")
                 }
-                OutlinedButton(onClick = { setDuration(90) }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { setDuration(90) }, modifier = Modifier.fillMaxWidth()) {
                     Text("90 sec")
                 }
-                OutlinedButton(onClick = { setDuration(120) }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { setDuration(120) }, modifier = Modifier.fillMaxWidth()) {
                     Text("120 sec")
                 }
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
     }
+}
+
+internal fun timerAnnouncementFor(secondsRemaining: Int): String? = when (secondsRemaining) {
+    10 -> "10 secondi rimanenti"
+    5 -> "5 secondi rimanenti"
+    0 -> "Recupero terminato"
+    else -> null
 }
 
 // Funzione per parsare il tempo di riposo
@@ -221,4 +257,22 @@ fun playSound(context: Context) {
     val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
     val ringtone = RingtoneManager.getRingtone(context, sound)
     ringtone.play()
+}
+
+@Preview(name = "Timer recupero", showBackground = true, widthDp = 360, heightDp = 620)
+@Preview(
+    name = "Timer dark font grande",
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 700,
+    fontScale = 1.6f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun TimerSheetPreview() {
+    SportiliAppTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            TimerSheet(riposo = "1' 30\"")
+        }
+    }
 }

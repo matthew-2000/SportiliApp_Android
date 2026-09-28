@@ -1,10 +1,12 @@
 package com.matthew.sportiliapp.scheda
+import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,26 +29,28 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.SchedaViewModel
+import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +74,10 @@ fun GiornoScreen(navController: NavHostController, giornoId: String, viewModel: 
         },
         content = { padding ->
             if (giorno != null) {
-                LazyColumn(modifier = Modifier.padding(padding)) {
+                LazyColumn(
+                    modifier = Modifier.padding(padding),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
                     items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
                         GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
                     }
@@ -115,11 +122,11 @@ fun GiornoScreen(navController: NavHostController, giornoId: String, viewModel: 
 @Composable
 fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gruppoId: String, giornoId: String) {
     Column(
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
             text = gruppo.nome,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -131,19 +138,26 @@ fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gru
                 }
             }
         }
-        HorizontalDivider(color = Color.LightGray, thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
     }
 }
 
 @Composable
 fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
-    var isImageFullScreen by remember { mutableStateOf(false) } // Stato per immagine a schermo intero
+    val useCompactAffordance = LocalDensity.current.fontScale < 1.3f
+    val prescription = buildString {
+        append("Serie ${esercizio.serie}")
+        esercizio.riposo?.takeIf { it.isNotBlank() }?.let { append(", recupero $it") }
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp)
-            .clickable { onClick() },
+            .padding(vertical = 8.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "${esercizio.name}. $prescription. Apri dettaglio esercizio"
+            }
+            .clickable(role = Role.Button, onClick = onClick),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         shape = RoundedCornerShape(14.dp)
     ) {
@@ -161,11 +175,10 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                     .size(90.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.background)
-                    .clickable { isImageFullScreen = true } // Apri immagine a schermo intero
             ) {
                 Image(
                     painter = painter,
-                    contentDescription = "Immagine esercizio ${esercizio.name}",
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                         .clip(RoundedCornerShape(10.dp))
@@ -173,7 +186,6 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
 
                 when (painter.state) {
                     is AsyncImagePainter.State.Loading -> {
-                        // Display a placeholder while the image loads
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -181,19 +193,18 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                         )
                     }
                     is AsyncImagePainter.State.Error -> {
-                        // Display a placeholder or error icon if the image fails to load
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
                         ) {
-                            Icon(Icons.Filled.Warning, contentDescription = "Errore immagine",
+                            Icon(Icons.Filled.Warning, contentDescription = null,
                                 modifier = Modifier.align(Alignment.Center),
                             )
                         }
                     }
                     else -> {
-                        // Do nothing, the image will be displayed
+                        // L'immagine è decorativa: nome e prescrizione sono annunciati dalla riga.
                     }
                 }
             }
@@ -228,19 +239,36 @@ fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
                 }
             }
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "Apri dettaglio esercizio",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // Immagine a schermo intero
-            if (isImageFullScreen) {
-                FullScreenImageDialog(
-                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa",
-                    onClose = { isImageFullScreen = false }
+            if (useCompactAffordance) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
         }
+    }
+}
+
+@Preview(name = "Giorno nome lungo", showBackground = true, widthDp = 360)
+@Preview(
+    name = "Giorno superset dark font grande",
+    showBackground = true,
+    widthDp = 360,
+    fontScale = 1.6f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun ExerciseRowPreview() {
+    SportiliAppTheme {
+        EsercizioRow(
+            esercizio = Esercizio(
+                name = "Distensioni su panca inclinata + Croci ai cavi dal basso",
+                serie = "4 × 8 + 3 × 12",
+                riposo = "1' 30\""
+            ),
+            onClick = {}
+        )
     }
 }
