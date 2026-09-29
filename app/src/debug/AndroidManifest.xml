@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity
+            android:name=".Adm01PreviewActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SportiliApp" />
+        <activity
             android:name=".And04PreviewActivity"
             android:exported="true"
             android:theme="@style/Theme.SportiliApp" />
