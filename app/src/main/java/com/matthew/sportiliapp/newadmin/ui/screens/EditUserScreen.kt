@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -189,7 +191,7 @@ fun EditUserScreen(
             dismissButton = {
                 OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
             },
-            title = { Text("Conferma Rimozione") },
+            title = { Text("Conferma rimozione") },
             text = { Text("Sei sicuro di voler rimuovere l'utente?") },
             shape = RoundedCornerShape(8.dp)
         )
@@ -220,7 +222,15 @@ fun EditUserScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "Modifica Utente" else "Aggiungi Utente") }
+                title = { Text(if (isEditMode) "Modifica utente" else "Aggiungi utente") }
+            )
+        },
+        bottomBar = {
+            AdminEditorBottomBar(
+                isDirty = isDirty,
+                isSaving = isSaving,
+                onCancel = { requestExit() },
+                onSave = { validateAndSave() }
             )
         }
     ) { padding ->
@@ -228,22 +238,23 @@ fun EditUserScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .padding(padding),
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (isSaving) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                AdminEditorErrorBanner(message = message, onRetry = { validateAndSave() })
             }
 
+            AdminEditorSection(
+                title = "Dati utente",
+                supportingText = "Nome, cognome e codice di accesso."
+            )
             initialUser?.let { user ->
-                Text(text = "Codice: ${user.code}", style = MaterialTheme.typography.titleMedium)
+                Text(text = "Codice ${user.code}", style = MaterialTheme.typography.titleMedium)
             }
 
             OutlinedButton(
@@ -252,7 +263,7 @@ fun EditUserScreen(
                 enabled = !isSaving
             ) {
                 Text(
-                    text = if (!showEditFields) "Modifica Dati Utente" else "Nascondi Modifica"
+                    text = if (!showEditFields) "Modifica dati utente" else "Nascondi campi"
                 )
             }
 
@@ -287,30 +298,13 @@ fun EditUserScreen(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    OutlinedButton(
-                        onClick = { requestExit() },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isSaving
-                    ) {
-                        Text("Annulla")
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Button(
-                        onClick = { validateAndSave() },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isSaving
-                    ) {
-                        Text("Salva")
-                    }
-                }
             }
 
             if (initialUser?.scheda != null) {
-                Text(text = "Gestione scheda", style = MaterialTheme.typography.titleLarge)
+                AdminEditorSection(
+                    title = "Scheda di allenamento",
+                    supportingText = "Controlla il riepilogo o apri l’editor completo."
+                )
                 Card(
                     shape = RoundedCornerShape(8.dp),
                     elevation = CardDefaults.cardElevation(6.dp),
@@ -319,10 +313,10 @@ fun EditUserScreen(
                         .clickable(enabled = !isSaving) { showScheduleSheet = true }
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Scheda di Allenamento", style = MaterialTheme.typography.titleMedium)
+                        Text(text = "Riepilogo scheda", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Data Inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
+                            text = "Data inizio: ${formatToDisplayDate(initialUser.scheda!!.dataInizio)}",
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
@@ -335,24 +329,28 @@ fun EditUserScreen(
 
             if (isEditMode) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Button(
                         onClick = { onEditWorkoutCard(initialUser!!.code) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isSaving
                     ) {
-                        Text("Modifica Scheda")
+                        Text("Modifica scheda")
                     }
+                    AdminEditorSection(
+                        title = "Zona pericolosa",
+                        supportingText = "La rimozione dell’utente non può essere annullata."
+                    )
                     Button(
                         onClick = { showRemoveDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isSaving
                     ) {
-                        Text("Rimuovi Utente", color = MaterialTheme.colorScheme.onError)
+                        Text("Rimuovi utente", color = MaterialTheme.colorScheme.onError)
                     }
                 }
             }
@@ -366,10 +364,10 @@ fun WorkoutCardSheet(
     onClose: () -> Unit
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "Dettagli Scheda", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Dettagli scheda", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Data Inizio: ${formatToDisplayDate(scheda.dataInizio)}",
+            text = "Data inizio: ${formatToDisplayDate(scheda.dataInizio)}",
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
@@ -378,7 +376,7 @@ fun WorkoutCardSheet(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(text = "Giorni di Allenamento:", style = MaterialTheme.typography.titleSmall)
+        Text(text = "Giorni di allenamento:", style = MaterialTheme.typography.titleSmall)
 
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(scheda.giorni.toList()) { (_, giorno) ->

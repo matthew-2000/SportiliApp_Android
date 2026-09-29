@@ -155,15 +155,15 @@ fun EditWorkoutCardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Modifica Scheda") },
-                actions = {
-                    IconButton(onClick = { showScheduleSheet = true }, enabled = !isSaving) {
-                        Icon(Icons.Default.Info, contentDescription = "Visualizza Scheda")
-                    }
-                    IconButton(onClick = { showAddDayDialog = true }, enabled = !isSaving) {
-                        Icon(Icons.Default.Add, contentDescription = "Aggiungi Giorno")
-                    }
-                }
+                title = { Text("Modifica scheda") }
+            )
+        },
+        bottomBar = {
+            AdminEditorBottomBar(
+                isDirty = isDirty,
+                isSaving = isSaving,
+                onCancel = { requestExit() },
+                onSave = { validateAndSave(onSave) }
             )
         }
     ) { padding ->
@@ -178,18 +178,22 @@ fun EditWorkoutCardScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
+                AdminEditorErrorBanner(
+                    message = message,
+                    onRetry = { validateAndSave(onSave) }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            AdminEditorSection(
+                title = "Dati scheda",
+                supportingText = "Imposta l’inizio e la durata del programma."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = startDate,
                 onValueChange = {},
-                label = { Text("Data Inizio") },
+                label = { Text("Data inizio") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = !isSaving) { datePickerDialog.show() },
@@ -198,7 +202,7 @@ fun EditWorkoutCardScreen(
                     IconButton(onClick = { datePickerDialog.show() }, enabled = !isSaving) {
                         Icon(
                             imageVector = Icons.Default.DateRange,
-                            contentDescription = "Seleziona Data"
+                            contentDescription = "Seleziona data"
                         )
                     }
                 },
@@ -223,7 +227,35 @@ fun EditWorkoutCardScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Giorni di Allenamento", style = MaterialTheme.typography.titleMedium)
+            AdminEditorSection(
+                title = "Giorni di allenamento",
+                supportingText = "Apri un giorno per gestire gruppi ed esercizi."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showScheduleSheet = true },
+                    enabled = !isSaving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Anteprima")
+                }
+                Button(
+                    onClick = { showAddDayDialog = true },
+                    enabled = !isSaving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Aggiungi giorno")
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -285,22 +317,6 @@ fun EditWorkoutCardScreen(
                 ) { Text("Salva e segna il cambio come completato") }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                OutlinedButton(
-                    onClick = { requestExit() },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) { Text("Annulla") }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = { validateAndSave(onSave) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) { Text("Salva") }
-            }
         }
 
         if (showAddDayDialog) {
@@ -310,7 +326,7 @@ fun EditWorkoutCardScreen(
                     newDayName = ""
                     newDayNameError = null
                 },
-                title = { Text("Aggiungi Giorno") },
+                title = { Text("Aggiungi giorno") },
                 text = {
                     OutlinedTextField(
                         value = newDayName,
@@ -318,7 +334,7 @@ fun EditWorkoutCardScreen(
                             newDayName = it
                             if (newDayNameError != null) newDayNameError = null
                         },
-                        label = { Text("Nome del Giorno") },
+                        label = { Text("Nome del giorno") },
                         modifier = Modifier.fillMaxWidth(),
                         isError = newDayNameError != null,
                         supportingText = newDayNameError?.let { { Text(it) } },
@@ -389,7 +405,7 @@ fun DayItem(
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Conferma Rimozione") },
+            title = { Text("Conferma rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo giorno?") },
             confirmButton = {
                 Button(
@@ -431,7 +447,7 @@ fun DayItem(
             }
             Row {
                 IconButton(onClick = onMoveUp, enabled = enabled) {
-                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")
+                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta su")
                 }
                 IconButton(onClick = onMoveDown, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")

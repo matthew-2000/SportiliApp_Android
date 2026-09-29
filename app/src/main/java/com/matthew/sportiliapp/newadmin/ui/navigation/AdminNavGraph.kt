@@ -1,9 +1,21 @@
 package com.matthew.sportiliapp.newadmin.ui.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -13,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -48,22 +62,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
         modifier = Modifier.fillMaxSize()
     ) {
         composable(Screen.UserList.route) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
-                UserListScreen(
-                    onUserSelected = { user ->
-                        navController.navigate(Screen.EditUser.createRoute(user.code))
-                    },
-                    onAddUser = {
-                        navController.navigate(Screen.EditUser.createRoute("new"))
-                    },
-                    onManageAlerts = {
-                        navController.navigate(Screen.Alerts.route)
-                    },
-                    onViewReports = {
-                        navController.navigate(Screen.Reports.route)
-                    }
-                )
-            }
+            AdminAdaptiveEditorLayout(navController = navController)
         }
         composable(Screen.EditUser.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
@@ -79,7 +78,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             var userActionInProgress by remember(userCode) { mutableStateOf(false) }
             var userActionError by remember(userCode) { mutableStateOf<String?>(null) }
 
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+            AdminAdaptiveEditorLayout(navController) {
                 if (userCode == "new") {
                     EditUserScreen(
                         initialUser = null,
@@ -110,7 +109,10 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                 } else {
                     when (userState) {
                         UiState.Loading -> LoadingBox()
-                        is UiState.Error -> ErrorBox(userState.exception.asUserMessage("Errore nel caricamento utente"))
+                        is UiState.Error -> ErrorBox(
+                            message = "Impossibile caricare l’utente",
+                            onRetry = gymAdminViewModel::loadUsers
+                        )
                         is UiState.Success -> {
                             val initialUser = userState.data.find { it.code == userCode }
                             if (initialUser == null) {
@@ -179,7 +181,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                 workoutCardViewModel.loadWorkoutCard(userCode)
             }
 
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+            AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     WorkoutCardUiState.Idle,
                     WorkoutCardUiState.Loading -> LoadingBox()
@@ -189,7 +191,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                         EditWorkoutCardScreen(
                             scheda = successState.scheda,
                             isSaving = actionState is AdminActionState.InProgress,
-                            errorMessage = actionState.errorMessage(),
+                            errorMessage = actionState.errorMessage("Non è stato possibile salvare la scheda."),
                             onDaySelected = { dayKey, _, scheda ->
                                 workoutCardViewModel.updateWorkoutCard(userCode, scheda) {
                                     navController.navigate(Screen.EditDay.createRoute(userCode, dayKey))
@@ -205,11 +207,9 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is WorkoutCardUiState.Error -> {
-                        ErrorBox(
-                            (state as WorkoutCardUiState.Error).error.asUserMessage(
-                                "Errore nel caricamento della scheda"
-                            )
-                        )
+                        ErrorBox("Impossibile caricare la scheda") {
+                            workoutCardViewModel.loadWorkoutCard(userCode)
+                        }
                     }
                 }
             }
@@ -225,7 +225,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                 dayViewModel.loadDay(userCode, dayKey)
             }
 
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+            AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     DayUiState.Idle,
                     DayUiState.Loading -> LoadingBox()
@@ -236,7 +236,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                             dayKey = dayKey,
                             day = successState.day,
                             isSaving = actionState is AdminActionState.InProgress,
-                            errorMessage = actionState.errorMessage(),
+                            errorMessage = actionState.errorMessage("Non è stato possibile salvare il giorno."),
                             onMuscleGroupSelected = { groupKey, _, updatedDay ->
                                 dayViewModel.updateDay(userCode, dayKey, updatedDay) {
                                     navController.navigate(
@@ -254,11 +254,9 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is DayUiState.Error -> {
-                        ErrorBox(
-                            (state as DayUiState.Error).exception.asUserMessage(
-                                "Errore nel caricamento del giorno"
-                            )
-                        )
+                        ErrorBox("Impossibile caricare il giorno") {
+                            dayViewModel.loadDay(userCode, dayKey)
+                        }
                     }
                 }
             }
@@ -276,7 +274,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                 muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
             }
 
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+            AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     MuscleGroupUiState.Idle,
                     MuscleGroupUiState.Loading -> LoadingBox()
@@ -288,7 +286,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                             dayKey = dayKey,
                             group = successState.group,
                             isSaving = actionState is AdminActionState.InProgress,
-                            errorMessage = actionState.errorMessage(),
+                            errorMessage = actionState.errorMessage("Non è stato possibile salvare il gruppo."),
                             onSave = { updatedGroup ->
                                 muscleGroupViewModel.updateMuscleGroup(
                                     userCode = userCode,
@@ -304,11 +302,9 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is MuscleGroupUiState.Error -> {
-                        ErrorBox(
-                            (state as MuscleGroupUiState.Error).exception.asUserMessage(
-                                "Errore nel caricamento del gruppo muscolare"
-                            )
-                        )
+                        ErrorBox("Impossibile caricare il gruppo muscolare") {
+                            muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
+                        }
                     }
                 }
             }
@@ -323,6 +319,86 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
 }
 
 @Composable
+private fun AdminAdaptiveEditorLayout(
+    navController: NavHostController,
+    detail: (@Composable () -> Unit)? = null
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val detailContent = detail
+        if (maxWidth < 840.dp) {
+            if (detailContent == null) {
+                AdminUserListPane(navController, compactMode = false)
+            } else {
+                detailContent()
+            }
+        } else {
+            AdminMasterDetailLayout(
+                master = { AdminUserListPane(navController, compactMode = true) },
+                detail = { detailContent?.invoke() ?: AdminEmptyDetailPane() }
+            )
+        }
+    }
+}
+
+@Composable
+internal fun AdminMasterDetailLayout(
+    master: @Composable () -> Unit,
+    detail: @Composable () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.width(400.dp).fillMaxHeight()) { master() }
+        VerticalDivider()
+        Box(modifier = Modifier.weight(1f).fillMaxHeight()) { detail() }
+    }
+}
+
+@Composable
+private fun AdminUserListPane(navController: NavHostController, compactMode: Boolean) {
+    UserListScreen(
+        onUserSelected = { user ->
+            navController.navigate(Screen.EditUser.createRoute(user.code)) {
+                launchSingleTop = true
+            }
+        },
+        onAddUser = {
+            navController.navigate(Screen.EditUser.createRoute("new")) {
+                launchSingleTop = true
+            }
+        },
+        onManageAlerts = { navController.navigate(Screen.Alerts.route) },
+        onViewReports = { navController.navigate(Screen.Reports.route) },
+        compactMode = compactMode
+    )
+}
+
+@Composable
+private fun AdminEmptyDetailPane() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Seleziona un utente",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Text(
+            text = "I dati e gli editor verranno mostrati in questo pannello.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
 private fun LoadingBox() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
@@ -330,14 +406,24 @@ private fun LoadingBox() {
 }
 
 @Composable
-private fun ErrorBox(message: String) {
+private fun ErrorBox(message: String, onRetry: (() -> Unit)? = null) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = message)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text(text = message, textAlign = TextAlign.Center)
+            onRetry?.let {
+                Button(onClick = it, modifier = Modifier.padding(top = 12.dp)) {
+                    Text("Riprova")
+                }
+            }
+        }
     }
 }
 
 private fun Throwable.asUserMessage(defaultMessage: String): String =
-    localizedMessage?.takeIf { it.isNotBlank() } ?: defaultMessage
+    defaultMessage
 
-private fun AdminActionState.errorMessage(): String? =
-    (this as? AdminActionState.Error)?.message
+private fun AdminActionState.errorMessage(defaultMessage: String): String? =
+    if (this is AdminActionState.Error) defaultMessage else null

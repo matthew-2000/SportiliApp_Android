@@ -196,6 +196,15 @@ fun EditMuscleGroupScreen(
         }
     }
 
+    fun startNewExercise() {
+        exerciseDialogInitial = Esercizio(
+            name = "",
+            serie = "",
+            riposo = null,
+            notePT = ""
+        )
+    }
+
     BackHandler(enabled = !isSaving) {
         requestExit()
     }
@@ -216,26 +225,14 @@ fun EditMuscleGroupScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(groupName) },
-                actions = {
-                    // Pulsante Info --> mostra la lista degli esercizi selezionati
-                    IconButton(onClick = { showSelectedSheet = true }, enabled = !isSaving) {
-                        Icon(Icons.Default.Info, contentDescription = "Visualizza Esercizi Aggiunti")
-                    }
-                    // Pulsante per aggiungere un nuovo esercizio
-                    IconButton(onClick = {
-                        // Passa null per indicare “aggiungi nuovo”
-                        exerciseDialogInitial = Esercizio(
-                            name = "",
-                            serie = "",
-                            riposo = null,
-                            notePT = ""
-                        )
-                    }, enabled = !isSaving) {
-                        Icon(Icons.Default.Add, contentDescription = "Aggiungi Esercizio")
-                    }
-                }
+            TopAppBar(title = { Text(groupName) })
+        },
+        bottomBar = {
+            AdminEditorBottomBar(
+                isDirty = isDirty,
+                isSaving = isSaving,
+                onCancel = { requestExit() },
+                onSave = { onSave(buildUpdatedGroup()) }
             )
         }
     ) { paddingValues ->
@@ -250,13 +247,44 @@ fun EditMuscleGroupScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                AdminEditorErrorBanner(message, onRetry = { onSave(buildUpdatedGroup()) })
                 Spacer(modifier = Modifier.height(12.dp))
             }
+
+            AdminEditorSection(
+                title = "Esercizi selezionati",
+                supportingText = "${selectedExercises.size} esercizi nel gruppo."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showSelectedSheet = true },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Riepilogo")
+                }
+                Button(
+                    onClick = { startNewExercise() },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Nuovo esercizio")
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            AdminEditorSection(
+                title = "Catalogo esercizi",
+                supportingText = "Cerca e aggiungi esercizi predefiniti."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
@@ -356,29 +384,6 @@ fun EditMuscleGroupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Pulsanti Annulla / Visualizza
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                OutlinedButton(
-                    onClick = { requestExit() },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) {
-                    Text("Annulla")
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = { showSelectedSheet = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) {
-                    Text("Visualizza")
-                }
-            }
         }
     }
 
@@ -553,13 +558,13 @@ fun ExerciseReorderableItem(
             }
             Row {
                 IconButton(onClick = onMoveUp) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move Up")
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta su")
                 }
                 IconButton(onClick = onMoveDown) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move Down")
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta giù")
                 }
                 IconButton(onClick = onRemove) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                    Icon(Icons.Filled.Delete, contentDescription = "Rimuovi")
                 }
             }
         }
@@ -940,7 +945,7 @@ fun Stepper(
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Decrement"
+                    contentDescription = "Diminuisci"
                 )
             }
             Text(
@@ -952,7 +957,7 @@ fun Stepper(
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Increment"
+                    contentDescription = "Aumenta"
                 )
             }
         }

@@ -146,12 +146,15 @@ fun EditDayScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Modifica Giorno") },
-                actions = {
-                    IconButton(onClick = { showAddGroupDialog = true }, enabled = !isSaving) {
-                        Icon(Icons.Default.Add, contentDescription = "Aggiungi Gruppo")
-                    }
-                }
+                title = { Text("Modifica giorno") }
+            )
+        },
+        bottomBar = {
+            AdminEditorBottomBar(
+                isDirty = isDirty,
+                isSaving = isSaving,
+                onCancel = { requestExit() },
+                onSave = { validateAndSave(onSave) }
             )
         }
     ) { padding ->
@@ -166,21 +169,22 @@ fun EditDayScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                AdminEditorErrorBanner(message, onRetry = { validateAndSave(onSave) })
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            AdminEditorSection(
+                title = "Dati giorno",
+                supportingText = "Il nome identifica il giorno nella scheda dell’utente."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = dayName,
                 onValueChange = {
                     dayName = it
                     if (dayNameError != null) dayNameError = null
                 },
-                label = { Text("Nome del Giorno") },
+                label = { Text("Nome del giorno") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isSaving,
                 isError = dayNameError != null,
@@ -188,7 +192,21 @@ fun EditDayScreen(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Gruppi Muscolari", style = MaterialTheme.typography.titleMedium)
+            AdminEditorSection(
+                title = "Gruppi muscolari",
+                supportingText = "Ordina i gruppi oppure aprili per gestire gli esercizi."
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = { showAddGroupDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Aggiungi gruppi")
+            }
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -236,23 +254,6 @@ fun EditDayScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                OutlinedButton(
-                    onClick = { requestExit() },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) { Text("Annulla") }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = { validateAndSave(onSave) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) { Text("Salva") }
-            }
         }
     }
 
@@ -262,7 +263,7 @@ fun EditDayScreen(
                 showAddGroupDialog = false
                 selectedGruppi.keys.forEach { selectedGruppi[it] = false }
             },
-            title = { Text("Aggiungi Gruppi Muscolari") },
+            title = { Text("Aggiungi gruppi muscolari") },
             text = {
                 Column(
                     modifier = Modifier
@@ -334,7 +335,7 @@ fun MuscleGroupItem(
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Conferma Rimozione") },
+            title = { Text("Conferma rimozione") },
             text = { Text("Sei sicuro di voler rimuovere questo gruppo?") },
             confirmButton = {
                 Button(
@@ -379,7 +380,7 @@ fun MuscleGroupItem(
             }
             Row {
                 IconButton(onClick = onMoveUp, enabled = enabled) {
-                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta Su")
+                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta su")
                 }
                 IconButton(onClick = onMoveDown, enabled = enabled) {
                     Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")

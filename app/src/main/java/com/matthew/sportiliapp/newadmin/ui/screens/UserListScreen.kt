@@ -85,7 +85,8 @@ fun UserListScreen(
     onUserSelected: (Utente) -> Unit,
     onAddUser: () -> Unit,
     onManageAlerts: () -> Unit,
-    onViewReports: () -> Unit
+    onViewReports: () -> Unit,
+    compactMode: Boolean = false
 ) {
     val usersViewModel: GymAdminViewModel = viewModel(
         factory = GymAdminViewModelFactory(
@@ -108,7 +109,7 @@ fun UserListScreen(
         ?.reports?.count { !it.resolved }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Amministrazione") }) },
+        topBar = { TopAppBar(title = { Text(if (compactMode) "Utenti" else "Amministrazione") }) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddUser,
@@ -129,7 +130,8 @@ fun UserListScreen(
                 onUserSelected = onUserSelected,
                 onManageAlerts = onManageAlerts,
                 onViewReports = onViewReports,
-                contentPadding = paddingValues
+                contentPadding = paddingValues,
+                showDashboard = !compactMode
             )
         }
     }
@@ -142,7 +144,8 @@ internal fun UserListContent(
     onUserSelected: (Utente) -> Unit,
     onManageAlerts: () -> Unit,
     onViewReports: () -> Unit,
-    contentPadding: PaddingValues = PaddingValues()
+    contentPadding: PaddingValues = PaddingValues(),
+    showDashboard: Boolean = true
 ) {
     var searchText by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(AdminUserFilter.ALL) }
@@ -167,46 +170,48 @@ internal fun UserListContent(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            Text("Da gestire", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(
-                "Apri una priorità o restringi subito l’elenco utenti.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                item {
-                    TriageMetric(
-                        requestCount.toString(), "Richieste cambio", "Mostra gli utenti",
-                        { Icon(Icons.Default.Info, contentDescription = null) }
-                    ) { selectedFilter = AdminUserFilter.CHANGE_REQUESTED }
-                }
-                item {
-                    TriageMetric(
-                        expiredCount.toString(), "Schede da creare", "Scadute o mancanti",
-                        { Icon(Icons.Default.Warning, contentDescription = null) }
-                    ) { selectedFilter = AdminUserFilter.EXPIRED_OR_MISSING }
-                }
-                item {
-                    TriageMetric(
-                        openReportCount?.toString() ?: "—", "Segnalazioni aperte", "Apri segnalazioni",
-                        { Icon(Icons.Default.Warning, contentDescription = null) }, onViewReports
-                    )
+        if (showDashboard) {
+            item {
+                Text("Da gestire", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    "Apri una priorità o restringi subito l’elenco utenti.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        TriageMetric(
+                            requestCount.toString(), "Richieste cambio", "Mostra gli utenti",
+                            { Icon(Icons.Default.Info, contentDescription = null) }
+                        ) { selectedFilter = AdminUserFilter.CHANGE_REQUESTED }
+                    }
+                    item {
+                        TriageMetric(
+                            expiredCount.toString(), "Schede da creare", "Scadute o mancanti",
+                            { Icon(Icons.Default.Warning, contentDescription = null) }
+                        ) { selectedFilter = AdminUserFilter.EXPIRED_OR_MISSING }
+                    }
+                    item {
+                        TriageMetric(
+                            openReportCount?.toString() ?: "—", "Segnalazioni aperte", "Apri segnalazioni",
+                            { Icon(Icons.Default.Warning, contentDescription = null) }, onViewReports
+                        )
+                    }
                 }
             }
-        }
-        item {
-            if (useLargeTextLayout) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports)
-                    AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts)
-                }
-            } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports, Modifier.weight(1f))
-                    AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts, Modifier.weight(1f))
+            item {
+                if (useLargeTextLayout) {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports)
+                        AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts)
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports, Modifier.weight(1f))
+                        AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts, Modifier.weight(1f))
+                    }
                 }
             }
         }
