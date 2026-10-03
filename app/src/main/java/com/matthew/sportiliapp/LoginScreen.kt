@@ -4,7 +4,9 @@ import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +26,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +45,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -131,8 +138,9 @@ fun LoginScreen(navController: NavHostController) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LoginContent(
+internal fun LoginContent(
     code: String,
     codeError: String?,
     isSubmitting: Boolean,
@@ -140,50 +148,56 @@ private fun LoginContent(
     onSubmit: () -> Unit,
     onShowCodeInfo: () -> Unit
 ) {
+    var codeFocused by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .imePadding(),
             contentAlignment = Alignment.TopCenter
         ) {
+            val compact = codeFocused || maxHeight < 600.dp || LocalDensity.current.fontScale >= 1.3f
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .widthIn(max = 520.dp)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                    .padding(horizontal = 24.dp, vertical = if (compact) 16.dp else 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Image(
-                    painter = painterResource(id = R.drawable.icon),
-                    contentDescription = "Logo SportiliApp",
-                    modifier = Modifier.size(112.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "SportiliApp",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Inserisci il codice ricevuto dal tuo trainer.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(32.dp))
+                if (compact) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Image(painterResource(R.drawable.icon), contentDescription = null, modifier = Modifier.size(48.dp))
+                        Text("SportiliApp", style = MaterialTheme.typography.headlineLarge)
+                    }
+                } else {
+                    Image(painterResource(R.drawable.icon), contentDescription = null, modifier = Modifier.size(88.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("SportiliApp", style = MaterialTheme.typography.headlineLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Inserisci il codice ricevuto dal tuo trainer.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
                 OutlinedTextField(
                     value = code,
                     onValueChange = onCodeChange,
                     label = { Text("Codice di accesso") },
                     supportingText = {
-                        Text(codeError ?: "Puoi usare lettere e numeri.")
+                        if (codeError != null) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text(codeError, modifier = Modifier.weight(1f))
+                            }
+                        } else Text("Puoi usare lettere e numeri.")
                     },
                     isError = codeError != null,
                     keyboardOptions = KeyboardOptions(
@@ -193,7 +207,8 @@ private fun LoginContent(
                     keyboardActions = KeyboardActions(onGo = { onSubmit() }),
                     singleLine = true,
                     enabled = !isSubmitting,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { codeFocused = it.isFocused },
+                    shape = MaterialTheme.shapes.small,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         focusedLabelColor = MaterialTheme.colorScheme.primary,

@@ -1,6 +1,9 @@
 package com.matthew.sportiliapp.scheda
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -197,7 +200,7 @@ internal fun SchedaOverviewContent(
 ) {
     when {
         isLoading && scheda == null -> LoadingState(modifier)
-        errorMessage != null && scheda == null -> MessageState(
+        errorMessage != null && (scheda == null || scheda.giorni.isEmpty()) -> MessageState(
             modifier = modifier,
             title = "Non riusciamo a caricare la scheda",
             message = "Controlla la connessione e riprova.",
@@ -274,6 +277,7 @@ private fun WorkoutOverview(
             WorkoutStatusCard(
                 status = status,
                 remainingTime = scheda.tempoRimanente(),
+                openDayLabel = days.firstOrNull()?.value?.name?.takeIf { it.isNotBlank() }?.let { "Apri $it" } ?: "Apri primo allenamento",
                 isRequesting = isRequesting,
                 requestError = requestError,
                 onPrimaryAction = when (status) {
@@ -304,6 +308,7 @@ private fun WorkoutOverview(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WorkoutSummary(scheda: Scheda) {
     Surface(
@@ -311,15 +316,16 @@ private fun WorkoutSummary(scheda: Scheda) {
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 1.dp
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SummaryItem("Data di inizio", formatWorkoutDate(scheda.dataInizio), Modifier.weight(1f))
+            SummaryItem("Inizio", formatWorkoutDate(scheda.dataInizio), Modifier.widthIn(min = 128.dp))
             SummaryItem(
                 "Durata",
                 "${scheda.durata} ${if (scheda.durata == 1) "settimana" else "settimane"}",
-                Modifier.weight(1f)
+                Modifier.widthIn(min = 128.dp)
             )
         }
     }
@@ -329,7 +335,7 @@ private fun WorkoutSummary(scheda: Scheda) {
 private fun SummaryItem(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -360,7 +366,7 @@ private fun statusVisuals(status: WorkoutStatus): StatusVisuals {
     val colors = MaterialTheme.sportiliStatusColors
     return when (status) {
         WorkoutStatus.Active -> StatusVisuals(
-            "Scheda attiva", "Continua dal prossimo allenamento.", "Apri allenamento",
+            "Scheda attiva", "Scegli un allenamento qui sotto.", "Apri allenamento",
             Icons.Filled.CheckCircle, colors.successContainer, colors.onSuccessContainer
         )
         WorkoutStatus.Expiring -> StatusVisuals(
@@ -383,11 +389,13 @@ private fun statusVisuals(status: WorkoutStatus): StatusVisuals {
 private fun WorkoutStatusCard(
     status: WorkoutStatus,
     remainingTime: String,
+    openDayLabel: String,
     isRequesting: Boolean,
     requestError: String?,
     onPrimaryAction: (() -> Unit)?
 ) {
     val visuals = statusVisuals(status)
+    val actionLabel = if (status == WorkoutStatus.Active || status == WorkoutStatus.Expiring) openDayLabel else visuals.action
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -401,13 +409,15 @@ private fun WorkoutStatusCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Icon(visuals.icon, contentDescription = null)
-                Text(visuals.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(visuals.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
-            Text(visuals.message, style = MaterialTheme.typography.bodyMedium)
+            if (status == WorkoutStatus.Expired || status == WorkoutStatus.Requested) {
+                Text(visuals.message, style = MaterialTheme.typography.bodySmall)
+            }
             if (status == WorkoutStatus.Active || status == WorkoutStatus.Expiring) {
                 Text(remainingTime, style = MaterialTheme.typography.bodySmall)
             }
-            if (visuals.action != null && onPrimaryAction != null) {
+            if (actionLabel != null && onPrimaryAction != null) {
                 Button(
                     onClick = onPrimaryAction,
                     enabled = !isRequesting,
@@ -421,7 +431,7 @@ private fun WorkoutStatusCard(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(if (isRequesting) "Invio in corso…" else visuals.action)
+                    Text(if (isRequesting) "Invio in corso…" else actionLabel)
                 }
             }
             if (!requestError.isNullOrBlank()) {
@@ -453,7 +463,7 @@ private fun MessageState(
     icon: ImageVector,
     onRetry: () -> Unit
 ) {
-    Box(modifier = modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), contentAlignment = Alignment.Center) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -484,7 +494,7 @@ private fun EmptyState(
     onRetry: () -> Unit
 ) {
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Surface(
@@ -517,7 +527,6 @@ private fun EmptyState(
                 OutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Riprova") }
             }
         }
-        Spacer(modifier = Modifier.weight(1f))
         UserCodeCard(userCode, isCodeVisible, onToggleCodeVisibility)
     }
 }
@@ -549,16 +558,15 @@ private fun InlineError(onRetry: () -> Unit) {
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Filled.Warning, contentDescription = null)
-            Text(
-                "Aggiornamento non riuscito. I dati mostrati potrebbero non essere recenti.",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.weight(1f).padding(horizontal = 10.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Filled.Warning, contentDescription = null)
+                Text("Aggiornamento non riuscito. Mostriamo gli ultimi dati disponibili.",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            }
             TextButton(onClick = onRetry) { Text("Riprova") }
         }
     }
@@ -606,15 +614,16 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
                     append(". Apri allenamento")
                 }
             },
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(giorno.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(giorno.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 if (groups.isNotBlank()) {
                     Text(groups, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
