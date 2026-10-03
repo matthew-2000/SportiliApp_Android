@@ -12,6 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.flow
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import com.matthew.sportiliapp.s06Alerts
+import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,4 +56,36 @@ class AlertsScreenTest {
         compose.onNodeWithText("Riprova").assertDoesNotExist()
         assertEquals(2, attempts.get())
     }
+    @Test fun allPrioritiesAndExpiredDateRemainReadableWithoutDuplicateChips() {
+        compose.setContent { SportiliAppTheme { AvvisiContent(AlertsFeedUiState.Success(s06Alerts()), {}) } }
+        listOf("Priorità alta", "Priorità media", "Priorità bassa", "Senza priorità").forEach {
+            compose.onAllNodesWithText(it).onFirst().performScrollTo().assertIsDisplayed()
+        }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Scaduti (1)"))
+        compose.onNodeWithText("Scaduti (1)").assertIsDisplayed()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Orario festivo"))
+        compose.onNodeWithText("Orario festivo").assertIsDisplayed()
+        compose.onNodeWithText("Scaduto il", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Scaduto", substring = false).assertDoesNotExist()
+        compose.onNodeWithText("Priorità: Alta").assertDoesNotExist()
+    }
+
+    @Test fun longTitleDescriptionAndDateWrapWithoutOverflow() {
+        val alert = s06Alerts(long = true).single()
+        compose.setContent { SportiliAppTheme { AvvisiContent(AlertsFeedUiState.Success(listOf(alert)), {}) } }
+        listOf(alert.titolo, alert.descrizione).forEach { text ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(text, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertFalse("Text must wrap instead of clipping: $text", layouts.single().hasVisualOverflow)
+        }
+        compose.onNodeWithText("Scade il", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun emptyFeedShowsTheExistingEmptyState() {
+        compose.setContent { SportiliAppTheme { AvvisiContent(AlertsFeedUiState.Success(emptyList()), {}) } }
+        compose.onNodeWithText("Nessun avviso disponibile").assertIsDisplayed()
+        compose.onNodeWithText("Controlla più tardi per nuovi aggiornamenti.").assertIsDisplayed()
+    }
+
 }

@@ -18,7 +18,8 @@ class And04PreviewActivity : ComponentActivity() {
             SportiliAppTheme(isDarkTheme = useDarkTheme) {
                 when (screen) {
                     SCREEN_SETTINGS -> ImpostazioniContent(
-                        versionLabel = "Versione 1.3.5 (31)",
+                        versionName = "1.3.5",
+                    buildNumber = "31",
                         onOpenLink = { false },
                         onLogout = {}
                     )

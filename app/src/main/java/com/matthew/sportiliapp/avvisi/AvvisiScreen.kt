@@ -2,8 +2,6 @@ package com.matthew.sportiliapp.avvisi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -156,7 +154,8 @@ fun ErrorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding),
+            .padding(padding)
+            .padding(SportiliSpacing.standard),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -214,20 +213,21 @@ fun EmptyAlertsScreen(padding: PaddingValues) {
 
 @Composable
 private fun AlertsSectionTitle(title: String, count: Int, color: Color) {
-    Text(
-        text = "$title ($count)",
-        style = MaterialTheme.typography.headlineSmall,
-        color = color,
-        fontWeight = FontWeight.SemiBold
-    )
-    HorizontalDivider(
-        modifier = Modifier.padding(top = 8.dp),
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outlineVariant
-    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "$title ($count)",
+            style = MaterialTheme.typography.headlineSmall,
+            color = color,
+            fontWeight = FontWeight.SemiBold
+        )
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 8.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AlertCardClean(alert: Avviso) {
     val weight = alert.urgencyWeight()
@@ -235,15 +235,9 @@ fun AlertCardClean(alert: Avviso) {
     val status = MaterialTheme.sportiliStatusColors
     val accent = when {
         isExpired -> MaterialTheme.colorScheme.onSurfaceVariant
-        weight == 3 -> MaterialTheme.colorScheme.error
+        weight == 3 -> MaterialTheme.colorScheme.onErrorContainer
         weight == 2 -> status.onWarningContainer
         else -> status.onInfoContainer
-    }
-    val container = when {
-        isExpired -> MaterialTheme.colorScheme.surfaceVariant
-        weight == 3 -> MaterialTheme.colorScheme.errorContainer
-        weight == 2 -> status.warningContainer
-        else -> status.infoContainer
     }
     val icon = if (!isExpired && weight >= 2) Icons.Filled.Warning else Icons.Filled.Info
     val description = buildString {
@@ -253,7 +247,7 @@ fun AlertCardClean(alert: Avviso) {
         append(". ")
         append(if (isExpired) "Avviso scaduto. " else "Avviso attivo. ")
         alert.urgenza?.takeIf { it.isNotBlank() }?.let {
-            append("Priorità $it. ")
+            append(if (weight == 0) "Senza priorità. " else "Priorità $it. ")
         }
         alert.scadenza?.let { deadline ->
             val date = Instant.ofEpochMilli(deadline)
@@ -288,12 +282,23 @@ fun AlertCardClean(alert: Avviso) {
                 )
                 Spacer(Modifier.width(SportiliSpacing.compact))
                 Text(
-                    text = alert.titolo,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = when (weight) {
+                        3 -> "Priorità alta"
+                        2 -> "Priorità media"
+                        1 -> "Priorità bassa"
+                        else -> "Senza priorità"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = accent
                 )
             }
+
+            Text(
+                text = alert.titolo,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
             Text(
                 text = alert.descrizione,
@@ -301,56 +306,18 @@ fun AlertCardClean(alert: Avviso) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(SportiliSpacing.compact),
-                verticalArrangement = Arrangement.spacedBy(SportiliSpacing.compact)
-            ) {
-                if (isExpired) {
-                    MetaChip(
-                        text = "Scaduto",
-                        accent = accent,
-                        container = container
-                    )
-                }
-
-                alert.scadenza?.let { deadline ->
-                    val date = Instant.ofEpochMilli(deadline)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate()
-                        .format(alertDateFormatter)
-                    MetaChip(
-                        text = if (isExpired) "Scaduto il $date" else "Scade il $date",
-                        accent = accent,
-                        container = container
-                    )
-                }
-
-                alert.urgenza?.takeIf { it.isNotBlank() }?.let { urgency ->
-                    MetaChip(
-                        text = "Priorità: ${urgency.replaceFirstChar { it.uppercase() }}",
-                        accent = accent,
-                        container = container
-                    )
-                }
+            alert.scadenza?.let { deadline ->
+                val date = Instant.ofEpochMilli(deadline)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .format(alertDateFormatter)
+                Text(
+                    text = if (isExpired) "Scaduto il $date" else "Scade il $date",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun MetaChip(text: String, accent: Color, container: Color) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = container,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = accent,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = SportiliSpacing.extraSmall)
-        )
     }
 }
 
