@@ -40,17 +40,24 @@ class And04PreviewActivity : ComponentActivity() {
     private fun previewAlerts(): List<Avviso> = listOf(
         Avviso(
             id = "urgent",
-            titolo = "Chiusura straordinaria della sala pesi",
-            descrizione = "La sala pesi chiude alle 19:00 per manutenzione.",
+            titolo = "Promemoria check-in",
+            descrizione = "Ricorda di registrare i progressi dopo l'allenamento.",
             urgenza = "alta",
-            scadenza = System.currentTimeMillis() + 86_400_000L
+            scadenza = System.currentTimeMillis() + 172_800_000L
         ),
         Avviso(
             id = "course",
-            titolo = "Nuovo orario corso mobility",
-            descrizione = "Da lunedì il corso inizierà alle 18:30.",
+            titolo = "Aggiornamento scheda",
+            descrizione = "La nuova scheda sarà disponibile da lunedì.",
             urgenza = "media",
-            scadenza = System.currentTimeMillis() + 604_800_000L
+            scadenza = System.currentTimeMillis() + 432_000_000L
+        ),
+        Avviso(
+            id = "info",
+            titolo = "Orari festivi",
+            descrizione = "La palestra chiuderà alle 18:00 il 31/12.",
+            urgenza = "bassa",
+            scadenza = System.currentTimeMillis() + 1_036_800_000L
         ),
         Avviso(
             id = "expired",
