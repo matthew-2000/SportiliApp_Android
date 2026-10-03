@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -138,13 +139,7 @@ fun EsercizioScreen(
     val userExerciseData by viewModel.userExerciseData.observeAsState(initial = emptyMap())
 
     val exerciseParts = remember(esercizio) {
-        esercizio?.name
-            ?.split("+")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?.takeIf { it.isNotEmpty() }
-            ?: esercizio?.name?.takeIf { it.isNotEmpty() }?.let { listOf(it) }
-            ?: emptyList()
+        esercizio?.name?.let(::exerciseNameParts) ?: emptyList()
     }
 
     var selectedPartIndex by remember { mutableStateOf(0) }
@@ -256,9 +251,7 @@ fun EsercizioScreen(
         if (esercizio != null) {
             val ex = esercizio
 
-            val heroSubtitle = if (exerciseParts.size > 1) currentPartName else null
-            val imageUrl =
-                "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${currentPartName}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
+            val imageUrl = exerciseImageUrl(currentPartName)
 
             LazyColumn(
                 modifier = Modifier
@@ -268,65 +261,41 @@ fun EsercizioScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    ExerciseTitleBlock(
-                        title = ex.name,
-                        subtitle = heroSubtitle
-                    )
+                    if (exerciseParts.size > 1) {
+                        Text("Superset · ${exerciseParts.size} parti",
+                            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text("Esegui tutte le parti in combinazione.", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp))
+                        ExerciseVariationPicker(parts = exerciseParts, selectedIndex = selectedPartIndex,
+                            onSelected = { selectedPartIndex = it })
+                    } else ExerciseTitleBlock(title = currentPartName, subtitle = null)
                 }
-
                 item {
-                    ExerciseHeroHeader(
-                        imageUrl = imageUrl,
-                        title = ex.name,
-                        subtitle = heroSubtitle,
-                        onTap = { isImageFullScreen = true }
-                    )
-                }
-
-                if (exerciseParts.size > 1) {
-                    item {
-                        SectionHeader(title = "Variazioni")
-                        ElevatedCard(
-                            shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.elevatedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                ExerciseVariationPicker(
-                                    parts = exerciseParts,
-                                    selectedIndex = selectedPartIndex,
-                                    onSelected = { selectedPartIndex = it }
-                                )
+                    SectionHeader(title = "Programma")
+                    ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ExerciseSerieRow(serie = ex.serie)
+                            ex.riposo?.takeIf { it.isNotBlank() }?.let { rip ->
+                                LabeledRow(label = "Recupero", value = rip)
+                            }
+                            OutlinedButton(onClick = { showTimerSheet = true }) {
+                                Icon(Icons.Filled.Notifications, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Apri timer di recupero")
                             }
                         }
                     }
                 }
-
                 item {
-                    SectionHeader(title = "Programma")
-                    ElevatedCard(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            ExerciseSerieRow(serie = ex.serie)
-
-                            ex.riposo?.takeIf { it.isNotBlank() }?.let { rip ->
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                                LabeledRow(
-                                    label = "Recupero",
-                                    icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
-                                    value = rip
-                                )
-                            }
-
-                            ex.notePT?.takeIf { it.isNotBlank() }?.let { note ->
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                                CoachNotesRow(text = note)
-                            }
+                    ExerciseHeroHeader(imageUrl = imageUrl, title = currentPartName,
+                        subtitle = null, onTap = { isImageFullScreen = true })
+                }
+                ex.notePT?.takeIf { it.isNotBlank() }?.let { note ->
+                    item {
+                        SectionHeader(title = "Indicazioni")
+                        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                            Column(Modifier.padding(16.dp)) { CoachNotesRow(text = note) }
                         }
                     }
                 }
@@ -778,105 +747,33 @@ private fun ExerciseHeroHeader(
     val shape = RoundedCornerShape(18.dp)
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(210.dp)
-            .clip(shape)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .semantics {
                 contentDescription = when (painter.state) {
-                    is AsyncImagePainter.State.Success ->
-                        "Immagine di ${subtitle ?: title}. Apri a schermo intero"
-                    is AsyncImagePainter.State.Error ->
-                        "Immagine di ${subtitle ?: title} non disponibile"
+                    is AsyncImagePainter.State.Success -> "Immagine di ${subtitle ?: title}. Apri a schermo intero"
+                    is AsyncImagePainter.State.Error -> "Immagine di ${subtitle ?: title} non disponibile"
                     else -> "Caricamento immagine di ${subtitle ?: title}"
                 }
             }
-            .clickable(
-                enabled = painter.state is AsyncImagePainter.State.Success,
-                role = Role.Button
-            ) {
-                if (painter.state is AsyncImagePainter.State.Success) onTap()
-            }
+            .clickable(enabled = painter.state is AsyncImagePainter.State.Success, role = Role.Button, onClick = onTap),
+        contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painter,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.05f),
-                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f)
-                        )
-                    )
-                )
-        )
-        when (painter.state) {
-            is AsyncImagePainter.State.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            "Immagine non disponibile",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            is AsyncImagePainter.State.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            else -> {}
+        // Coil resolves its request size when the painter is drawn, including loading.
+        if (painter.state !is AsyncImagePainter.State.Error) {
+            Image(painter = painter, contentDescription = null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().height(210.dp))
         }
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = androidx.compose.ui.graphics.Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        when (painter.state) {
+            is AsyncImagePainter.State.Success -> Unit
+            is AsyncImagePainter.State.Error -> Column(
+                Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Filled.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Immagine non disponibile", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            else -> CircularProgressIndicator(Modifier.padding(24.dp))
         }
     }
 }
@@ -923,12 +820,11 @@ private fun ExerciseVariationPicker(
                             MaterialTheme.colorScheme.outline
                         }
                     ) {}
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Parte ${index + 1} di ${parts.size}" + if (selected) " · Attiva" else "",
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(label, style = MaterialTheme.typography.titleMedium)
+                    }
                 }
             }
         }
@@ -937,59 +833,15 @@ private fun ExerciseVariationPicker(
 
 @Composable
 private fun ExerciseSerieRow(serie: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Serie",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = serie,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    LabeledRow(label = "Serie e ripetizioni", value = serie)
 }
 
 @Composable
-private fun LabeledRow(
-    label: String,
-    icon: @Composable (() -> Unit)? = null,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.size(34.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    icon()
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold
-        )
+private fun LabeledRow(label: String, value: String) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -997,7 +849,7 @@ private fun LabeledRow(
 private fun CoachNotesRow(text: String) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            text = "Note del coach",
+            text = "Note del trainer",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant

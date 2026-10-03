@@ -144,112 +144,87 @@ fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gru
 
 @Composable
 fun EsercizioRow(esercizio: Esercizio, onClick: () -> Unit) {
-    val useCompactAffordance = LocalDensity.current.fontScale < 1.3f
-    val prescription = buildString {
-        append("Serie ${esercizio.serie}")
-        esercizio.riposo?.takeIf { it.isNotBlank() }?.let { append(", recupero $it") }
-    }
-
+    val parts = exerciseNameParts(esercizio.name)
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .semantics(mergeDescendants = true) {
-                contentDescription = "${esercizio.name}. $prescription. Apri dettaglio esercizio"
-            }
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             .clickable(role = Role.Button, onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(14.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(12.dp)
-        ) {
-
-            val painter = rememberAsyncImagePainter(
-                model = "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/${esercizio.name}.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(90.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                Image(
-                    painter = painter,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                        .clip(RoundedCornerShape(10.dp))
-                )
-
-                when (painter.state) {
-                    is AsyncImagePainter.State.Loading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
-                        )
-                    }
-                    is AsyncImagePainter.State.Error -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f))
-                        ) {
-                            Icon(Icons.Filled.Warning, contentDescription = null,
-                                modifier = Modifier.align(Alignment.Center),
-                            )
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (parts.size > 1) {
+                Text("Superset · ${parts.size} parti", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Esegui tutte le parti in combinazione.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(esercizio.name, style = MaterialTheme.typography.titleMedium)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Serie e ripetizioni", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(esercizio.serie, style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                esercizio.riposo?.takeIf { it.isNotBlank() }?.let {
+                    Text("Recupero $it", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            parts.forEachIndexed { index, part ->
+                if (index > 0) Text("+", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                if (parts.size > 1) {
+                    if (largeText) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ExercisePartLabel(part, index, parts.size)
+                            ExerciseThumbnail(part)
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ExerciseThumbnail(part)
+                            Column(Modifier.weight(1f)) { ExercisePartLabel(part, index, parts.size) }
                         }
                     }
-                    else -> {
-                        // L'immagine è decorativa: nome e prescrizione sono annunciati dalla riga.
-                    }
-                }
+                } else ExerciseThumbnail(part)
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = esercizio.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    minLines = 1,
-                    maxLines = 3,
-                    fontWeight = FontWeight.Bold,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = esercizio.serie,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                esercizio.riposo?.let { riposo ->
-                    if (riposo.isNotEmpty()) {
-                        Text(
-                            text = "$riposo recupero",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            if (useCompactAffordance) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
+            Text("Apri esercizio", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary)
         }
     }
 }
+
+/** Presentation only: the selected names still go through the existing key resolver. */
+internal fun exerciseNameParts(name: String): List<String> = name.split("+")
+    .map { it.trim() }.filter { it.isNotEmpty() }
+    .ifEmpty { listOf(name.trim()).filter { it.isNotEmpty() } }
+
+@Composable
+private fun ExercisePartLabel(part: String, index: Int, count: Int) {
+    Text("Parte ${index + 1} di $count", style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(part, style = MaterialTheme.typography.titleMedium)
+}
+
+@Composable
+private fun ExerciseThumbnail(name: String) {
+    val painter = rememberAsyncImagePainter(model = exerciseImageUrl(name))
+    Box(Modifier.size(64.dp).clip(RoundedCornerShape(10.dp))
+        .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        Image(painter, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize())
+        when (painter.state) {
+            is AsyncImagePainter.State.Success -> Unit
+            is AsyncImagePainter.State.Error -> Icon(Icons.Filled.Warning,
+                contentDescription = "Immagine non disponibile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> CircularProgressIndicator(Modifier.size(24.dp))
+        }
+    }
+}
+
+internal fun exerciseImageUrl(name: String): String =
+    "https://firebasestorage.googleapis.com/v0/b/sportiliapp.appspot.com/o/$name.png?alt=media&token=cd00fa34-6a1f-4fa7-afa5-d80a1ef5cdaa"
 
 @Preview(name = "Giorno nome lungo", showBackground = true, widthDp = 360)
 @Preview(
