@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +40,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -50,6 +51,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -65,20 +68,26 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
@@ -102,6 +111,21 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// Stopwatch symbol drawn locally: the base icon set has no Timer, no dependency upgrade needed.
+private val RecoveryTimerIcon = ImageVector.Builder("RecoveryTimer", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+        moveTo(9f, 1f); lineTo(15f, 1f)
+        moveTo(12f, 1f); lineTo(12f, 5f)
+        moveTo(18f, 6f); lineTo(20f, 4f)
+        moveTo(20f, 13f)
+        curveTo(20f, 17.42f, 16.42f, 21f, 12f, 21f)
+        curveTo(7.58f, 21f, 4f, 17.42f, 4f, 13f)
+        curveTo(4f, 8.58f, 7.58f, 5f, 12f, 5f)
+        curveTo(16.42f, 5f, 20f, 8.58f, 20f, 13f)
+        moveTo(12f, 9f); lineTo(12f, 13f); lineTo(15f, 15f)
+    }
+}.build()
+
 private data class WeightLogRecord(
     val id: String,
     val weight: Double,
@@ -121,6 +145,25 @@ internal data class WeightProgressSummaryData(
     val maximum: Double
 )
 
+/** UI callbacks preserve the existing model paths and payloads; fixtures can supply local writes. */
+class ExerciseDetailActions(
+    val addWeight: (String, Double, (String, WeightLogEntry) -> Unit, (String) -> Unit) -> Unit,
+    val updateWeight: (String, String, Double, (WeightLogEntry) -> Unit, (String) -> Unit) -> Unit,
+    val updateNote: (String, String?, () -> Unit, (String) -> Unit) -> Unit
+) {
+    constructor(model: SchedaViewModel) : this(model::addWeightEntry, model::updateWeightEntry, model::updateUserNote)
+}
+
+internal fun parsedWeightInput(input: String): Double? {
+    val normalized = input.trim()
+    if (!Regex("""^[0-9]+([.,][0-9]+)?$""").matches(normalized)) return null
+    return normalized.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+}
+
+internal fun recentWeightSamples(entries: List<WeightLogEntry>): List<WeightLogEntry> =
+    entries.filter { it.weight?.isFinite() == true && it.timestamp != null }
+        .sortedBy { it.timestamp }.takeLast(10)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EsercizioScreen(
@@ -129,8 +172,10 @@ fun EsercizioScreen(
     gruppoMuscolareId: String,
     esercizioId: String,
     viewModel: SchedaViewModel,
+    actions: ExerciseDetailActions? = null,
 ) {
     val context = LocalContext.current
+    val writes = remember(viewModel, actions) { actions ?: ExerciseDetailActions(viewModel) }
     val scheda by viewModel.scheda.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(true)
     val esercizio = scheda?.giorni?.get(giornoId)
@@ -174,6 +219,10 @@ fun EsercizioScreen(
     var isWeightSaving by remember { mutableStateOf(false) }
     var weightInputError by remember { mutableStateOf<String?>(null) }
     var isNoteSaving by remember { mutableStateOf(false) }
+    var noteError by remember { mutableStateOf<String?>(null) }
+    var confirmsDiscard by remember { mutableStateOf(false) }
+    var lastSyncedNote by remember { mutableStateOf("") }
+    var lastSyncedKey by remember { mutableStateOf("") }
 
     val sheetDateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val summaryDateFormatter = remember { SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault()) }
@@ -198,13 +247,24 @@ fun EsercizioScreen(
     }
 
     LaunchedEffect(exerciseKey, currentData?.noteUtente) {
-        noteInput = currentData?.noteUtente ?: ""
+        val remote = currentData?.noteUtente ?: ""
+        if (exerciseKey != lastSyncedKey || noteInput == lastSyncedNote || noteInput == remote) {
+            noteInput = remote
+            lastSyncedNote = remote
+            lastSyncedKey = exerciseKey
+        }
     }
 
     val sortedLogs = remember(weightLogs) { weightLogs.sortedBy { it.timestamp } }
     val recentLogs = remember(sortedLogs) { sortedLogs.takeLast(10) }
     val savedNote = currentData?.noteUtente ?: ""
     val isNoteDirty = noteInput != savedNote
+    val closeNotes = {
+        if (!isNoteSaving) {
+            if (isNoteDirty) confirmsDiscard = true
+            else showNotesSheet = false
+        }
+    }
     val openWeightEntrySheet = {
         dialogExerciseKey = exerciseKey
         weightDialogMode = WeightDialogMode.Create
@@ -232,15 +292,7 @@ fun EsercizioScreen(
                 actions = {
                     if (esercizio != null) {
                         IconButton(onClick = { showTimerSheet = true }) {
-                            Icon(Icons.Filled.Notifications, contentDescription = "Apri timer recupero")
-                        }
-                    }
-                    if (esercizio != null) {
-                        IconButton(
-                            onClick = openWeightEntrySheet,
-                            enabled = canManageData
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Registra peso")
+                            Icon(RecoveryTimerIcon, contentDescription = "Apri timer recupero")
                         }
                     }
                 }
@@ -280,7 +332,7 @@ fun EsercizioScreen(
                                 LabeledRow(label = "Recupero", value = rip)
                             }
                             OutlinedButton(onClick = { showTimerSheet = true }) {
-                                Icon(Icons.Filled.Notifications, contentDescription = null)
+                                Icon(RecoveryTimerIcon, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Apri timer di recupero")
                             }
@@ -308,6 +360,7 @@ fun EsercizioScreen(
                             containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
+                        var expanded by remember(exerciseKey, savedNote) { mutableStateOf(false) }
                         Column(modifier = Modifier.padding(16.dp)) {
                             if (savedNote.isBlank()) {
                                 Text(
@@ -318,8 +371,13 @@ fun EsercizioScreen(
                             } else {
                                 Text(
                                     text = savedNote,
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = if (expanded) Int.MAX_VALUE else 4,
+                                    overflow = TextOverflow.Ellipsis
                                 )
+                                TextButton(onClick = { expanded = !expanded }) {
+                                    Text(if (expanded) "Riduci nota" else "Mostra tutta la nota")
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -327,14 +385,26 @@ fun EsercizioScreen(
                             NotesPreviewRow(
                                 isDirty = isNoteDirty,
                                 enabled = canManageData,
-                                onTap = { showNotesSheet = true }
+                                onTap = { noteError = null; showNotesSheet = true }
                             )
                         }
                     }
                 }
 
                 item {
-                    SectionHeader(title = "Progressi")
+                    SectionHeader(title = "Pesi e progressi")
+                    sortedLogs.lastOrNull()?.let { latest ->
+                        Text("Ultimo peso: ${formatWeight(latest.weight)} kg", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold)
+                        Text(summaryDateFormatter.format(Date(latest.timestamp)), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(onClick = openWeightEntrySheet, enabled = canManageData,
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Registra peso")
+                    }
                 }
 
                 item {
@@ -347,7 +417,7 @@ fun EsercizioScreen(
                         ) {
                             EmptyStateCard(
                                 title = "Nessun peso registrato",
-                                message = "Usa il + in alto per registrare il primo peso e tracciare i progressi."
+                                message = "Registra il primo peso per iniziare a seguire i progressi."
                             )
                         }
                     } else {
@@ -371,7 +441,7 @@ fun EsercizioScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Andamento (ultimi 10)",
+                                        text = "Ultime 10 registrazioni",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -424,77 +494,85 @@ fun EsercizioScreen(
             }
 
             if (showNotesSheet) {
-                val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        if (!isNoteSaving) {
-                            noteInput = savedNote
-                            showNotesSheet = false
-                        }
-                    },
-                    sheetState = notesSheetState
-                ) {
-                    NotesEditorSheet(
-                        title = "Note personali",
-                        text = noteInput,
-                        savedText = savedNote,
-                        canManage = canManageData,
-                        isDirty = isNoteDirty,
-                        isSaving = isNoteSaving,
-                        onTextChange = { noteInput = it },
-                        onClose = {
-                            noteInput = savedNote
-                            showNotesSheet = false
-                        },
-                        onSave = {
-                            val sanitized = noteInput.trim()
-                            isNoteSaving = true
-                            viewModel.updateUserNote(
-                                exerciseKey,
-                                sanitized.takeIf { it.isNotEmpty() },
-                                onSuccess = {
-                                    noteInput = sanitized
-                                    isNoteSaving = false
-                                    Toast.makeText(context, "Nota salvata", Toast.LENGTH_SHORT).show()
-                                    showNotesSheet = false
-                                },
-                                onFailure = { err ->
-                                    isNoteSaving = false
-                                    if (err.contains("Connessione internet assente")) {
-                                        alertMessage = err
-                                    } else {
-                                        Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                val currentSaving by rememberUpdatedState(isNoteSaving)
+                val currentDirty by rememberUpdatedState(isNoteDirty)
+                val currentCloseNotes by rememberUpdatedState(closeNotes)
+                val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+                    confirmValueChange = {
+                        if (it == SheetValue.Hidden && (currentSaving || currentDirty)) {
+                            if (!currentSaving) confirmsDiscard = true
+                            false
+                        } else true
+                    })
+                key(isNoteSaving) {
+                    ModalBottomSheet(
+                        onDismissRequest = { currentCloseNotes() },
+                        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !isNoteSaving),
+                        sheetState = notesSheetState
+                    ) {
+                        NotesEditorSheet(
+                            title = "Note personali",
+                            text = noteInput,
+                            savedText = savedNote,
+                            canManage = canManageData,
+                            isDirty = isNoteDirty,
+                            isSaving = isNoteSaving,
+                            errorMessage = noteError,
+                            onTextChange = { noteInput = it; noteError = null },
+                            onClose = closeNotes,
+                            onSave = {
+                                if (isNoteSaving) return@NotesEditorSheet
+                                noteError = null
+                                val sanitized = noteInput.trim()
+                                isNoteSaving = true
+                                writes.updateNote(
+                                    exerciseKey,
+                                    sanitized.takeIf { it.isNotEmpty() },
+                                    {
+                                        noteInput = sanitized
+                                        lastSyncedNote = sanitized
+                                        lastSyncedKey = exerciseKey
+                                        isNoteSaving = false
+                                        Toast.makeText(context, "Nota salvata", Toast.LENGTH_SHORT).show()
+                                        showNotesSheet = false
+                                    },
+                                    { err ->
+                                        isNoteSaving = false
+                                        noteError = err
                                     }
-                                }
-                            )
-                        },
-                        onDelete = {
-                            isNoteSaving = true
-                            viewModel.updateUserNote(
-                                exerciseKey,
-                                null,
-                                onSuccess = {
-                                    noteInput = ""
-                                    isNoteSaving = false
-                                    Toast.makeText(context, "Nota rimossa", Toast.LENGTH_SHORT).show()
-                                    showNotesSheet = false
-                                },
-                                onFailure = { err ->
-                                    isNoteSaving = false
-                                    if (err.contains("Connessione internet assente")) {
-                                        alertMessage = err
-                                    } else {
-                                        Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
+                                )
+                            },
+                            onDelete = {
+                                if (isNoteSaving) return@NotesEditorSheet
+                                noteError = null
+                                isNoteSaving = true
+                                writes.updateNote(
+                                    exerciseKey,
+                                    null,
+                                    {
+                                        noteInput = ""
+                                        lastSyncedNote = ""
+                                        lastSyncedKey = exerciseKey
+                                        isNoteSaving = false
+                                        Toast.makeText(context, "Nota rimossa", Toast.LENGTH_SHORT).show()
+                                        showNotesSheet = false
+                                    },
+                                    { err ->
+                                        isNoteSaving = false
+                                        noteError = err
                                     }
-                                }
-                            )
-                        }
-                    )
+                                )
+                            }
+                        )
+                    }
+
                 }
             }
 
             if (weightDialogMode != WeightDialogMode.Hidden) {
-                val weightSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val currentSaving by rememberUpdatedState(isWeightSaving)
+                val weightSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+                    confirmValueChange = { !currentSaving || it != SheetValue.Hidden })
 
                 val sheetTitle = when (weightDialogMode) {
                     WeightDialogMode.Create -> "Registra peso"
@@ -503,7 +581,7 @@ fun EsercizioScreen(
                 }
 
                 val dateLabel = when (weightDialogMode) {
-                    is WeightDialogMode.Edit -> "Ultimo aggiornamento"
+                    is WeightDialogMode.Edit -> "Data della registrazione"
                     WeightDialogMode.Create -> "Data"
                     WeightDialogMode.Hidden -> "Data"
                 }
@@ -514,109 +592,118 @@ fun EsercizioScreen(
                     WeightDialogMode.Hidden -> sheetDateFormatter.format(Date())
                 }
 
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        if (!isWeightSaving) {
-                            weightDialogMode = WeightDialogMode.Hidden
-                            weightInput = ""
-                            weightInputError = null
-                        }
-                    },
-                    sheetState = weightSheetState
-                ) {
-                    WeightEntrySheet(
-                        title = sheetTitle,
-                        weightInput = weightInput,
-                        canManage = canManageData,
-                        isSaving = isWeightSaving,
-                        errorMessage = weightInputError,
-                        onWeightChange = {
-                            weightInput = it.replace(',', '.')
-                            weightInputError = null
+                key(isWeightSaving) {
+                    ModalBottomSheet(
+                        onDismissRequest = {
+                            if (!isWeightSaving) {
+                                weightDialogMode = WeightDialogMode.Hidden
+                                weightInput = ""
+                                weightInputError = null
+                            }
                         },
-                        dateLabel = dateLabel,
-                        dateValue = dateValue,
-                        onCancel = {
-                            weightDialogMode = WeightDialogMode.Hidden
-                            weightInput = ""
-                            weightInputError = null
-                        },
-                        onConfirm = {
-                            val parsed = weightInput.toDoubleOrNull()
-                            if (parsed == null || parsed <= 0) {
-                                weightInputError = "Inserisci un peso maggiore di zero."
-                                return@WeightEntrySheet
-                            }
-                            if (dialogExerciseKey.isEmpty()) {
-                                weightInputError = "Impossibile identificare l'esercizio."
-                                return@WeightEntrySheet
-                            }
-                            isWeightSaving = true
-
-                            when (val mode = weightDialogMode) {
-                                WeightDialogMode.Create -> {
-                                    viewModel.addWeightEntry(
-                                        dialogExerciseKey,
-                                        parsed,
-                                        onSuccess = { _, entry ->
-                                            val w = entry.weight
-                                            val ts = entry.timestamp
-                                            if (w != null && ts != null) {
-                                                isWeightSaving = false
-                                                Toast.makeText(context, "Peso salvato", Toast.LENGTH_SHORT).show()
-                                                weightDialogMode = WeightDialogMode.Hidden
-                                                weightInput = ""
-                                            } else {
-                                                isWeightSaving = false
-                                                Toast.makeText(context, "Errore nel salvataggio del peso", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        onFailure = { err ->
-                                            isWeightSaving = false
-                                            if (err.contains("Connessione internet assente")) {
-                                                alertMessage = err
-                                            } else {
-                                                Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    )
+                        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !isWeightSaving),
+                        sheetState = weightSheetState
+                    ) {
+                        WeightEntrySheet(
+                            title = sheetTitle,
+                            weightInput = weightInput,
+                            canManage = canManageData,
+                            isSaving = isWeightSaving,
+                            errorMessage = weightInputError,
+                            onWeightChange = {
+                                weightInput = it
+                                weightInputError = null
+                            },
+                            dateLabel = dateLabel,
+                            dateValue = dateValue,
+                            onCancel = {
+                                weightDialogMode = WeightDialogMode.Hidden
+                                weightInput = ""
+                                weightInputError = null
+                            },
+                            onConfirm = {
+                                if (isWeightSaving) return@WeightEntrySheet
+                                val parsed = parsedWeightInput(weightInput)
+                                if (parsed == null) {
+                                    weightInputError = "Inserisci un peso maggiore di zero."
+                                    return@WeightEntrySheet
                                 }
-
-                                is WeightDialogMode.Edit -> {
-                                    val record = mode.record
-                                    viewModel.updateWeightEntry(
-                                        dialogExerciseKey,
-                                        record.id,
-                                        parsed,
-                                        onSuccess = { entry ->
-                                            val w = entry.weight
-                                            val ts = entry.timestamp
-                                            if (w != null && ts != null) {
-                                                isWeightSaving = false
-                                                Toast.makeText(context, "Peso aggiornato", Toast.LENGTH_SHORT).show()
-                                                weightDialogMode = WeightDialogMode.Hidden
-                                                weightInput = ""
-                                            } else {
-                                                isWeightSaving = false
-                                                Toast.makeText(context, "Errore nell'aggiornamento del peso", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        onFailure = { err ->
-                                            isWeightSaving = false
-                                            if (err.contains("Connessione internet assente")) {
-                                                alertMessage = err
-                                            } else {
-                                                Toast.makeText(context, "Errore: $err", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    )
+                                if (dialogExerciseKey.isEmpty()) {
+                                    weightInputError = "Impossibile identificare l'esercizio."
+                                    return@WeightEntrySheet
                                 }
+                                weightInputError = null
+                                isWeightSaving = true
 
-                                WeightDialogMode.Hidden -> Unit
+                                when (val mode = weightDialogMode) {
+                                    WeightDialogMode.Create -> {
+                                        writes.addWeight(
+                                            dialogExerciseKey,
+                                            parsed,
+                                            { _, entry ->
+                                                val w = entry.weight
+                                                val ts = entry.timestamp
+                                                if (w != null && ts != null) {
+                                                    isWeightSaving = false
+                                                    Toast.makeText(context, "Peso salvato", Toast.LENGTH_SHORT).show()
+                                                    weightDialogMode = WeightDialogMode.Hidden
+                                                    weightInput = ""
+                                                } else {
+                                                    isWeightSaving = false
+                                                    weightInputError = "Errore nel salvataggio del peso. Riprova."
+                                                }
+                                            },
+                                            { err ->
+                                                isWeightSaving = false
+                                                weightInputError = err
+                                            }
+                                        )
+                                    }
+
+                                    is WeightDialogMode.Edit -> {
+                                        val record = mode.record
+                                        writes.updateWeight(
+                                            dialogExerciseKey,
+                                            record.id,
+                                            parsed,
+                                            { entry ->
+                                                val w = entry.weight
+                                                val ts = entry.timestamp
+                                                if (w != null && ts != null) {
+                                                    isWeightSaving = false
+                                                    Toast.makeText(context, "Peso aggiornato", Toast.LENGTH_SHORT).show()
+                                                    weightDialogMode = WeightDialogMode.Hidden
+                                                    weightInput = ""
+                                                } else {
+                                                    isWeightSaving = false
+                                                    weightInputError = "Errore nell'aggiornamento del peso. Riprova."
+                                                }
+                                            },
+                                            { err ->
+                                                isWeightSaving = false
+                                                weightInputError = err
+                                            }
+                                        )
+                                    }
+
+                                    WeightDialogMode.Hidden -> Unit
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
+
                 }
+            }
+
+            if (confirmsDiscard) {
+                AlertDialog(onDismissRequest = { confirmsDiscard = false },
+                    title = { Text("Scartare le modifiche alla nota?") },
+                    text = { Text("La bozza non è stata salvata.") },
+                    confirmButton = { TextButton(onClick = {
+                        noteInput = savedNote; lastSyncedNote = savedNote; lastSyncedKey = exerciseKey
+                        noteError = null; confirmsDiscard = false; showNotesSheet = false
+                    }) { Text("Scarta modifiche") } },
+                    dismissButton = { TextButton(onClick = { confirmsDiscard = false }) { Text("Continua a modificare") } })
             }
 
             pendingDeletionRecord?.let { record ->
@@ -1014,13 +1101,13 @@ private fun WeightLogSwipeCard(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = "${formatWeight(record.weight)} kg",
                         style = MaterialTheme.typography.bodyLarge,
@@ -1032,7 +1119,7 @@ private fun WeightLogSwipeCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onEdit, enabled = enabled) {
                         Text("Modifica")
                     }
@@ -1045,179 +1132,67 @@ private fun WeightLogSwipeCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NotesEditorSheet(
-    title: String,
-    text: String,
-    savedText: String,
-    canManage: Boolean,
-    isDirty: Boolean,
-    isSaving: Boolean,
-    onTextChange: (String) -> Unit,
-    onClose: () -> Unit,
-    onSave: () -> Unit,
-    onDelete: () -> Unit
+    title: String, text: String, savedText: String, canManage: Boolean, isDirty: Boolean,
+    isSaving: Boolean, errorMessage: String?, onTextChange: (String) -> Unit,
+    onClose: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-    ) {
-        TopAppBar(
-            title = { Text(title) },
-            windowInsets = WindowInsets(0, 0, 0, 0),
-            navigationIcon = {
-                TextButton(onClick = onClose) { Text("Chiudi") }
-            },
-            actions = {
-                TextButton(
-                    onClick = onSave,
-                    enabled = canManage && isDirty && !isSaving
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Salva")
-                    }
-                }
+    Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
+        .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onClose, enabled = !isSaving, modifier = Modifier.weight(1f)) { Text("Chiudi") }
+            Button(onClick = onSave, enabled = canManage && isDirty && !isSaving, modifier = Modifier.weight(1f)) { Text("Salva") }
+        }
+        if (isSaving) { ProgressMessage("Salvataggio nota…") }
+        errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+        OutlinedTextField(value = text, onValueChange = onTextChange, label = { Text("Nota personale") },
+            placeholder = { Text("Aggiungi una nota per questo esercizio…") },
+            modifier = Modifier.fillMaxWidth(), enabled = canManage && !isSaving, minLines = 5)
+        if (savedText.isNotBlank()) {
+            OutlinedButton(onClick = onDelete, enabled = canManage && !isSaving, modifier = Modifier.fillMaxWidth()) {
+                Text("Elimina nota", color = MaterialTheme.colorScheme.error)
             }
-        )
-
-        Column(modifier = Modifier.padding(16.dp)) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                placeholder = { Text("Aggiungi una nota per questo esercizio…") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-                enabled = canManage,
-                minLines = 8
-            )
-
-            if (savedText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = onDelete,
-                    enabled = canManage && !isSaving,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Elimina nota", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProgressMessage(message: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+        Text(message, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
 @Composable
 private fun WeightEntrySheet(
-    title: String,
-    weightInput: String,
-    canManage: Boolean,
-    isSaving: Boolean,
-    errorMessage: String?,
-    onWeightChange: (String) -> Unit,
-    dateLabel: String,
-    dateValue: String,
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit
+    title: String, weightInput: String, canManage: Boolean, isSaving: Boolean, errorMessage: String?,
+    onWeightChange: (String) -> Unit, dateLabel: String, dateValue: String,
+    onCancel: () -> Unit, onConfirm: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-    ) {
-        TopAppBar(
-            title = { Text(title) },
-            windowInsets = WindowInsets(0, 0, 0, 0),
-            navigationIcon = {
-                TextButton(onClick = onCancel) { Text("Annulla") }
-            },
-            actions = {
-                TextButton(onClick = onConfirm, enabled = canManage && !isSaving) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Salva")
-                    }
-                }
-            }
-        )
-
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Peso",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = weightInput,
-                onValueChange = onWeightChange,
-                label = { Text("Peso (kg)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (canManage && !isSaving) onConfirm()
-                    }
-                ),
-                isError = errorMessage != null,
-                supportingText = errorMessage?.let { message -> { Text(message) } },
-                enabled = canManage && !isSaving,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Text(
-                text = "Dettagli",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = dateLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = dateValue,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (!isSaving) focusRequester.requestFocus() }
+    Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
+        .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onCancel, enabled = !isSaving, modifier = Modifier.weight(1f)) { Text("Annulla") }
+            Button(onClick = onConfirm, enabled = canManage && !isSaving, modifier = Modifier.weight(1f)) { Text("Salva") }
         }
+        if (isSaving) { ProgressMessage("Salvataggio peso…") }
+        OutlinedTextField(value = weightInput, onValueChange = onWeightChange, label = { Text("Peso (kg)") },
+            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                focusManager.clearFocus()
+                if (canManage && !isSaving) onConfirm()
+            }), isError = errorMessage != null,
+            supportingText = { Text(errorMessage ?: "Usa la virgola o il punto, ad esempio 47,5.") },
+            enabled = canManage && !isSaving, modifier = Modifier.fillMaxWidth().focusRequester(focusRequester))
+        Text(dateLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(dateValue, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -1271,9 +1246,9 @@ private fun WeightProgressSummary(entries: List<WeightLogEntry>) {
     val summary = remember(entries) { weightProgressSummary(entries) } ?: return
     val changeLabel = when {
         summary.change == null -> "Variazione non disponibile"
-        summary.change > 0 -> "Variazione +${formatWeight(summary.change)} kg"
-        summary.change < 0 -> "Variazione ${formatWeight(summary.change)} kg"
-        else -> "Variazione stabile"
+        summary.change > 0 -> "Rispetto alla registrazione precedente: +${formatWeight(summary.change)} kg"
+        summary.change < 0 -> "Rispetto alla registrazione precedente: ${formatWeight(summary.change)} kg"
+        else -> "Rispetto alla registrazione precedente: stabile"
     }
 
     Column(
@@ -1332,8 +1307,7 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
     val colorText = MaterialTheme.colorScheme.onSurfaceVariant
 
     val plottedEntries = remember(entries) {
-        entries.filter { it.weight != null && it.timestamp != null }
-            .sortedBy { it.timestamp }
+        recentWeightSamples(entries)
     }
 
     if (plottedEntries.isEmpty()) {
@@ -1349,8 +1323,9 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
     val minWeight = weights.minOrNull() ?: 0.0
     val maxWeight = weights.maxOrNull() ?: 0.0
     val weightRange = (maxWeight - minWeight).takeIf { it > 0.0 } ?: 1.0
-    val dateFormatter = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
-    val summary = remember(entries) { weightProgressSummary(entries) }
+    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault()) }
+    var showValues by remember(entries) { mutableStateOf(false) }
+    val summary = remember(plottedEntries) { weightProgressSummary(plottedEntries) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -1365,8 +1340,8 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
         ) {
             val width = size.width
             val height = size.height
-            val horizontalPadding = 48f
-            val verticalPadding = 28f
+            val horizontalPadding = 12.dp.toPx()
+            val verticalPadding = 12.dp.toPx()
             val usableWidth = width - horizontalPadding * 2
             val usableHeight = height - verticalPadding * 2
             val stepX = if (plottedEntries.size > 1) usableWidth / (plottedEntries.size - 1) else 0f
@@ -1388,7 +1363,7 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
             plottedEntries.forEachIndexed { index, entry ->
                 val weight = entry.weight!!
                 val normalized = ((weight - minWeight) / weightRange).toFloat()
-                val x = horizontalPadding + stepX * index
+                val x = if (plottedEntries.size == 1) width / 2 else horizontalPadding + stepX * index
                 val y = height - (verticalPadding + usableHeight * normalized)
                 if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
@@ -1403,30 +1378,25 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
             plottedEntries.forEachIndexed { index, entry ->
                 val weight = entry.weight!!
                 val normalized = ((weight - minWeight) / weightRange).toFloat()
-                val x = horizontalPadding + stepX * index
+                val x = if (plottedEntries.size == 1) width / 2 else horizontalPadding + stepX * index
                 val y = height - (verticalPadding + usableHeight * normalized)
                 drawCircle(color = colorPrimary, radius = 5.5f, center = Offset(x, y))
             }
 
-            // x labels (every label if <= 6 else every 2)
-            val step = if (plottedEntries.size <= 6) 1 else 2
-            plottedEntries.forEachIndexed { index, entry ->
-                if (index % step != 0) return@forEachIndexed
-                val x = horizontalPadding + stepX * index
-                val y = height - verticalPadding + 26f
-                val dateLabel = entry.timestamp?.let { dateFormatter.format(Date(it)) } ?: "-"
-
-                drawContext.canvas.nativeCanvas.drawText(
-                    dateLabel,
-                    x - 34,
-                    y,
-                    android.graphics.Paint().apply {
-                        color = colorText.copy(alpha = 0.9f).toArgb()
-                        textSize = 24f
-                        textAlign = android.graphics.Paint.Align.LEFT
-                        isAntiAlias = true
-                    }
-                )
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = if (plottedEntries.size == 1) Arrangement.Center else Arrangement.SpaceBetween) {
+            Text("1", style = MaterialTheme.typography.labelMedium)
+            if (plottedEntries.size > 1) Text(plottedEntries.size.toString(), style = MaterialTheme.typography.labelMedium)
+        }
+        Text("Campioni in ordine di registrazione. Gli intervalli tra le date possono variare.",
+            style = MaterialTheme.typography.bodyMedium, color = colorText)
+        TextButton(onClick = { showValues = !showValues }) {
+            Text(if (showValues) "Nascondi valori e date" else "Valori e date dei campioni")
+        }
+        if (showValues) plottedEntries.forEachIndexed { index, entry ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).semantics(mergeDescendants = true) {}) {
+                Text("Campione ${index + 1}: ${formatWeight(entry.weight!!)} kg", style = MaterialTheme.typography.bodyLarge)
+                Text(dateFormatter.format(Date(entry.timestamp!!)), style = MaterialTheme.typography.bodyMedium, color = colorText)
             }
         }
 
