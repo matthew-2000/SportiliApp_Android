@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.EsercizioPredefinito
 import com.matthew.sportiliapp.model.EserciziPredefinitiViewModel
+import com.matthew.sportiliapp.model.GruppoMuscolarePredefinito
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import java.util.Locale
 import java.util.UUID
@@ -102,6 +103,21 @@ fun EditMuscleGroupScreen(
         }
     }
 
+    EditMuscleGroupContent(userCode, dayKey, group, predefiniti, isSaving, errorMessage, onSave, onCancel)
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+internal fun EditMuscleGroupContent(
+    userCode: String,
+    dayKey: String,
+    group: GruppoMuscolare,
+    predefiniti: List<GruppoMuscolarePredefinito>,
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
+    onSave: (GruppoMuscolare) -> Unit,
+    onCancel: () -> Unit
+) {
     // Stato: nome del gruppo
     var groupName by remember { mutableStateOf(group.nome) }
 
@@ -111,25 +127,7 @@ fun EditMuscleGroupScreen(
         val isCircuito = groupName.equals("Circuito", ignoreCase = true)
 
         if (isCircuito) {
-            // Ordine manuale dei gruppi
-            val groupOrder = listOf(
-                "Addominali",
-                "Gambe e Glutei",
-                "Pettorali",
-                "Spalle",
-                "Dorsali",
-                "Bicipiti",
-                "Tricipiti",
-                "Polpacci",
-                "Cardio"
-            )
-
-            predefiniti
-                // Ordina i gruppi in base all’ordine sopra
-                .sortedBy { group ->
-                    val index = groupOrder.indexOfFirst { it.equals(group.nome, ignoreCase = true) }
-                    if (index == -1) Int.MAX_VALUE else index // se non trovato, va in fondo
-                }
+            filterCircuitExerciseGroups(predefiniti, "")
                 // Combina tutti gli esercizi in ordine
                 .flatMap { gruppo ->
                     gruppo.esercizi.map { esercizio ->
@@ -296,11 +294,14 @@ fun EditMuscleGroupScreen(
 
             // Lista esercizi predefiniti (filtrati)
             val filteredExercises = remember(searchText, predefinitiGruppo) {
-                if (searchText.isBlank()) predefinitiGruppo
-                else predefinitiGruppo.filter {
-                    it.nome.contains(searchText, ignoreCase = true)
-                }
+                predefinitiGruppo.filter { it.nome.contains(searchText.trim(), ignoreCase = true) }
             }
+            val circuitGroups = remember(searchText, predefiniti) {
+                filterCircuitExerciseGroups(predefiniti, searchText)
+            }
+            val noResults = if (groupName.equals("Circuito", ignoreCase = true)) {
+                circuitGroups.isEmpty()
+            } else filteredExercises.isEmpty()
 
             LazyColumn(
                 modifier = Modifier
@@ -308,61 +309,46 @@ fun EditMuscleGroupScreen(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (groupName.equals("Circuito", ignoreCase = true)) {
-                    val groupOrder = listOf(
-                        "Addominali",
-                        "Gambe e Glutei",
-                        "Pettorali",
-                        "Spalle",
-                        "Dorsali",
-                        "Bicipiti",
-                        "Tricipiti",
-                        "Polpacci",
-                        "Cardio"
-                    )
-
-                    predefiniti
-                        .sortedBy { gruppo ->
-                            val index = groupOrder.indexOfFirst { it.equals(gruppo.nome, ignoreCase = true) }
-                            if (index == -1) Int.MAX_VALUE else index
-                        }
-                        .forEach { gruppo ->
-                            // Sticky header per ogni gruppo muscolare
-                            stickyHeader {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    tonalElevation = 4.dp,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = gruppo.nome,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                                    )
-                                }
-                            }
-
-                            // Lista degli esercizi del gruppo
-                            items(gruppo.esercizi) { esercizioPredefinito ->
-                                val isAlreadySelected = selectedExercises.any {
-                                    it.exercise.containsExerciseName(esercizioPredefinito.nome)
-                                }
-                                PredefinedExerciseCard(
-                                    esercizioPredefinito = esercizioPredefinito,
-                                    isSelected = isAlreadySelected,
-                                    onClick = {
-                                        exerciseDialogInitial = Esercizio(
-                                            name = esercizioPredefinito.nome,
-                                            serie = "",
-                                            riposo = null,
-                                            notePT = ""
-                                        )
-                                    }
+                if (noResults) {
+                    item { Text("Nessun esercizio trovato", modifier = Modifier.padding(12.dp)) }
+                } else if (groupName.equals("Circuito", ignoreCase = true)) {
+                    circuitGroups.forEach { gruppo ->
+                        // Sticky header per ogni gruppo muscolare
+                        stickyHeader {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 4.dp,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = gruppo.nome,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
                                 )
                             }
                         }
+
+                        // Lista degli esercizi del gruppo
+                        items(gruppo.esercizi) { esercizioPredefinito ->
+                            val isAlreadySelected = selectedExercises.any {
+                                it.exercise.containsExerciseName(esercizioPredefinito.nome)
+                            }
+                            PredefinedExerciseCard(
+                                esercizioPredefinito = esercizioPredefinito,
+                                isSelected = isAlreadySelected,
+                                onClick = {
+                                    exerciseDialogInitial = Esercizio(
+                                        name = esercizioPredefinito.nome,
+                                        serie = "",
+                                        riposo = null,
+                                        notePT = ""
+                                    )
+                                }
+                            )
+                        }
+                    }
                 } else {
                     items(filteredExercises) { esercizioPredefinito ->
                         val isAlreadySelected = selectedExercises.any {

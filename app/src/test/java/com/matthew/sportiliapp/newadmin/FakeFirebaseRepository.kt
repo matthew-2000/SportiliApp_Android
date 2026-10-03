@@ -16,6 +16,9 @@ class FakeFirebaseRepository : FirebaseRepository {
     val alertsFlow = MutableStateFlow<List<Avviso>>(emptyList())
     val reportsFlow = MutableStateFlow<List<WorkoutIssueReport>>(emptyList())
 
+    var addAlertCalls = 0
+    var updateAlertCalls = 0
+    var awaitAlertWrite: suspend () -> Unit = {}
     var addAlertResult: Result<Unit> = Result.success(Unit)
     var updateAlertResult: Result<Unit> = Result.success(Unit)
     var removeAlertResult: Result<Unit> = Result.success(Unit)
@@ -82,8 +85,16 @@ class FakeFirebaseRepository : FirebaseRepository {
     ): Result<Unit> = Result.success(Unit)
 
     override fun getAlerts(): Flow<List<Avviso>> = alertsFlow
-    override suspend fun addAlert(avviso: Avviso): Result<Unit> = addAlertResult
-    override suspend fun updateAlert(avviso: Avviso): Result<Unit> = updateAlertResult
+    override suspend fun addAlert(avviso: Avviso): Result<Unit> {
+        addAlertCalls++
+        awaitAlertWrite()
+        return addAlertResult
+    }
+    override suspend fun updateAlert(avviso: Avviso): Result<Unit> {
+        updateAlertCalls++
+        awaitAlertWrite()
+        return updateAlertResult
+    }
     override suspend fun removeAlert(alertId: String): Result<Unit> = removeAlertResult
     override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = reportsFlow
     override suspend fun addWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> = Result.success(Unit)

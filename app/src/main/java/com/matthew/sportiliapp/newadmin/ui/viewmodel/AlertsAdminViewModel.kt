@@ -47,8 +47,9 @@ class AlertsAdminViewModel(
     }
 
     fun addAlert(avviso: Avviso, onResult: (Result<Unit>) -> Unit = {}) {
+        if (_actionState.value is AdminActionState.InProgress) return
+        _actionState.value = AdminActionState.InProgress
         viewModelScope.launch {
-            _actionState.value = AdminActionState.InProgress
             val result = addAlertUseCase(avviso)
             _actionState.value = result.toActionState("Errore durante il salvataggio dell'avviso")
             onResult(result)
@@ -56,8 +57,9 @@ class AlertsAdminViewModel(
     }
 
     fun updateAlert(avviso: Avviso, onResult: (Result<Unit>) -> Unit = {}) {
+        if (_actionState.value is AdminActionState.InProgress) return
+        _actionState.value = AdminActionState.InProgress
         viewModelScope.launch {
-            _actionState.value = AdminActionState.InProgress
             val result = updateAlertUseCase(avviso)
             _actionState.value = result.toActionState("Errore durante l'aggiornamento dell'avviso")
             onResult(result)
@@ -65,8 +67,9 @@ class AlertsAdminViewModel(
     }
 
     fun removeAlert(alertId: String, onResult: (Result<Unit>) -> Unit = {}) {
+        if (_actionState.value is AdminActionState.InProgress) return
+        _actionState.value = AdminActionState.InProgress
         viewModelScope.launch {
-            _actionState.value = AdminActionState.InProgress
             val result = removeAlertUseCase(alertId)
             _actionState.value = result.toActionState("Errore durante l'eliminazione dell'avviso")
             onResult(result)

@@ -1,5 +1,7 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -178,8 +180,9 @@ fun AdminReportsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReportCard(
+internal fun ReportCard(
     report: WorkoutIssueReport,
     onToggleResolved: () -> Unit,
     onRemove: () -> Unit
@@ -223,11 +226,14 @@ private fun ReportCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(onClick = onToggleResolved) {
                     Text(if (report.resolved) "Segna come da rivedere" else "Segna come risolta")
                 }
-                Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = onRemove) {
                     Icon(Icons.Default.Delete, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -48,12 +50,15 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +92,7 @@ fun AdminAlertsScreen(
     val uiState = viewModel.uiState.collectAsState().value
     val actionState = viewModel.actionState.collectAsState().value
 
+    val isSaving = actionState is AdminActionState.InProgress
     var showDialog by remember { mutableStateOf(false) }
     var editingAlert by remember { mutableStateOf<Avviso?>(null) }
     var alertPendingDeletion by remember { mutableStateOf<Avviso?>(null) }
@@ -96,7 +102,7 @@ fun AdminAlertsScreen(
             TopAppBar(
                 title = { Text("Avvisi") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !isSaving) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
                     }
                 }
@@ -104,8 +110,11 @@ fun AdminAlertsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                editingAlert = null
-                showDialog = true
+                if (!isSaving) {
+                    viewModel.clearActionError()
+                    editingAlert = null
+                    showDialog = true
+                }
             }) {
                 Icon(Icons.Default.Add, contentDescription = "Nuovo avviso")
             }
@@ -120,7 +129,7 @@ fun AdminAlertsScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             val actionError = (actionState as? AdminActionState.Error)?.message
-            actionError?.let { message ->
+            actionError?.takeIf { !showDialog }?.let { message ->
                 Text(
                     text = message,
                     color = MaterialTheme.colorScheme.error,
@@ -169,11 +178,12 @@ fun AdminAlertsScreen(
                                 AlertAdminCard(
                                     alert = alert,
                                     onEdit = {
+                                        if (isSaving) return@AlertAdminCard
                                         viewModel.clearActionError()
                                         editingAlert = alert
                                         showDialog = true
                                     },
-                                    onDelete = { alertPendingDeletion = alert }
+                                    onDelete = { if (!isSaving) alertPendingDeletion = alert }
                                 )
                             }
                         }
@@ -186,17 +196,23 @@ fun AdminAlertsScreen(
     if (showDialog) {
         AlertEditorSheet(
             initialAlert = editingAlert,
+            isSaving = isSaving,
+            errorMessage = (actionState as? AdminActionState.Error)?.message,
             onDismiss = {
-                showDialog = false
-                viewModel.clearActionError()
+                if (!isSaving) {
+                    showDialog = false
+                    viewModel.clearActionError()
+                }
             },
             onConfirm = { alert ->
-                if (alert.id.isBlank()) {
-                    viewModel.addAlert(alert)
-                } else {
-                    viewModel.updateAlert(alert)
+                val onResult: (Result<Unit>) -> Unit = { result ->
+                    if (result.isSuccess) showDialog = false
                 }
-                showDialog = false
+                if (alert.id.isBlank()) {
+                    viewModel.addAlert(alert, onResult)
+                } else {
+                    viewModel.updateAlert(alert, onResult)
+                }
             }
         )
     }
@@ -281,10 +297,16 @@ private fun AlertAdminCard(
 @Composable
 private fun AlertEditorSheet(
     initialAlert: Avviso?,
+    isSaving: Boolean,
+    errorMessage: String?,
     onDismiss: () -> Unit,
     onConfirm: (Avviso) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val currentSaving by rememberUpdatedState(isSaving)
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { !currentSaving || it != SheetValue.Hidden }
+    )
 
     var title by remember(initialAlert) { mutableStateOf(initialAlert?.titolo.orEmpty()) }
     var description by remember(initialAlert) { mutableStateOf(initialAlert?.descrizione.orEmpty()) }
@@ -333,129 +355,149 @@ private fun AlertEditorSheet(
 
     val urgencyOptions = listOf("", "Bassa", "Media", "Alta")
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    // Material 1.3 retains the dialog's initial back callback. Recreate that dialog when
+    // pending changes, while keeping every draft field above this key intact.
+    key(isSaving) {
+        ModalBottomSheet(
+            onDismissRequest = { if (!isSaving) onDismiss() },
+            properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !isSaving),
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
-            Text(
-                text = if (initialAlert == null) "Nuovo avviso" else "Modifica avviso",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            OutlinedTextField(
-                value = title,
-                onValueChange = {
-                    title = it
-                    if (titleError && it.isNotBlank()) titleError = false
-                },
-                label = { Text("Titolo") },
-                isError = titleError,
-                supportingText = if (titleError) {
-                    { Text("Inserisci un titolo") }
-                } else null,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = description,
-                onValueChange = {
-                    description = it
-                    if (descriptionError && it.isNotBlank()) descriptionError = false
-                },
-                label = { Text("Descrizione") },
-                isError = descriptionError,
-                supportingText = if (descriptionError) {
-                    { Text("Inserisci una descrizione") }
-                } else null,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 160.dp),
-                minLines = 5,
-                maxLines = 12
-            )
-            ExposedDropdownMenuBox(
-                expanded = urgencyExpanded,
-                onExpandedChange = { urgencyExpanded = !urgencyExpanded }
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(
-                    value = urgency,
-                    onValueChange = { urgency = it },
-                    label = { Text("Urgenza") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = urgencyExpanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    readOnly = true
+                Text(
+                    text = if (initialAlert == null) "Nuovo avviso" else "Modifica avviso",
+                    style = MaterialTheme.typography.headlineSmall
                 )
-                ExposedDropdownMenu(
-                    expanded = urgencyExpanded,
-                    onDismissRequest = { urgencyExpanded = false }
-                ) {
-                    urgencyOptions.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(if (option.isBlank()) "Nessuna" else option) },
-                            onClick = {
-                                urgency = option
-                                urgencyExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "Scadenza", style = MaterialTheme.typography.labelLarge)
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.DateRange, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(selectedDate?.format(dateFormatter) ?: "Nessuna scadenza")
-                }
-                if (selectedDate != null) {
-                    TextButton(onClick = { selectedDate = null }) {
-                        Text("Rimuovi scadenza")
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                    Text("Annulla")
-                }
-                Button(
-                    onClick = {
-                        titleError = title.isBlank()
-                        descriptionError = description.isBlank()
-
-                        if (titleError || descriptionError) return@Button
-
-                        val normalizedUrgency = urgency.lowercase().takeIf { it.isNotBlank() }
-                        val deadlineMillis = selectedDate?.atStartOfDay(zoneId)?.toInstant()?.toEpochMilli()
-
-                        val newAlert = Avviso(
-                            id = initialAlert?.id.orEmpty(),
-                            titolo = title.trim(),
-                            descrizione = description.trim(),
-                            urgenza = normalizedUrgency,
-                            scadenza = deadlineMillis
-                        )
-                        onConfirm(newAlert)
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = {
+                        title = it
+                        if (titleError && it.isNotBlank()) titleError = false
                     },
-                    modifier = Modifier.weight(1f)
+                    label = { Text("Titolo") },
+                    enabled = !isSaving,
+                    isError = titleError,
+                    supportingText = if (titleError) {
+                        { Text("Inserisci un titolo") }
+                    } else null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = {
+                        description = it
+                        if (descriptionError && it.isNotBlank()) descriptionError = false
+                    },
+                    label = { Text("Descrizione") },
+                    enabled = !isSaving,
+                    isError = descriptionError,
+                    supportingText = if (descriptionError) {
+                        { Text("Inserisci una descrizione") }
+                    } else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 160.dp),
+                    minLines = 5,
+                    maxLines = 12
+                )
+                ExposedDropdownMenuBox(
+                    expanded = urgencyExpanded,
+                    onExpandedChange = { if (!isSaving) urgencyExpanded = !urgencyExpanded }
                 ) {
-                    Text("Salva")
+                    OutlinedTextField(
+                        value = urgency,
+                        onValueChange = { urgency = it },
+                        label = { Text("Urgenza") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = urgencyExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        enabled = !isSaving,
+                        readOnly = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = urgencyExpanded,
+                        onDismissRequest = { urgencyExpanded = false }
+                    ) {
+                        urgencyOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(if (option.isBlank()) "Nessuna" else option) },
+                                onClick = {
+                                    urgency = option
+                                    urgencyExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "Scadenza", style = MaterialTheme.typography.labelLarge)
+                    OutlinedButton(
+                        enabled = !isSaving,
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(selectedDate?.format(dateFormatter) ?: "Nessuna scadenza")
+                    }
+                    if (selectedDate != null) {
+                        TextButton(enabled = !isSaving, onClick = { selectedDate = null }) {
+                            Text("Rimuovi scadenza")
+                        }
+                    }
+                }
+                if (isSaving) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text("Salvataggio in corso…", style = MaterialTheme.typography.bodyMedium)
+                }
+                errorMessage?.let { message ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(onClick = onDismiss, enabled = !isSaving, modifier = Modifier.weight(1f)) {
+                        Text("Annulla")
+                    }
+                    Button(
+                        enabled = !isSaving,
+                        onClick = {
+                            titleError = title.isBlank()
+                            descriptionError = description.isBlank()
+
+                            if (titleError || descriptionError) return@Button
+
+                            val normalizedUrgency = urgency.lowercase().takeIf { it.isNotBlank() }
+                            val deadlineMillis = selectedDate?.atStartOfDay(zoneId)?.toInstant()?.toEpochMilli()
+
+                            val newAlert = Avviso(
+                                id = initialAlert?.id.orEmpty(),
+                                titolo = title.trim(),
+                                descrizione = description.trim(),
+                                urgenza = normalizedUrgency,
+                                scadenza = deadlineMillis
+                            )
+                            onConfirm(newAlert)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Salva")
+                    }
                 }
             }
         }

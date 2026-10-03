@@ -55,41 +55,8 @@ fun ContentScreen(navController: NavHostController) {
         factory = SchedaViewModelFactory(LocalContext.current.applicationContext)
     )
 
-    // Bottom navigation items
-    val items = listOf(
-        BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
-        BottomNavItem("Avvisi", Icons.Filled.Notifications, "avvisi"),
-        BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
-    )
-
     Scaffold(
-        bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController2.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
-
-                items.forEach { item ->
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.title) },
-                        label = { Text(item.title) },
-                        selected = currentRoute == item.route,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.background,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        onClick = {
-                            navController2.navigate(item.route) {
-                                // Prevents building a large back stack
-                                popUpTo(navController2.graph.startDestinationId) { saveState = true }
-                                restoreState = true
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-                }
-            }
-        },
+        bottomBar = { ContentBottomNavigation(navController2) },
         content = { padding ->
             // NavHost per la navigazione tra le schede
             NavHost(
@@ -145,3 +112,43 @@ fun ContentScreen(navController: NavHostController) {
 
 
 data class BottomNavItem(val title: String, val icon: ImageVector, val route: String)
+
+/** Detail routes belong to Scheda; match route segments rather than arbitrary prefixes. */
+internal fun bottomNavigationRoute(currentRoute: String?): String? =
+    when (currentRoute?.substringBefore('/')) {
+        "scheda", "giorno", "esercizio" -> "scheda"
+        "avvisi" -> "avvisi"
+        "impostazioni" -> "impostazioni"
+        else -> null
+    }
+
+@Composable
+internal fun ContentBottomNavigation(navController: NavHostController) {
+    val items = listOf(
+        BottomNavItem("Scheda", Icons.Filled.Home, "scheda"),
+        BottomNavItem("Avvisi", Icons.Filled.Notifications, "avvisi"),
+        BottomNavItem("Impostazioni", Icons.Filled.Settings, "impostazioni")
+    )
+    val entry by navController.currentBackStackEntryAsState()
+    NavigationBar {
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icon, contentDescription = item.title) },
+                label = { Text(item.title) },
+                selected = bottomNavigationRoute(entry?.destination?.route) == item.route,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.background,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primary
+                ),
+                onClick = {
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        restoreState = true
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+    }
+}
