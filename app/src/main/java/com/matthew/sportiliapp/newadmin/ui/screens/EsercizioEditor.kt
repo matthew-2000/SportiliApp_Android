@@ -12,6 +12,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.os.Build
+import android.view.WindowManager
+import android.view.ViewTreeObserver
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -78,15 +86,38 @@ fun EsercizioDialog(
         onConfirm(updated.copy(name = updated.name.split(" + ").joinToString(" + ") { it.capitalizeExerciseName() }))
     }
     Dialog(onDismissRequest = { exit() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val view = LocalView.current
+        val density = LocalDensity.current
+        var keyboardBottom by remember { mutableIntStateOf(0) }
+        DisposableEffect(view) {
+            val window = (view.parent as? DialogWindowProvider)?.window
+            val previousMode = window?.attributes?.softInputMode
+            // The dialog owns its keyboard insets. Prevent native adjustPan, and read the
+            // dialog window's insets directly (Compose 1.7's IME padding misses this window).
+            window?.setSoftInputMode(if (Build.VERSION.SDK_INT >= 30) WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                else WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            val observer = view.viewTreeObserver
+            val listener = ViewTreeObserver.OnPreDrawListener {
+                val insets = ViewCompat.getRootWindowInsets(view)
+                keyboardBottom = if (Build.VERSION.SDK_INT >= 30 && insets?.isVisible(WindowInsetsCompat.Type.ime()) == true)
+                    insets.getInsets(WindowInsetsCompat.Type.ime()).bottom else 0
+                true
+            }
+            observer.addOnPreDrawListener(listener)
+            onDispose {
+                if (observer.isAlive) observer.removeOnPreDrawListener(listener)
+                previousMode?.let { window.setSoftInputMode(it) }
+            }
+        }
         Surface(Modifier.fillMaxSize()) {
             Scaffold(
-                modifier = Modifier.imePadding(),
+                modifier = Modifier.padding(bottom = with(density) { keyboardBottom.toDp() }),
                 topBar = { AdminContextAppBar(if (pickerIndex == null) "Esercizio" else "Scegli dal catalogo",
                     if (pickerIndex == null) "Bozza del gruppo · ${extras.size + 1} parti" else "Parte ${pickerIndex!! + 2} · Esercizio extra",
                     true, onBack = { exit() }) },
                 bottomBar = {
                     if (pickerIndex == null) Surface(tonalElevation = 3.dp) {
-                        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp)) {
+                        Column(Modifier.fillMaxWidth().then(if (keyboardBottom == 0) Modifier.navigationBarsPadding() else Modifier).padding(12.dp)) {
                             Text("Conferma nella bozza; salva il gruppo per applicare le modifiche.", style = MaterialTheme.typography.bodySmall)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = { exit() }, modifier = Modifier.weight(1f)) { Text("Annulla") }
