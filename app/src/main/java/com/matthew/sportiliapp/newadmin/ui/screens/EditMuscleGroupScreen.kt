@@ -1,31 +1,18 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
-import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matthew.sportiliapp.model.Esercizio
@@ -59,7 +46,7 @@ data class ExerciseInputState(
 private fun String.normalizeForExerciseComparison(): String =
     trim().lowercase(Locale.getDefault())
 
-private fun String.capitalizeExerciseName(): String {
+internal fun String.capitalizeExerciseName(): String {
     val trimmed = trim()
     if (trimmed.isEmpty()) return ""
     val lower = trimmed.lowercase(Locale.getDefault())
@@ -159,8 +146,6 @@ internal fun EditMuscleGroupContent(
     var exerciseDialogInitial by remember { mutableStateOf<Esercizio?>(null) }
     // Stato per aprire il dialog in modalità “modifica”
     var exerciseEntryInEdit by remember { mutableStateOf<ExerciseEntry?>(null) }
-    // Stato per mostrare la sheet degli esercizi selezionati
-    var showSelectedSheet by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
 
     val initialExercises = remember(group) {
@@ -222,6 +207,7 @@ internal fun EditMuscleGroupContent(
     }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
             AdminContextAppBar(
                 title = groupName, context = "Utente $userCode · Scheda · $dayKey · Gruppo",
@@ -237,129 +223,83 @@ internal fun EditMuscleGroupContent(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp)
-                .fillMaxSize()
+        val filteredExercises = remember(searchText, predefinitiGruppo) {
+            predefinitiGruppo.filter { it.nome.contains(searchText.trim(), ignoreCase = true) }
+        }
+        val circuitGroups = remember(searchText, predefiniti) {
+            filterCircuitExerciseGroups(predefiniti, searchText)
+        }
+        val noResults = if (groupName.equals("Circuito", ignoreCase = true)) {
+            circuitGroups.isEmpty()
+        } else filteredExercises.isEmpty()
+        LazyColumn(
+            modifier = Modifier.padding(paddingValues).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (isSaving) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(12.dp))
+            item {
+                if (isSaving) LinearProgressIndicator(Modifier.fillMaxWidth())
+                errorMessage?.let { AdminEditorErrorBanner(it, onRetry = { onSave(buildUpdatedGroup()) }) }
+                AdminEditorSection("Esercizi selezionati", "${selectedExercises.size} esercizi nel gruppo. Modifica e riordina la bozza, poi salva il gruppo.")
             }
-            errorMessage?.let { message ->
-                AdminEditorErrorBanner(message, onRetry = { onSave(buildUpdatedGroup()) })
-                Spacer(modifier = Modifier.height(12.dp))
+            if (selectedExercises.isEmpty()) item { Text("Nessun esercizio aggiunto. Scegli dal catalogo o crea un esercizio personalizzato.") }
+            items(selectedExercises, key = { it.id }) { entry ->
+                val index = selectedExercises.indexOfFirst { it.id == entry.id }
+                AdminOrderedItem(
+                    name = entry.exercise.name,
+                    summary = "Prescrizione: ${entry.exercise.serie}" +
+                        (entry.exercise.riposo?.takeIf { it.isNotBlank() }?.let { "\nRecupero: $it" } ?: "") +
+                        (if (entry.exercise.notePT.isNullOrBlank()) "" else "\nIstruzioni trainer presenti"),
+                    kind = "esercizio", position = index + 1, total = selectedExercises.size,
+                    enabled = !isSaving,
+                    onMoveUp = { if (index > 0) selectedExercises.swap(index, index - 1) },
+                    onMoveDown = { if (index < selectedExercises.lastIndex) selectedExercises.swap(index, index + 1) },
+                    onRemove = { selectedExercises.removeAll { it.id == entry.id } },
+                    onEdit = { exerciseEntryInEdit = entry },
+                    editLabel = "Modifica",
+                    removalSupportingText = "La rimozione sarà applicata quando salvi il gruppo. Puoi annullarla uscendo e scartando la bozza."
+                )
             }
-
-            AdminEditorSection(
-                title = "Esercizi selezionati",
-                supportingText = "${selectedExercises.size} esercizi nel gruppo."
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { showSelectedSheet = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) {
-                    Icon(Icons.Default.Info, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Riepilogo")
+            item {
+                Button(onClick = { startNewExercise() }, modifier = Modifier.fillMaxWidth(), enabled = !isSaving) {
+                    Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Nuovo esercizio")
                 }
-                Button(
-                    onClick = { startNewExercise() },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Nuovo esercizio")
-                }
+                Spacer(Modifier.height(16.dp))
+                AdminEditorSection("Catalogo esercizi", "Cerca e aggiungi alla bozza. Gli esercizi già presenti possono essere aggiunti di nuovo.")
+                OutlinedTextField(searchText, { searchText = it }, label = { Text("Cerca esercizio...") },
+                    modifier = Modifier.fillMaxWidth(), enabled = !isSaving, singleLine = true,
+                    trailingIcon = { if (searchText.isNotEmpty()) TextButton(onClick = { searchText = "" }, enabled = !isSaving) { Text("Cancella") } })
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            AdminEditorSection(
-                title = "Catalogo esercizi",
-                supportingText = "Cerca e aggiungi esercizi predefiniti."
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = { searchText = it },
-                label = { Text("Cerca esercizio...") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Lista esercizi predefiniti (filtrati)
-            val filteredExercises = remember(searchText, predefinitiGruppo) {
-                predefinitiGruppo.filter { it.nome.contains(searchText.trim(), ignoreCase = true) }
-            }
-            val circuitGroups = remember(searchText, predefiniti) {
-                filterCircuitExerciseGroups(predefiniti, searchText)
-            }
-            val noResults = if (groupName.equals("Circuito", ignoreCase = true)) {
-                circuitGroups.isEmpty()
-            } else filteredExercises.isEmpty()
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (noResults) {
-                    item { Text("Nessun esercizio trovato", modifier = Modifier.padding(12.dp)) }
-                } else if (groupName.equals("Circuito", ignoreCase = true)) {
-                    circuitGroups.forEach { gruppo ->
-                        // Sticky header per ogni gruppo muscolare
-                        stickyHeader {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                tonalElevation = 4.dp,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = gruppo.nome,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                                )
-                            }
-                        }
-
-                        // Lista degli esercizi del gruppo
-                        items(gruppo.esercizi) { esercizioPredefinito ->
-                            val isAlreadySelected = selectedExercises.any {
-                                it.exercise.containsExerciseName(esercizioPredefinito.nome)
-                            }
-                            PredefinedExerciseCard(
-                                esercizioPredefinito = esercizioPredefinito,
-                                isSelected = isAlreadySelected,
-                                onClick = {
-                                    exerciseDialogInitial = Esercizio(
-                                        name = esercizioPredefinito.nome,
-                                        serie = "",
-                                        riposo = null,
-                                        notePT = ""
-                                    )
-                                }
+            if (noResults) {
+                item { Text("Nessun esercizio trovato", modifier = Modifier.padding(12.dp)) }
+            } else if (groupName.equals("Circuito", ignoreCase = true)) {
+                circuitGroups.forEach { gruppo ->
+                    // Sticky header per ogni gruppo muscolare
+                    stickyHeader {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 4.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = gruppo.nome,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
                             )
                         }
                     }
-                } else {
-                    items(filteredExercises) { esercizioPredefinito ->
+
+                    // Lista degli esercizi del gruppo
+                    items(gruppo.esercizi) { esercizioPredefinito ->
                         val isAlreadySelected = selectedExercises.any {
                             it.exercise.containsExerciseName(esercizioPredefinito.nome)
                         }
                         PredefinedExerciseCard(
                             esercizioPredefinito = esercizioPredefinito,
                             isSelected = isAlreadySelected,
+                            enabled = !isSaving,
                             onClick = {
                                 exerciseDialogInitial = Esercizio(
                                     name = esercizioPredefinito.nome,
@@ -371,8 +311,26 @@ internal fun EditMuscleGroupContent(
                         )
                     }
                 }
+            } else {
+                items(filteredExercises) { esercizioPredefinito ->
+                    val isAlreadySelected = selectedExercises.any {
+                        it.exercise.containsExerciseName(esercizioPredefinito.nome)
+                    }
+                    PredefinedExerciseCard(
+                        esercizioPredefinito = esercizioPredefinito,
+                        isSelected = isAlreadySelected,
+                        enabled = !isSaving,
+                        onClick = {
+                            exerciseDialogInitial = Esercizio(
+                                name = esercizioPredefinito.nome,
+                                serie = "",
+                                riposo = null,
+                                notePT = ""
+                            )
+                        }
+                    )
+                }
             }
-
         }
     }
 
@@ -405,25 +363,6 @@ internal fun EditMuscleGroupContent(
         )
     }
 
-    // Bottom sheet per visualizzare gli esercizi aggiunti, con possibilità di editing via click
-    if (showSelectedSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSelectedSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            SelectedExercisesSheet(
-                selectedExercises = selectedExercises,
-                onClose = { showSelectedSheet = false },
-                onSave = {
-                    onSave(buildUpdatedGroup())
-                },
-                onEdit = { entry ->
-                    // Quando si clicca su un item, apri il dialog in modalità editing
-                    exerciseEntryInEdit = entry
-                }
-            )
-        }
-    }
 }
 
 // ----------------- PREDEFINED EXERCISE CARD -----------------
@@ -432,7 +371,8 @@ internal fun EditMuscleGroupContent(
 fun PredefinedExerciseCard(
     esercizioPredefinito: EsercizioPredefinito,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     val highlightBorder = if (isSelected) {
         BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
@@ -443,512 +383,17 @@ fun PredefinedExerciseCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable(enabled = enabled, onClickLabel = "Aggiungi ${esercizioPredefinito.nome}", onClick = onClick),
         elevation = CardDefaults.cardElevation(4.dp),
         border = highlightBorder
     ) {
-        Box(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = esercizioPredefinito.nome,
                 style = MaterialTheme.typography.bodyMedium
             )
-        }
-    }
-}
-
-// ----------------- SELECTED EXERCISES BOTTOM SHEET -----------------
-@Composable
-fun SelectedExercisesSheet(
-    selectedExercises: MutableList<ExerciseEntry>,
-    onClose: () -> Unit,
-    onSave: () -> Unit,
-    onEdit: (ExerciseEntry) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Text("Esercizi Aggiunti", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(12.dp))
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1F, fill = false)
-        ) {
-            items(selectedExercises, key = { it.id }) { entry ->
-                ExerciseReorderableItem(
-                    entry = entry,
-                    onItemClick = { onEdit(entry) },
-                    onMoveUp = {
-                        val currentIndex = selectedExercises.indexOf(entry)
-                        if (currentIndex > 0) {
-                            selectedExercises.swap(currentIndex, currentIndex - 1)
-                        }
-                    },
-                    onMoveDown = {
-                        val currentIndex = selectedExercises.indexOf(entry)
-                        if (currentIndex < selectedExercises.size - 1) {
-                            selectedExercises.swap(currentIndex, currentIndex + 1)
-                        }
-                    },
-                    onRemove = { selectedExercises.remove(entry) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            OutlinedButton(
-                onClick = onClose,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Annulla")
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Button(
-                onClick = onSave,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Salva")
-            }
-        }
-    }
-}
-
-@Composable
-fun ExerciseReorderableItem(
-    entry: ExerciseEntry,
-    onItemClick: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onRemove: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onItemClick() }
-            .padding(4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = entry.exercise.name, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text(text = "Serie: ${entry.exercise.serie}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (entry.exercise.riposo?.isNotBlank() == true) {
-                    Text(text = "Riposo: ${entry.exercise.riposo}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Row {
-                IconButton(onClick = onMoveUp) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta su")
-                }
-                IconButton(onClick = onMoveDown) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta giù")
-                }
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Rimuovi")
-                }
-            }
-        }
-    }
-}
-
-// ------------------- DIALOG PER AGGIUNGERE/EDITARE UN ESERCIZIO -------------------
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EsercizioDialog(
-    initialExercise: Esercizio,
-    onDismiss: () -> Unit,
-    onConfirm: (Esercizio) -> Unit,
-    predefiniti: List<EsercizioPredefinito>,
-) {
-    // ✅ Calcolati UNA SOLA VOLTA quando cambia initialExercise
-    val nameParts = remember(initialExercise) {
-        initialExercise.name.split(" + ").map { it.trim() }
-    }
-    val serieParts = remember(initialExercise) {
-        initialExercise.serie.split(" + ").map { it.trim() }
-    }
-
-    // ✅ State "utente" - si resettano SOLO quando cambia initialExercise
-    var mainExerciseName by remember(initialExercise) {
-        mutableStateOf(nameParts.firstOrNull().orEmpty())
-    }
-    var mainSerie by remember(initialExercise) { mutableStateOf(3) }
-    var mainRipetizioni by remember(initialExercise) { mutableStateOf(10) }
-    var mainCustomSerie by remember(initialExercise) { mutableStateOf("") }
-
-    // ✅ Extra (superserie) - lista stabile
-    val extraExercises = remember(initialExercise) { mutableStateListOf<ExerciseInputState>() }
-
-    // ✅ Riposo
-    var includeRiposo by remember(initialExercise) {
-        mutableStateOf(initialExercise.riposo?.isNotBlank() == true)
-    }
-    var minutiRiposo by remember(initialExercise) { mutableStateOf(1) }
-    var secondiRiposo by remember(initialExercise) { mutableStateOf(0) }
-
-    // ✅ Note
-    var notePT by remember(initialExercise) { mutableStateOf(initialExercise.notePT) }
-
-    // ✅ Selezione predefiniti per extra
-    var selectingPredefinedIndex by remember { mutableStateOf<Int?>(null) }
-    var extraPredefSearchText by remember { mutableStateOf("") }
-
-    // ✅ Inizializzazione “one-shot” di serie + extra + riposo (NON deve stare nel body!)
-    LaunchedEffect(initialExercise) {
-        // --- parse serie principale ---
-        val firstSerie = serieParts.firstOrNull().orEmpty()
-        if (firstSerie.contains("x")) {
-            val parts = firstSerie.split("x").map { it.trim() }
-            mainSerie = parts.getOrNull(0)?.toIntOrNull() ?: 3
-            mainRipetizioni = parts.getOrNull(1)?.toIntOrNull() ?: 10
-            mainCustomSerie = ""
-        } else if (firstSerie.isNotBlank()) {
-            mainCustomSerie = firstSerie
-        } else {
-            mainCustomSerie = ""
-            mainSerie = 3
-            mainRipetizioni = 10
-        }
-
-        // --- parse extra ---
-        extraExercises.clear()
-        for (i in 1 until minOf(nameParts.size, serieParts.size)) {
-            extraExercises.add(
-                ExerciseInputState(
-                    exerciseName = nameParts[i],
-                    customSerieText = serieParts[i]
-                )
-            )
-        }
-
-        // --- parse riposo (m'ss") ---
-        val hasRiposo = initialExercise.riposo?.isNotBlank() == true
-        if (hasRiposo) {
-            minutiRiposo = initialExercise.riposo?.substringBefore("'")?.toIntOrNull() ?: 1
-            secondiRiposo = initialExercise.riposo
-                ?.substringAfter("'")
-                ?.substringBefore("\"")
-                ?.toIntOrNull() ?: 0
-        } else {
-            minutiRiposo = 1
-            secondiRiposo = 0
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            val dialogTitle = if (mainExerciseName.isNotBlank()) mainExerciseName else "Esercizio Personalizzato"
-            Text(dialogTitle, style = MaterialTheme.typography.titleLarge)
-            SectionDivider()
-
-            // ---- SEZIONE ESERCIZIO PRINCIPALE ----
-            OutlinedTextField(
-                value = mainExerciseName,
-                onValueChange = { mainExerciseName = it },
-                label = { Text("Nome Esercizio") },
-                placeholder = { Text("Panca piana, Trazioni, etc.") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            if (mainCustomSerie.isEmpty()) {
-                Stepper(
-                    value = mainSerie,
-                    onValueChange = { mainSerie = it },
-                    range = 1..30,
-                    label = "Serie"
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Stepper(
-                    value = mainRipetizioni,
-                    onValueChange = { mainRipetizioni = it },
-                    range = 1..50,
-                    label = "Ripetizioni"
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = mainCustomSerie,
-                onValueChange = { mainCustomSerie = it },
-                label = { Text("Formato Serie (opzionale)") },
-                placeholder = { Text("Esempio: 4x8, 2 minuti, etc.") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            SectionDivider()
-
-            // ---- SEZIONE ESERCIZI EXTRA (SUPERSERIE) ----
-            SectionTitle("Superserie")
-            extraExercises.forEachIndexed { index, exerciseState ->
-                ExtraExerciseCard(
-                    index = index,
-                    exerciseState = exerciseState,
-                    onUpdate = { updatedState -> extraExercises[index] = updatedState },
-                    onRemove = { extraExercises.removeAt(index) },
-                    onSelectPredefinito = { selectingPredefinedIndex = index }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            Button(
-                onClick = { extraExercises.add(ExerciseInputState()) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Aggiungi esercizio extra")
-            }
-
-            SectionDivider()
-
-            // ---- RIPOSO (opzionale) ----
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = includeRiposo,
-                    onCheckedChange = { includeRiposo = it }
-                )
-                Text("Includi Riposo", style = MaterialTheme.typography.bodyLarge)
-            }
-            if (includeRiposo) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SectionTitle("Tempo di Riposo")
-                Spacer(modifier = Modifier.height(8.dp))
-                Stepper(
-                    value = minutiRiposo,
-                    onValueChange = { minutiRiposo = it },
-                    range = 0..10,
-                    label = "Minuti"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Stepper(
-                    value = secondiRiposo,
-                    onValueChange = { secondiRiposo = it },
-                    range = 0..55 step 5,
-                    label = "Secondi"
-                )
-            }
-
-            SectionDivider()
-
-            // ---- BOTTONI FINALI ----
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Annulla")
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(
-                    onClick = {
-                        // Combina i dati dell'esercizio principale e degli extra
-                        val mainSerieString = if (mainCustomSerie.isNotBlank()) mainCustomSerie else "$mainSerie x $mainRipetizioni"
-                        val extraSerieStrings = extraExercises.map {
-                            if (it.customSerieText.isNotBlank()) it.customSerieText else "${it.numeroRipetizioni}"
-                        }
-                        val finalSerie = listOf(mainSerieString)
-                            .plus(extraSerieStrings)
-                            .joinToString(" + ")
-                        val formattedMainName = if (mainExerciseName.isNotBlank()) {
-                            mainExerciseName.capitalizeExerciseName()
-                        } else {
-                            "Esercizio Personalizzato".capitalizeExerciseName()
-                        }
-                        val formattedExtraNames = extraExercises.map { state ->
-                            val rawName = state.exerciseName.ifBlank {
-                                "Esercizio"
-                            }
-                            rawName.capitalizeExerciseName()
-                        }
-                        val finalName = listOf(formattedMainName)
-                            .plus(formattedExtraNames)
-                            .joinToString(" + ")
-                        val riposoString = if (!includeRiposo || (minutiRiposo == 0 && secondiRiposo == 0)) {
-                            ""
-                        } else {
-                            if (secondiRiposo < 10) "${minutiRiposo}'0${secondiRiposo}\"" else "${minutiRiposo}'${secondiRiposo}\""
-                        }
-                        val nuovoEsercizio = initialExercise.copy(
-                            name = finalName,
-                            serie = finalSerie,
-                            riposo = riposoString,
-                            notePT = notePT
-                        )
-                        onConfirm(nuovoEsercizio)
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Salva")
-                }
-            }
-        }
-    }
-
-    // Dialog per selezionare un esercizio predefinito per un extra
-    if (selectingPredefinedIndex != null) {
-        AlertDialog(
-            onDismissRequest = {
-                selectingPredefinedIndex = null
-                extraPredefSearchText = ""
-            },
-            title = { Text("Seleziona Esercizio Predefinito") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = extraPredefSearchText,
-                        onValueChange = { extraPredefSearchText = it },
-                        label = { Text("Cerca esercizio...") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val filtered = predefiniti.filter { it.nome.contains(extraPredefSearchText, ignoreCase = true) }
-                    LazyColumn {
-                        items(filtered) { esercizioPredef ->
-                            Text(
-                                text = esercizioPredef.nome,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectingPredefinedIndex?.let { idx ->
-                                            val current = extraExercises[idx]
-                                            extraExercises[idx] = current.copy(exerciseName = esercizioPredef.nome)
-                                        }
-                                        selectingPredefinedIndex = null
-                                        extraPredefSearchText = ""
-                                    }
-                                    .padding(8.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = {
-                    selectingPredefinedIndex = null
-                    extraPredefSearchText = ""
-                }) {
-                    Text("Annulla")
-                }
-            }
-        )
-    }
-}
-
-// ------------------- EXTRA EXERCISE CARD ------------------- //
-@Composable
-fun ExtraExerciseCard(
-    index: Int,
-    exerciseState: ExerciseInputState,
-    onUpdate: (ExerciseInputState) -> Unit,
-    onRemove: () -> Unit,
-    onSelectPredefinito: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(4.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(text = "Esercizio Extra ${index + 1}", style = MaterialTheme.typography.titleSmall)
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Delete, contentDescription = "Rimuovi")
-                }
-            }
-            OutlinedTextField(
-                value = exerciseState.exerciseName,
-                onValueChange = { newName -> onUpdate(exerciseState.copy(exerciseName = newName)) },
-                label = { Text("Nome Esercizio") },
-                placeholder = { Text("Esempio: Trazioni") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            TextButton(onClick = onSelectPredefinito) {
-                Text("Seleziona da predefiniti")
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedTextField(
-                value = exerciseState.customSerieText,
-                onValueChange = { newText -> onUpdate(exerciseState.copy(customSerieText = newText)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-/** Divider con spazio verticale */
-@Composable
-fun SectionDivider() {
-    Spacer(modifier = Modifier.height(16.dp))
-    HorizontalDivider()
-    Spacer(modifier = Modifier.height(16.dp))
-}
-
-/** Titolo di sezione */
-@Composable
-fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleMedium)
-    Spacer(modifier = Modifier.height(8.dp))
-}
-
-// ------------------- STEPPER COMPOSABLE ------------------- //
-@Composable
-fun Stepper(
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    range: IntProgression,
-    label: String
-) {
-    val step = range.step
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = {
-                if (value - step >= range.first) onValueChange(value - step)
-            }) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Diminuisci"
-                )
-            }
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.bodyLarge
-            )
-            IconButton(onClick = {
-                if (value + step <= range.last) onValueChange(value + step)
-            }) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Aumenta"
-                )
-            }
+            Text(if (isSelected) "Già presente · Aggiungi ancora" else "Aggiungi alla bozza",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

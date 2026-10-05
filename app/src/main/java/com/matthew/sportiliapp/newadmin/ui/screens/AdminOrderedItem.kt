@@ -34,14 +34,16 @@ internal fun AdminContextAppBar(title: String, context: String, enabled: Boolean
 @Composable
 internal fun AdminOrderedItem(
     name: String, summary: String, kind: String, position: Int, total: Int, enabled: Boolean,
-    onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit, onEdit: () -> Unit
+    onMoveUp: () -> Unit, onMoveDown: () -> Unit, onRemove: () -> Unit, onEdit: () -> Unit,
+    editLabel: String? = null,
+    removalSupportingText: String = "La rimozione sarà applicata quando salvi o apri un altro elemento. Prima puoi annullarla uscendo e scartando la bozza."
 ) {
     var confirmingRemoval by remember(name, position) { mutableStateOf(false) }
     if (confirmingRemoval) {
         AlertDialog(
             onDismissRequest = { confirmingRemoval = false },
             title = { Text("Rimuovi $kind") },
-            text = { Text("Rimuovere «$name» dalla bozza? La rimozione sarà applicata quando salvi o apri un altro elemento. Prima puoi annullarla uscendo e scartando la bozza.") },
+            text = { Text("Rimuovere «$name» dalla bozza? $removalSupportingText") },
             confirmButton = {
                 TextButton(enabled = enabled, onClick = { confirmingRemoval = false; onRemove() }) {
                     Text("Rimuovi dalla bozza", color = MaterialTheme.colorScheme.error)
@@ -70,7 +72,8 @@ internal fun AdminOrderedItem(
                 IconButton(enabled = enabled && position < total, onClick = onMoveDown) {
                     Icon(Icons.Default.KeyboardArrowDown, "Sposta $name dopo")
                 }
-                Spacer(Modifier.weight(1f))
+                if (editLabel != null) TextButton(enabled = enabled, onClick = onEdit, modifier = Modifier.weight(1f)) { Text(editLabel) }
+                else Spacer(Modifier.weight(1f))
                 IconButton(enabled = enabled, onClick = { confirmingRemoval = true },
                     colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                     Icon(Icons.Default.Delete, "Rimuovi $name dalla bozza")
