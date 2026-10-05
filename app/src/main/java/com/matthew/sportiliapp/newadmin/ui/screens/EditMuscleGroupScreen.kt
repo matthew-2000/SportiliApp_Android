@@ -203,7 +203,7 @@ internal fun EditMuscleGroupContent(
         )
     }
 
-    BackHandler(enabled = !isSaving) {
+    BackHandler {
         requestExit()
     }
 
@@ -223,7 +223,10 @@ internal fun EditMuscleGroupContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(groupName) })
+            AdminContextAppBar(
+                title = groupName, context = "Utente $userCode · Scheda · $dayKey · Gruppo",
+                enabled = !isSaving, onBack = { requestExit() }
+            )
         },
         bottomBar = {
             AdminEditorBottomBar(

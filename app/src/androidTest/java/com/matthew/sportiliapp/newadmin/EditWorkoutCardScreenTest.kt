@@ -46,7 +46,7 @@ class EditWorkoutCardScreenTest {
 
     @Test fun ordinarySavePreservesPendingRequestAndDayKeys() {
         show()
-        compose.onNodeWithText("Durata (settimane)").performTextReplacement("6")
+        compose.onNodeWithText("Durata (settimane)").performScrollTo().performTextReplacement("6")
         compose.onNodeWithText("Salva", substring = false).performClick()
         compose.runOnIdle {
             assertEquals(6, saved!!.durata)
@@ -68,6 +68,7 @@ class EditWorkoutCardScreenTest {
 
     @Test fun openingADayKeepsRequestAndOriginalKey() {
         show()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Giorno di test"))
         compose.onNodeWithText("Giorno di test").performClick()
         compose.runOnIdle {
             assertEquals("giorno3", selected!!.first)
@@ -78,11 +79,11 @@ class EditWorkoutCardScreenTest {
 
     @Test fun invalidDurationCannotCompleteRequest() {
         show()
-        compose.onNodeWithText("Durata (settimane)").performTextReplacement("0")
+        compose.onNodeWithText("Durata (settimane)").performScrollTo().performTextReplacement("0")
         compose.onNodeWithText(completeLabel).performClick()
-        compose.onNodeWithText("La durata deve essere tra 1 e 52 settimane").assertIsDisplayed()
+        compose.onNodeWithText("La durata deve essere tra 1 e 52 settimane").performScrollTo().assertIsDisplayed()
         compose.runOnIdle { assertNull(saved) }
-        compose.onNodeWithText("Durata (settimane)").performTextReplacement("4")
+        compose.onNodeWithText("Durata (settimane)").performScrollTo().performTextReplacement("4")
         compose.onNodeWithText(completeLabel).performClick()
         compose.runOnIdle { assertFalse(saved!!.cambioRichiesto) }
     }

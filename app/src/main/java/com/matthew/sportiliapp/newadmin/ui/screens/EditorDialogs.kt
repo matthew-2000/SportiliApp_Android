@@ -103,7 +103,8 @@ fun AdminEditorBottomBar(
     canSave: Boolean = true,
     idleStatus: String = "Nessuna modifica",
     pendingStatus: String = "Salvataggio in corso…",
-    idleIcon: ImageVector = Icons.Default.CheckCircle
+    idleIcon: ImageVector = Icons.Default.CheckCircle,
+    onComplete: (() -> Unit)? = null
 ) {
     Surface(shadowElevation = 8.dp, tonalElevation = 2.dp) {
         Column(
@@ -128,6 +129,12 @@ fun AdminEditorBottomBar(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            onComplete?.let { complete ->
+                Text("Salva mantiene la richiesta di cambio aperta.", style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = complete, enabled = !isSaving, modifier = Modifier.fillMaxWidth()) {
+                    Text("Salva e segna il cambio come completato")
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(

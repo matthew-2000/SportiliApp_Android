@@ -5,47 +5,38 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -74,6 +65,7 @@ internal fun buildUpdatedScheda(
 @Composable
 fun EditWorkoutCardScreen(
     scheda: Scheda,
+    userCode: String = "",
     isSaving: Boolean = false,
     errorMessage: String? = null,
     onDaySelected: (String, Giorno, Scheda) -> Unit,
@@ -92,6 +84,8 @@ fun EditWorkoutCardScreen(
     var daysList by remember(scheda) { mutableStateOf(initialDaysList) }
     var showAddDayDialog by remember { mutableStateOf(false) }
     var showScheduleSheet by remember { mutableStateOf(false) }
+    var openingDayKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var completingChange by rememberSaveable { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var newDayName by rememberSaveable { mutableStateOf("") }
     var durationError by rememberSaveable(scheda.dataInizio, scheda.durata) { mutableStateOf<String?>(null) }
@@ -107,6 +101,8 @@ fun EditWorkoutCardScreen(
     }
 
     fun validateAndSave(onValidated: (Scheda) -> Unit) {
+        if (isSaving) return
+        showExitDialog = false
         durationError = when (val parsed = duration.toIntOrNull()) {
             null -> "Inserisci una durata valida"
             in 1..52 -> null
@@ -115,6 +111,28 @@ fun EditWorkoutCardScreen(
 
         if (durationError != null) return
         onValidated(currentScheda)
+    }
+
+    fun saveCard(complete: Boolean = false) {
+        validateAndSave { updated ->
+            openingDayKey = null
+            completingChange = complete
+            onSave(if (complete) updated.copy(cambioRichiesto = false) else updated)
+        }
+    }
+
+    fun openDay(key: String, day: Giorno) {
+        validateAndSave { updated ->
+            openingDayKey = key
+            completingChange = false
+            onDaySelected(key, day, updated)
+        }
+    }
+
+    fun retryLastAction() {
+        val dayToOpen = daysList.firstOrNull { it.first == openingDayKey }
+        if (dayToOpen != null) openDay(dayToOpen.first, dayToOpen.second)
+        else saveCard(complete = completingChange)
     }
 
     fun requestExit() {
@@ -126,7 +144,7 @@ fun EditWorkoutCardScreen(
         }
     }
 
-    BackHandler(enabled = !isSaving) {
+    BackHandler {
         requestExit()
     }
 
@@ -143,7 +161,7 @@ fun EditWorkoutCardScreen(
 
     if (showExitDialog) {
         UnsavedChangesDialog(
-            onSave = { validateAndSave(onSave) },
+            onSave = { saveCard() },
             onDiscard = {
                 showExitDialog = false
                 onCancel()
@@ -153,9 +171,13 @@ fun EditWorkoutCardScreen(
     }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
-            TopAppBar(
-                title = { Text("Modifica scheda") }
+            AdminContextAppBar(
+                title = "Modifica scheda",
+                context = "Utente $userCode · Scheda",
+                enabled = !isSaving,
+                onBack = { requestExit() }
             )
         },
         bottomBar = {
@@ -163,161 +185,151 @@ fun EditWorkoutCardScreen(
                 isDirty = isDirty,
                 isSaving = isSaving,
                 onCancel = { requestExit() },
-                onSave = { validateAndSave(onSave) }
+                onSave = { saveCard() },
+                onComplete = if (scheda.cambioRichiesto) ({
+                    saveCard(complete = true)
+                }) else null
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
                 .padding(padding)
         ) {
-            if (isSaving) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            errorMessage?.let { message ->
-                AdminEditorErrorBanner(
-                    message = message,
-                    onRetry = { validateAndSave(onSave) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            AdminEditorSection(
-                title = "Dati scheda",
-                supportingText = "Imposta l’inizio e la durata del programma."
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = startDate,
-                onValueChange = {},
-                label = { Text("Data inizio") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isSaving) { datePickerDialog.show() },
-                readOnly = true,
-                trailingIcon = {
-                    IconButton(onClick = { datePickerDialog.show() }, enabled = !isSaving) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Seleziona data"
-                        )
-                    }
-                },
-                enabled = !isSaving
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = duration,
-                onValueChange = {
-                    duration = it.filter(Char::isDigit)
-                    if (durationError != null) durationError = null
-                },
-                label = { Text("Durata (settimane)") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = KeyboardType.Number
-                ),
-                isError = durationError != null,
-                supportingText = durationError?.let { { Text(it) } }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            AdminEditorSection(
-                title = "Giorni di allenamento",
-                supportingText = "Apri un giorno per gestire gruppi ed esercizi."
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { showScheduleSheet = true },
-                    enabled = !isSaving,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Info, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Anteprima")
+            item {
+                if (isSaving) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
-                Button(
-                    onClick = { showAddDayDialog = true },
-                    enabled = !isSaving,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Aggiungi giorno")
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(daysList) { (dayKey, giorno) ->
-                    DayItem(
-                        dayKey = dayKey,
-                        day = giorno,
-                        enabled = !isSaving,
-                        onMoveUp = {
-                            val index = daysList.indexOfFirst { it.first == dayKey }
-                            if (index > 0) {
-                                daysList = daysList.toMutableList().apply {
-                                    val previous = this[index - 1]
-                                    this[index - 1] = this[index]
-                                    this[index] = previous
-                                }.mapIndexed { position, pair ->
-                                    "giorno${position + 1}" to pair.second
-                                }
-                            }
-                        },
-                        onMoveDown = {
-                            val index = daysList.indexOfFirst { it.first == dayKey }
-                            if (index in 0 until daysList.lastIndex) {
-                                daysList = daysList.toMutableList().apply {
-                                    val next = this[index + 1]
-                                    this[index + 1] = this[index]
-                                    this[index] = next
-                                }.mapIndexed { position, pair ->
-                                    "giorno${position + 1}" to pair.second
-                                }
-                            }
-                        },
-                        onRemove = {
-                            daysList = daysList
-                                .filterNot { it.first == dayKey }
-                                .mapIndexed { position, pair ->
-                                    "giorno${position + 1}" to pair.second
-                                }
-                        },
-                        onEdit = {
-                            validateAndSave { updatedScheda ->
-                                onDaySelected(dayKey, giorno, updatedScheda)
-                            }
-                        }
+                errorMessage?.let { message ->
+                    AdminEditorErrorBanner(
+                        message = message,
+                        onRetry = { retryLastAction() }
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            if (scheda.cambioRichiesto) {
-                OutlinedButton(
-                    onClick = {
-                        validateAndSave { updatedScheda ->
-                            onSave(updatedScheda.copy(cambioRichiesto = false))
+                AdminEditorSection(
+                    title = "Dati scheda",
+                    supportingText = "Imposta l’inizio e la durata del programma."
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = startDate,
+                    onValueChange = {},
+                    label = { Text("Data inizio") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isSaving) { datePickerDialog.show() },
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }, enabled = !isSaving) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = "Seleziona data"
+                            )
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !isSaving
-                ) { Text("Salva e segna il cambio come completato") }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = duration,
+                    onValueChange = {
+                        duration = it.filter(Char::isDigit)
+                        if (durationError != null) durationError = null
+                    },
+                    label = { Text("Durata (settimane)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    isError = durationError != null,
+                    supportingText = durationError?.let { { Text(it) } }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                AdminEditorSection(
+                    title = "Giorni di allenamento",
+                    supportingText = "Aprire un giorno salva prima la bozza della scheda."
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showScheduleSheet = true },
+                        enabled = !isSaving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Anteprima")
+                    }
+                    Button(
+                        onClick = { showAddDayDialog = true },
+                        enabled = !isSaving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Aggiungi giorno")
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-        }
+            if (daysList.isEmpty()) {
+                item { Text("Nessun giorno. Aggiungi il primo giorno di allenamento.", modifier = Modifier.padding(vertical = 12.dp)) }
+            }
+            itemsIndexed(daysList) { index, (dayKey, giorno) ->
+                DayItem(
+                    dayKey = dayKey,
+                    day = giorno,
+                    enabled = !isSaving,
+                    position = index + 1,
+                    total = daysList.size,
+                    onMoveUp = {
+                        val index = daysList.indexOfFirst { it.first == dayKey }
+                        if (index > 0) {
+                            daysList = daysList.toMutableList().apply {
+                                val previous = this[index - 1]
+                                this[index - 1] = this[index]
+                                this[index] = previous
+                            }.mapIndexed { position, pair ->
+                                "giorno${position + 1}" to pair.second
+                            }
+                        }
+                    },
+                    onMoveDown = {
+                        val index = daysList.indexOfFirst { it.first == dayKey }
+                        if (index in 0 until daysList.lastIndex) {
+                            daysList = daysList.toMutableList().apply {
+                                val next = this[index + 1]
+                                this[index + 1] = this[index]
+                                this[index] = next
+                            }.mapIndexed { position, pair ->
+                                "giorno${position + 1}" to pair.second
+                            }
+                        }
+                    },
+                    onRemove = {
+                        daysList = daysList
+                            .filterNot { it.first == dayKey }
+                            .mapIndexed { position, pair ->
+                                "giorno${position + 1}" to pair.second
+                            }
+                    },
+                    onEdit = { openDay(dayKey, giorno) }
+                )
+            }
+            }
+
 
         if (showAddDayDialog) {
             AlertDialog(
@@ -395,67 +407,11 @@ fun DayItem(
     dayKey: String,
     day: Giorno,
     enabled: Boolean = true,
+    position: Int = 1,
+    total: Int = 1,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit
-) {
-    var showRemoveDialog by remember { mutableStateOf(false) }
-
-    if (showRemoveDialog) {
-        AlertDialog(
-            onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Conferma rimozione") },
-            text = { Text("Sei sicuro di voler rimuovere questo giorno?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showRemoveDialog = false
-                        onRemove()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Conferma") }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
-            },
-            shape = RoundedCornerShape(8.dp)
-        )
-    }
-
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(enabled = enabled) { onEdit() },
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = day.name, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = "Gruppi Muscolari: ${day.gruppiMuscolari.size}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Row {
-                IconButton(onClick = onMoveUp, enabled = enabled) {
-                    Icon(imageVector = Icons.Filled.KeyboardArrowUp, contentDescription = "Sposta su")
-                }
-                IconButton(onClick = onMoveDown, enabled = enabled) {
-                    Icon(imageVector = Icons.Filled.KeyboardArrowDown, contentDescription = "Sposta Giù")
-                }
-                IconButton(onClick = { showRemoveDialog = true }, enabled = enabled) {
-                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Rimuovi")
-                }
-            }
-        }
-    }
-}
+) = AdminOrderedItem(day.name, "Gruppi muscolari: ${day.gruppiMuscolari.size}",
+    "giorno", position, total, enabled, onMoveUp, onMoveDown, onRemove, onEdit)

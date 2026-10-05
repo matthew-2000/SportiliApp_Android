@@ -33,6 +33,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
+import com.matthew.sportiliapp.newadmin.ui.screens.AdminEditorLoadState
 import com.matthew.sportiliapp.newadmin.ui.screens.AdminAlertsScreen
 import com.matthew.sportiliapp.newadmin.ui.screens.AdminReportsScreen
 import com.matthew.sportiliapp.newadmin.ui.screens.EditDayScreen
@@ -184,11 +185,13 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     WorkoutCardUiState.Idle,
-                    WorkoutCardUiState.Loading -> LoadingBox()
+                    WorkoutCardUiState.Loading -> AdminEditorLoadState("Scheda", "Utente $userCode · Scheda", true,
+                        onBack = { navController.popBackStack() }, onRetry = { workoutCardViewModel.loadWorkoutCard(userCode) })
 
                     is WorkoutCardUiState.Success -> {
                         val successState = state as WorkoutCardUiState.Success
                         EditWorkoutCardScreen(
+                            userCode = userCode,
                             scheda = successState.scheda,
                             isSaving = actionState is AdminActionState.InProgress,
                             errorMessage = actionState.errorMessage("Non è stato possibile salvare la scheda."),
@@ -207,13 +210,13 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is WorkoutCardUiState.Error -> {
-                        ErrorBox("Impossibile caricare la scheda") {
-                            workoutCardViewModel.loadWorkoutCard(userCode)
-                        }
+                        AdminEditorLoadState("Scheda", "Utente $userCode · Scheda", false,
+                        onBack = { navController.popBackStack() }, onRetry = { workoutCardViewModel.loadWorkoutCard(userCode) })
                     }
                 }
             }
         }
+
         composable(Screen.EditDay.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
@@ -228,11 +231,13 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     DayUiState.Idle,
-                    DayUiState.Loading -> LoadingBox()
+                    DayUiState.Loading -> AdminEditorLoadState("Giorno", "Utente $userCode · Scheda · $dayKey", true,
+                        onBack = { navController.popBackStack() }, onRetry = { dayViewModel.loadDay(userCode, dayKey) })
 
                     is DayUiState.Success -> {
                         val successState = state as DayUiState.Success
                         EditDayScreen(
+                            userCode = userCode,
                             dayKey = dayKey,
                             day = successState.day,
                             isSaving = actionState is AdminActionState.InProgress,
@@ -254,13 +259,13 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is DayUiState.Error -> {
-                        ErrorBox("Impossibile caricare il giorno") {
-                            dayViewModel.loadDay(userCode, dayKey)
-                        }
+                        AdminEditorLoadState("Giorno", "Utente $userCode · Scheda · $dayKey", false,
+                        onBack = { navController.popBackStack() }, onRetry = { dayViewModel.loadDay(userCode, dayKey) })
                     }
                 }
             }
         }
+
         composable(Screen.EditMuscleGroup.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
@@ -277,7 +282,10 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     MuscleGroupUiState.Idle,
-                    MuscleGroupUiState.Loading -> LoadingBox()
+                    MuscleGroupUiState.Loading -> AdminEditorLoadState("Gruppo muscolare",
+                        "Utente $userCode · Scheda · $dayKey · $groupKey", true,
+                        onBack = { navController.popBackStack() },
+                        onRetry = { muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey) })
 
                     is MuscleGroupUiState.Success -> {
                         val successState = state as MuscleGroupUiState.Success
@@ -302,9 +310,10 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is MuscleGroupUiState.Error -> {
-                        ErrorBox("Impossibile caricare il gruppo muscolare") {
-                            muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey)
-                        }
+                        AdminEditorLoadState("Gruppo muscolare",
+                            "Utente $userCode · Scheda · $dayKey · $groupKey", false,
+                            onBack = { navController.popBackStack() },
+                            onRetry = { muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey) })
                     }
                 }
             }
