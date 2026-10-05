@@ -3,21 +3,18 @@ package com.matthew.sportiliapp.newadmin.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
@@ -85,8 +82,7 @@ fun UserListScreen(
     onUserSelected: (Utente) -> Unit,
     onAddUser: () -> Unit,
     onManageAlerts: () -> Unit,
-    onViewReports: () -> Unit,
-    compactMode: Boolean = false
+    onViewReports: () -> Unit
 ) {
     val usersViewModel: GymAdminViewModel = viewModel(
         factory = GymAdminViewModelFactory(
@@ -108,8 +104,55 @@ fun UserListScreen(
     val openReportCount = (reportsState as? WorkoutReportsUiState.Success)
         ?.reports?.count { !it.resolved }
 
+    AdminUserListScreen(
+        uiState = uiState,
+        openReportCount = openReportCount,
+        onUserSelected = onUserSelected,
+        onAddUser = onAddUser,
+        onManageAlerts = onManageAlerts,
+        onViewReports = onViewReports,
+        onRetry = usersViewModel::loadUsers
+    )
+}
+
+/** Presentation shared by the live admin and local fixtures; callbacks keep existing navigation. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AdminUserListScreen(
+    uiState: UiState<List<Utente>>,
+    openReportCount: Int?,
+    onUserSelected: (Utente) -> Unit,
+    onAddUser: () -> Unit,
+    onManageAlerts: () -> Unit,
+    onViewReports: () -> Unit,
+    onRetry: () -> Unit
+) {
+    var showAreas by remember { mutableStateOf(false) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (compactMode) "Utenti" else "Amministrazione") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Utenti") },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showAreas = true }) {
+                            Icon(Icons.Default.MoreVert, "Altre aree admin")
+                        }
+                        DropdownMenu(expanded = showAreas, onDismissRequest = { showAreas = false }) {
+                            DropdownMenuItem(
+                                text = { Text(openReportCount?.let { "Segnalazioni · $it aperte" } ?: "Segnalazioni") },
+                                leadingIcon = { Icon(Icons.Default.Warning, null) },
+                                onClick = { showAreas = false; onViewReports() }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Avvisi") },
+                                leadingIcon = { Icon(Icons.Default.Notifications, null) },
+                                onClick = { showAreas = false; onManageAlerts() }
+                            )
+                        }
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddUser,
@@ -120,36 +163,21 @@ fun UserListScreen(
     ) { paddingValues ->
         when (val state = uiState) {
             UiState.Loading -> AdminLoadingState(Modifier.padding(paddingValues))
-            is UiState.Error -> AdminErrorState(
-                modifier = Modifier.padding(paddingValues),
-                onRetry = usersViewModel::loadUsers
-            )
-            is UiState.Success -> UserListContent(
-                users = state.data,
-                openReportCount = openReportCount,
-                onUserSelected = onUserSelected,
-                onManageAlerts = onManageAlerts,
-                onViewReports = onViewReports,
-                contentPadding = paddingValues,
-                showDashboard = !compactMode
-            )
+            is UiState.Error -> AdminErrorState(Modifier.padding(paddingValues), onRetry)
+            is UiState.Success -> UserListContent(state.data, onUserSelected, paddingValues)
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun UserListContent(
     users: List<Utente>,
-    openReportCount: Int?,
     onUserSelected: (Utente) -> Unit,
-    onManageAlerts: () -> Unit,
-    onViewReports: () -> Unit,
-    contentPadding: PaddingValues = PaddingValues(),
-    showDashboard: Boolean = true
+    contentPadding: PaddingValues = PaddingValues()
 ) {
-    var searchText by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf(AdminUserFilter.ALL) }
-    val useLargeTextLayout = LocalDensity.current.fontScale >= 1.3f
+    var searchText by rememberSaveable { mutableStateOf("") }
+    var selectedFilter by rememberSaveable { mutableStateOf(AdminUserFilter.ALL) }
     val indexedUsers = remember(users) { indexAdminUsers(users) }
     val expiredCount = indexedUsers.count {
         it.status == UserWorkoutStatus.MISSING || it.status == UserWorkoutStatus.EXPIRED
@@ -166,58 +194,16 @@ internal fun UserListContent(
             start = 16.dp,
             top = contentPadding.calculateTopPadding() + 16.dp,
             end = 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp
+            bottom = contentPadding.calculateBottomPadding() + 128.dp
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (showDashboard) {
-            item {
-                Text("Da gestire", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    "Apri una priorità o restringi subito l’elenco utenti.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    item {
-                        TriageMetric(
-                            requestCount.toString(), "Richieste cambio", "Mostra gli utenti",
-                            { Icon(Icons.Default.Info, contentDescription = null) }
-                        ) { selectedFilter = AdminUserFilter.CHANGE_REQUESTED }
-                    }
-                    item {
-                        TriageMetric(
-                            expiredCount.toString(), "Schede da creare", "Scadute o mancanti",
-                            { Icon(Icons.Default.Warning, contentDescription = null) }
-                        ) { selectedFilter = AdminUserFilter.EXPIRED_OR_MISSING }
-                    }
-                    item {
-                        TriageMetric(
-                            openReportCount?.toString() ?: "—", "Segnalazioni aperte", "Apri segnalazioni",
-                            { Icon(Icons.Default.Warning, contentDescription = null) }, onViewReports
-                        )
-                    }
-                }
-            }
-            item {
-                if (useLargeTextLayout) {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports)
-                        AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts)
-                    }
-                } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AdminNavigationButton("Segnalazioni", Icons.Default.Warning, onViewReports, Modifier.weight(1f))
-                        AdminNavigationButton("Avvisi", Icons.Default.Notifications, onManageAlerts, Modifier.weight(1f))
-                    }
-                }
-            }
-        }
         item {
-            Spacer(Modifier.height(4.dp))
-            Text("Utenti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "${users.size} utenti · ${requestCount + expiredCount} schede da gestire",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         item {
             OutlinedTextField(
@@ -235,31 +221,22 @@ internal fun UserListContent(
             )
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                for (filter in AdminUserFilter.entries) {
+                    val label = when (filter) {
+                        AdminUserFilter.ALL -> "Tutti ${users.size}"
+                        AdminUserFilter.EXPIRED_OR_MISSING -> "Scadute o mancanti $expiredCount"
+                        AdminUserFilter.CHANGE_REQUESTED -> "Richieste $requestCount"
+                    }
                     FilterChip(
-                        selectedFilter == AdminUserFilter.ALL,
-                        { selectedFilter = AdminUserFilter.ALL },
-                        { Text("Tutti ${users.size}") }
-                    )
-                }
-                item {
-                    FilterChip(
-                        selectedFilter == AdminUserFilter.EXPIRED_OR_MISSING,
-                        { selectedFilter = AdminUserFilter.EXPIRED_OR_MISSING },
-                        { Text("Scadute o mancanti $expiredCount") },
-                        leadingIcon = if (selectedFilter == AdminUserFilter.EXPIRED_OR_MISSING) {{
-                            Icon(Icons.Default.Warning, null, modifier = Modifier.size(18.dp))
-                        }} else null
-                    )
-                }
-                item {
-                    FilterChip(
-                        selectedFilter == AdminUserFilter.CHANGE_REQUESTED,
-                        { selectedFilter = AdminUserFilter.CHANGE_REQUESTED },
-                        { Text("Richieste $requestCount") },
-                        leadingIcon = if (selectedFilter == AdminUserFilter.CHANGE_REQUESTED) {{
-                            Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp))
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(label) },
+                        leadingIcon = if (selectedFilter == filter) {{
+                            Icon(Icons.Default.Check, null, Modifier.size(18.dp))
                         }} else null
                     )
                 }
@@ -268,7 +245,7 @@ internal fun UserListContent(
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (filteredUsers.size == 1) "1 utente" else "${filteredUsers.size} utenti",
+                    if (filteredUsers.size == 1) "1 risultato" else "${filteredUsers.size} risultati",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
@@ -296,46 +273,6 @@ internal fun UserListContent(
             items(filteredUsers, key = { it.user.code }) { item ->
                 UserRow(item.user, item.status) { onUserSelected(item.user) }
             }
-        }
-    }
-}
-
-@Composable
-private fun AdminNavigationButton(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth()
-) {
-    OutlinedButton(onClick = onClick, modifier = modifier) {
-        Icon(icon, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(label)
-    }
-}
-
-@Composable
-private fun TriageMetric(
-    count: String,
-    label: String,
-    supportingText: String,
-    icon: @Composable () -> Unit,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.width(190.dp).clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "$label: $count. $supportingText" },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
-                Spacer(Modifier.width(8.dp))
-                Text(count, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(supportingText, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -376,7 +313,7 @@ private fun UserRow(user: Utente, status: UserWorkoutStatus, onUserClick: () -> 
 private fun UserIdentity(user: Utente, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text("${user.nome} ${user.cognome}", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            fontWeight = FontWeight.Bold)
         Text("Codice ${user.code}", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -481,16 +418,5 @@ internal fun previewAdminUsers() = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AdminUserListPreviewScreen() {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Amministrazione") }) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {},
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Nuovo utente") }
-            )
-        }
-    ) { paddingValues ->
-        UserListContent(previewAdminUsers(), 3, {}, {}, {}, paddingValues)
-    }
+    AdminUserListScreen(UiState.Success(previewAdminUsers()), 3, {}, {}, {}, {}, {})
 }

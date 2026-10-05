@@ -327,13 +327,13 @@ private fun AdminAdaptiveEditorLayout(
         val detailContent = detail
         if (maxWidth < 840.dp) {
             if (detailContent == null) {
-                AdminUserListPane(navController, compactMode = false)
+                AdminUserListPane(navController)
             } else {
                 detailContent()
             }
         } else {
             AdminMasterDetailLayout(
-                master = { AdminUserListPane(navController, compactMode = true) },
+                master = { AdminUserListPane(navController) },
                 detail = { detailContent?.invoke() ?: AdminEmptyDetailPane() }
             )
         }
@@ -353,7 +353,7 @@ internal fun AdminMasterDetailLayout(
 }
 
 @Composable
-private fun AdminUserListPane(navController: NavHostController, compactMode: Boolean) {
+private fun AdminUserListPane(navController: NavHostController) {
     UserListScreen(
         onUserSelected = { user ->
             navController.navigate(Screen.EditUser.createRoute(user.code)) {
@@ -366,8 +366,7 @@ private fun AdminUserListPane(navController: NavHostController, compactMode: Boo
             }
         },
         onManageAlerts = { navController.navigate(Screen.Alerts.route) },
-        onViewReports = { navController.navigate(Screen.Reports.route) },
-        compactMode = compactMode
+        onViewReports = { navController.navigate(Screen.Reports.route) }
     )
 }
 

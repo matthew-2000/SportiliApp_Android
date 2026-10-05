@@ -10,13 +10,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -116,6 +124,7 @@ fun EditUserScreen(
     var cognome by rememberSaveable(initialUser?.code) { mutableStateOf(initialCognome) }
     var showEditFields by rememberSaveable(initialUser?.code) { mutableStateOf(!isEditMode) }
     var showRemoveDialog by remember { mutableStateOf(false) }
+    var lastActionWasRemoval by remember { mutableStateOf(false) }
     var showScheduleSheet by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var nomeError by rememberSaveable(initialUser?.code) { mutableStateOf<String?>(null) }
@@ -125,7 +134,8 @@ fun EditUserScreen(
     val normalizedCognome = remember(cognome) { normalizePersonName(cognome) }
     val isDirty = remember(nome, cognome, initialNome, initialCognome, isEditMode) {
         if (isEditMode) {
-            normalizedNome != initialNome || normalizedCognome != initialCognome
+            normalizedNome != normalizePersonName(initialNome) ||
+                normalizedCognome != normalizePersonName(initialCognome)
         } else {
             normalizedNome.isNotBlank() || normalizedCognome.isNotBlank()
         }
@@ -137,6 +147,9 @@ fun EditUserScreen(
     }
 
     fun validateAndSave() {
+        if (isSaving || (isEditMode && !isDirty)) return
+        showExitDialog = false
+        lastActionWasRemoval = false
         val nomeLetters = normalizedLettersOnly(normalizedNome)
         val cognomeLetters = normalizedLettersOnly(normalizedCognome)
 
@@ -151,7 +164,10 @@ fun EditUserScreen(
             else -> null
         }
 
-        if (nomeError != null || cognomeError != null) return
+        if (nomeError != null || cognomeError != null) {
+            showEditFields = true
+            return
+        }
 
         val user = Utente(
             code = initialUser?.code ?: generateUserCode(normalizedNome, normalizedCognome),
@@ -172,28 +188,33 @@ fun EditUserScreen(
         }
     }
 
-    BackHandler(enabled = !isSaving) {
+    BackHandler {
         requestExit()
     }
 
     if (showRemoveDialog) {
         AlertDialog(
-            onDismissRequest = { showRemoveDialog = false },
+            onDismissRequest = { if (!isSaving) showRemoveDialog = false },
             confirmButton = {
                 Button(
                     onClick = {
-                        showRemoveDialog = false
-                        onRemove?.invoke()
+                        if (!isSaving) {
+                            showRemoveDialog = false
+                            lastActionWasRemoval = true
+                            onRemove?.invoke()
+                        }
                     },
+                    enabled = !isSaving,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Conferma") }
+                ) { Text("Rimuovi utente") }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showRemoveDialog = false }) { Text("Annulla") }
+                OutlinedButton(onClick = { showRemoveDialog = false }, enabled = !isSaving) { Text("Annulla") }
             },
             title = { Text("Conferma rimozione") },
-            text = { Text("Sei sicuro di voler rimuovere l'utente?") },
-            shape = RoundedCornerShape(8.dp)
+            text = {
+                Text("Vuoi rimuovere ${initialUser?.nome} ${initialUser?.cognome} (codice ${initialUser?.code})? La rimozione non può essere annullata.")
+            }
         )
     }
 
@@ -220,9 +241,15 @@ fun EditUserScreen(
     }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "Modifica utente" else "Aggiungi utente") }
+                title = { Text(if (isEditMode) "Modifica utente" else "Nuovo utente") },
+                navigationIcon = {
+                    IconButton(onClick = { requestExit() }, enabled = !isSaving) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Torna agli utenti")
+                    }
+                }
             )
         },
         bottomBar = {
@@ -230,7 +257,12 @@ fun EditUserScreen(
                 isDirty = isDirty,
                 isSaving = isSaving,
                 onCancel = { requestExit() },
-                onSave = { validateAndSave() }
+                onSave = { validateAndSave() },
+                canSave = !isEditMode || isDirty,
+                saveLabel = if (isEditMode) "Salva" else "Crea utente",
+                idleStatus = if (isEditMode) "Nessuna modifica" else "Dati da completare",
+                pendingStatus = if (lastActionWasRemoval) "Rimozione in corso…" else "Salvataggio in corso…",
+                idleIcon = if (isEditMode) Icons.Default.CheckCircle else Icons.Default.Edit
             )
         }
     ) { padding ->
@@ -246,25 +278,34 @@ fun EditUserScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             errorMessage?.let { message ->
-                AdminEditorErrorBanner(message = message, onRetry = { validateAndSave() })
+                AdminEditorErrorBanner(message = message, onRetry = {
+                    if (!isSaving) {
+                        if (lastActionWasRemoval) showRemoveDialog = true else validateAndSave()
+                    }
+                })
             }
 
-            AdminEditorSection(
-                title = "Dati utente",
-                supportingText = "Nome, cognome e codice di accesso."
-            )
-            initialUser?.let { user ->
-                Text(text = "Codice ${user.code}", style = MaterialTheme.typography.titleMedium)
-            }
-
-            OutlinedButton(
-                onClick = { showEditFields = !showEditFields },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving
-            ) {
-                Text(
-                    text = if (!showEditFields) "Modifica dati utente" else "Nascondi campi"
+            if (initialUser != null) {
+                AdminEditorSection(
+                    title = "${initialUser.nome} ${initialUser.cognome}",
+                    supportingText = "Codice ${initialUser.code} · Utente esistente"
                 )
+            } else {
+                AdminEditorSection(
+                    title = "Crea un nuovo utente",
+                    supportingText = "Il codice di accesso viene generato alla creazione. Poi potrai personalizzare la scheda."
+                )
+            }
+            HorizontalDivider()
+            AdminEditorSection(title = "Dati personali")
+            if (isEditMode) {
+                OutlinedButton(
+                    onClick = { showEditFields = !showEditFields },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
+                ) {
+                    Text(if (!showEditFields) "Modifica dati utente" else "Nascondi campi")
+                }
             }
 
             if (showEditFields) {
@@ -306,8 +347,8 @@ fun EditUserScreen(
                     supportingText = "Controlla il riepilogo o apri l’editor completo."
                 )
                 Card(
-                    shape = RoundedCornerShape(8.dp),
-                    elevation = CardDefaults.cardElevation(6.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = !isSaving) { showScheduleSheet = true }
@@ -333,24 +374,28 @@ fun EditUserScreen(
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Button(
+                    OutlinedButton(
                         onClick = { onEditWorkoutCard(initialUser!!.code) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isSaving
                     ) {
                         Text("Modifica scheda")
                     }
-                    AdminEditorSection(
-                        title = "Zona pericolosa",
-                        supportingText = "La rimozione dell’utente non può essere annullata."
-                    )
-                    Button(
-                        onClick = { showRemoveDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSaving
-                    ) {
-                        Text("Rimuovi utente", color = MaterialTheme.colorScheme.onError)
+                    if (onRemove != null) {
+                        HorizontalDivider()
+                        AdminEditorSection(
+                            title = "Rimozione utente",
+                            supportingText = "La rimozione non può essere annullata."
+                        )
+                        OutlinedButton(
+                            onClick = { showRemoveDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            enabled = !isSaving
+                        ) {
+                            Icon(Icons.Default.Delete, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Rimuovi utente")
+                        }
                     }
                 }
             }

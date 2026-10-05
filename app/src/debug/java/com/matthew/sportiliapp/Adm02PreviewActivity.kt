@@ -33,11 +33,7 @@ class Adm02PreviewActivity : ComponentActivity() {
                             master = {
                                 UserListContent(
                                     users = previewAdminUsers(),
-                                    openReportCount = 3,
-                                    onUserSelected = {},
-                                    onManageAlerts = {},
-                                    onViewReports = {},
-                                    showDashboard = false
+                                    onUserSelected = {}
                                 )
                             },
                             detail = { UserEditorPreview(user) }

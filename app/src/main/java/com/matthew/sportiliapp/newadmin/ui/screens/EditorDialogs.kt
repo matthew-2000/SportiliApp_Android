@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -98,7 +99,11 @@ fun AdminEditorBottomBar(
     isSaving: Boolean,
     onCancel: () -> Unit,
     onSave: () -> Unit,
-    saveLabel: String = "Salva"
+    saveLabel: String = "Salva",
+    canSave: Boolean = true,
+    idleStatus: String = "Nessuna modifica",
+    pendingStatus: String = "Salvataggio in corso…",
+    idleIcon: ImageVector = Icons.Default.CheckCircle
 ) {
     Surface(shadowElevation = 8.dp, tonalElevation = 2.dp) {
         Column(
@@ -107,7 +112,7 @@ fun AdminEditorBottomBar(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (isDirty) Icons.Default.Edit else Icons.Default.CheckCircle,
+                    if (isDirty) Icons.Default.Edit else idleIcon,
                     contentDescription = null,
                     tint = if (isDirty) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -116,9 +121,9 @@ fun AdminEditorBottomBar(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     when {
-                        isSaving -> "Salvataggio in corso…"
+                        isSaving -> pendingStatus
                         isDirty -> "Modifiche non salvate"
-                        else -> "Nessuna modifica"
+                        else -> idleStatus
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -132,7 +137,7 @@ fun AdminEditorBottomBar(
                 ) { Text("Annulla") }
                 Button(
                     onClick = onSave,
-                    enabled = !isSaving,
+                    enabled = !isSaving && canSave,
                     modifier = Modifier.weight(1f)
                 ) { Text(saveLabel) }
             }
