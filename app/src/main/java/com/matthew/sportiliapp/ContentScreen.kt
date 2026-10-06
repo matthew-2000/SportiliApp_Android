@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -43,6 +44,7 @@ import com.matthew.sportiliapp.model.SchedaViewModelFactory
 import com.matthew.sportiliapp.model.Esercizio
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.Utente
+import com.matthew.sportiliapp.scheda.ExerciseDetailActions
 import com.matthew.sportiliapp.scheda.EsercizioScreen
 import com.matthew.sportiliapp.scheda.GiornoScreen
 import com.matthew.sportiliapp.scheda.SchedaScreen
@@ -50,11 +52,28 @@ import com.matthew.sportiliapp.scheda.SchedaScreen
 
 @Composable
 fun ContentScreen(navController: NavHostController) {
-    val navController2 = rememberNavController()
     val workoutViewModel: SchedaViewModel = viewModel(
         factory = SchedaViewModelFactory(LocalContext.current.applicationContext)
     )
 
+    ContentNavigation(
+        workoutViewModel,
+        overview = { SchedaScreen(navController = it, viewModel = workoutViewModel) },
+        alerts = { AvvisiScreen() },
+        settings = { ImpostazioniScreen(navController) }
+    )
+}
+
+/** The production shell and routes; local QA supplies content and in-memory writes. */
+@Composable
+internal fun ContentNavigation(
+    workoutViewModel: SchedaViewModel,
+    overview: @Composable (NavHostController) -> Unit,
+    alerts: @Composable () -> Unit,
+    settings: @Composable () -> Unit,
+    exerciseActions: ExerciseDetailActions? = null
+) {
+    val navController2 = rememberNavController()
     Scaffold(
         bottomBar = { ContentBottomNavigation(navController2) },
         content = { padding ->
@@ -67,17 +86,17 @@ fun ContentScreen(navController: NavHostController) {
                     .padding(padding)
             ) {
                 composable("scheda") {
-                    SchedaScreen(navController = navController2, viewModel = workoutViewModel)
+                    overview(navController2)
                 }
                 composable("avvisi") {
-                    AvvisiScreen()
+                    alerts()
                 }
                 composable(
                     "impostazioni",
 //                    enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
 //                    exitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
                 ) {
-                    ImpostazioniScreen(navController)
+                    settings()
                 }
                 composable(
                     "giorno/{giornoId}",
@@ -102,6 +121,7 @@ fun ContentScreen(navController: NavHostController) {
                         gruppoMuscolareId = gruppoMuscolareId,
                         esercizioId = esercizioId,
                         viewModel = workoutViewModel,
+                        actions = exerciseActions,
                     )
                 }
             }
@@ -133,8 +153,8 @@ internal fun ContentBottomNavigation(navController: NavHostController) {
     NavigationBar {
         items.forEach { item ->
             NavigationBarItem(
-                icon = { Icon(item.icon, contentDescription = item.title) },
-                label = { Text(item.title) },
+                icon = { Icon(item.icon, contentDescription = null) },
+                label = { Text(item.title, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center) },
                 selected = bottomNavigationRoute(entry?.destination?.route) == item.route,
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.background,

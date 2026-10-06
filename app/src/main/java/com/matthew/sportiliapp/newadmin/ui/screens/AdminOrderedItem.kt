@@ -2,6 +2,8 @@ package com.matthew.sportiliapp.newadmin.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -11,20 +13,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun AdminContextAppBar(title: String, context: String, enabled: Boolean, onBack: () -> Unit) {
     Surface(tonalElevation = 2.dp) {
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(end = 16.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack, enabled = enabled) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Indietro")
-            }
-            Column {
-                Text(context, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(title, style = MaterialTheme.typography.titleLarge)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val contextHeight = maxHeight * 0.25f
+            val titleFirst = LocalDensity.current.fontScale >= 1.8f
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(end = 16.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, enabled = enabled) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Indietro")
+                }
+                Column(Modifier.weight(1f).heightIn(max = contextHeight)
+                    .testTag("admin-editor-context").verticalScroll(rememberScrollState())) {
+                    if (titleFirst) Text(title, style = MaterialTheme.typography.titleLarge)
+                    Text(context, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!titleFirst) Text(title, style = MaterialTheme.typography.titleLarge)
+                }
             }
         }
     }

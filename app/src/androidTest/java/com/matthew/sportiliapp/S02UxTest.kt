@@ -56,17 +56,21 @@ class S02UxTest {
             }
         }
         val search = compose.onNodeWithText("Cerca esercizio...")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Addominali"))
         compose.onNodeWithText("Addominali").assertExists()
-        search.performTextReplacement("pAnC")
+        search.performScrollTo().performTextReplacement("pAnC")
         compose.onNodeWithText("Addominali").assertDoesNotExist()
         compose.onNodeWithText("Pettorali").assertExists()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Panca piana"))
         compose.onNodeWithText("Panca piana").assertExists()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Panca inclinata"))
         compose.onNodeWithText("Panca inclinata").assertExists()
         compose.onNodeWithText("Croci ai cavi").assertDoesNotExist()
-        search.performTextReplacement("inesistente")
+        search.performScrollTo().performTextReplacement("inesistente")
         compose.onNodeWithText("Nessun esercizio trovato").assertIsDisplayed()
         compose.onNodeWithText("Pettorali").assertDoesNotExist()
-        search.performTextReplacement("")
+        search.performScrollTo().performTextReplacement("")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Addominali"))
         compose.onNodeWithText("Addominali").assertExists()
     }
 

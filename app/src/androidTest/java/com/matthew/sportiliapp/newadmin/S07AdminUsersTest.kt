@@ -34,7 +34,7 @@ class S07AdminUsersTest {
         }
     }
     private fun scrollTo(text: String) {
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = false))
+        compose.onNode(hasScrollAction() and !hasTestTag("admin-editor-actions")).performScrollToNode(hasText(text, substring = false))
     }
     private fun editName(name: String) {
         compose.onNodeWithText("Modifica dati utente").performClick()
@@ -49,6 +49,7 @@ class S07AdminUsersTest {
         compose.setContent { SportiliAppTheme {
             AdminUserListScreen(UiState.Success(emptyList()), 3, {}, { added++ }, { alerts++ }, { reports++ }, {})
         } }
+        scrollTo("Nessun utente presente")
         compose.onNodeWithText("Nessun utente presente").assertExists()
         compose.onNodeWithText("Nuovo utente", useUnmergedTree = true).performClick()
         compose.onNodeWithContentDescription("Altre aree admin").performClick()
@@ -66,11 +67,15 @@ class S07AdminUsersTest {
         compose.onNodeWithText("Scadute o mancanti 2").performClick().assertIsSelected()
         compose.onNodeWithText("Cerca per nome o codice").performTextReplacement("SPT-211")
         compose.onNodeWithText("1 risultato").assertExists()
-        compose.onNodeWithText("Sara Verdi").performClick()
+        scrollTo("Sara Verdi")
+        compose.onNodeWithText("Sara Verdi").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("SPT-211", selected!!.code) }
         compose.onNodeWithText("Cerca per nome o codice").performTextReplacement("nessun-match")
         compose.onNodeWithText("Nessun utente corrisponde ai filtri").assertExists()
-        compose.onAllNodesWithText("Azzera filtri")[0].performClick()
+        Espresso.closeSoftKeyboard()
+        // Place the result/reset row above the large bottom FAB before the physical tap.
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(3)
+        compose.onAllNodesWithText("Azzera filtri")[0].performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Tutti 4").assertIsSelected()
         compose.onNodeWithText("4 risultati").assertExists()
     }
@@ -200,10 +205,11 @@ class S07AdminUsersTest {
     @Test fun navigationAwayAndBackKeepsEditorDraftAndListFilter() {
         compose.setContent { SportiliAppTheme { S07AdminFixture() } }
         compose.onNodeWithText("Richieste 1").performClick()
-        compose.onNodeWithText("Giulia Rossi").performClick()
+        scrollTo("Giulia Rossi")
+        compose.onNodeWithText("Giulia Rossi").performScrollTo().performClick()
         editName("Giulia Maria")
         scrollTo("Modifica scheda")
-        compose.onNodeWithText("Modifica scheda").performClick()
+        compose.onNodeWithText("Modifica scheda").performScrollTo().performClick()
         compose.onNodeWithText("Torna al form").performClick()
         scrollTo("Nome")
         compose.onNodeWithText("Nome", substring = false).assertTextContains("Giulia Maria")

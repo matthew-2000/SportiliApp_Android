@@ -107,13 +107,13 @@ class S09ExerciseEditorsTest {
     }
     @Test fun circuitSearchClearAndDuplicatesRemainAvailable() {
         compose.setContent { SportiliAppTheme { EditMuscleGroupContent("SPT", "giorno1", s09Group(), s09Catalog(), onSave = {}, onCancel = {}) } }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasSetTextAction() and hasText("Cerca esercizio..."))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasSetTextAction() and hasText("Cerca esercizio..."))
         field("Cerca esercizio...").performTextReplacement("inesistente")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Nessun esercizio trovato"))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Nessun esercizio trovato"))
         compose.onNodeWithText("Nessun esercizio trovato").assertExists()
         compose.onNodeWithText("Cancella", false).performScrollTo().performClick()
         field("Cerca esercizio...").performTextReplacement("panca")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Già presente · Aggiungi ancora"))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Già presente · Aggiungi ancora"))
         compose.onNodeWithText("Già presente · Aggiungi ancora").assertExists()
         compose.onNodeWithText("Panca piana", false).performScrollTo().performClick()
         field("Nome Esercizio").assertTextContains("Panca piana")

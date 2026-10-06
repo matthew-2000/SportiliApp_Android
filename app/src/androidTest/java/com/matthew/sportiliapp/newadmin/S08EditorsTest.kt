@@ -22,7 +22,7 @@ class S08EditorsTest {
     private var saved: Scheda? = null
     private var savedDay: Giorno? = null
     private var cancelled = 0
-    private fun scroll(text: String) { compose.onNode(hasScrollAction()).performScrollToNode(hasText(text)) }
+    private fun scroll(text: String) { compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text)) }
     private fun card(pending: Boolean = false) {
         compose.setContent { SportiliAppTheme {
             EditWorkoutCardScreen(card, userCode = "SPT-042", isSaving = pending,
@@ -40,8 +40,8 @@ class S08EditorsTest {
         val first = card.giorni.values.first().name
         scroll(first)
         compose.onNodeWithContentDescription("Sposta $first prima").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Sposta $first dopo").performClick()
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithContentDescription("Sposta $first dopo").performScrollTo().performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle {
             assertEquals("Giorno B · Gambe e glutei", saved!!.giorni.values.first().name)
             assertEquals("giorno1", saved!!.dayOrigins!!["giorno2"])
@@ -54,10 +54,10 @@ class S08EditorsTest {
         card()
         val name = card.giorni.values.first().name
         scroll(name)
-        compose.onNodeWithContentDescription("Rimuovi $name dalla bozza").performClick()
+        compose.onNodeWithContentDescription("Rimuovi $name dalla bozza").performScrollTo().performClick()
         compose.onNode(hasText("Annulla") and hasAnyAncestor(isDialog())).performClick()
         compose.onNodeWithText(name).assertExists()
-        compose.onNodeWithContentDescription("Rimuovi $name dalla bozza").performClick()
+        compose.onNodeWithContentDescription("Rimuovi $name dalla bozza").performScrollTo().performClick()
         compose.onNodeWithText("Rimuovi dalla bozza").performClick()
         compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onNodeWithText("Scarta").performClick()
@@ -71,7 +71,7 @@ class S08EditorsTest {
         compose.onNodeWithText("Inserisci un nome per il giorno").assertExists()
         compose.onNodeWithText("Nome del giorno").performTextInput("  Nuovo giorno  ")
         compose.onNodeWithText("Aggiungi", substring = false).performClick()
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle { assertEquals("Nuovo giorno", saved!!.giorni["giorno4"]!!.name) }
     }
     @Test fun pendingConsumesBack() {
@@ -86,9 +86,10 @@ class S08EditorsTest {
         compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onNode(hasText("Salva") and hasAnyAncestor(isDialog())).performClick()
         compose.onNode(hasText("Modifiche non salvate") and hasAnyAncestor(isDialog())).assertDoesNotExist()
+        Espresso.closeSoftKeyboard()
         compose.onNodeWithText("Inserisci il nome del giorno").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Nome del giorno").performTextReplacement(" Giorno modificato ")
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle { assertEquals("Giorno modificato", savedDay!!.name); assertEquals(3, savedDay!!.gruppiMuscolari.size) }
     }
     @Test fun groupReorderAndRemovalHaveCorrectKeys() {
@@ -96,14 +97,14 @@ class S08EditorsTest {
         val first = card.giorni.values.first().gruppiMuscolari.values.first().nome
         scroll(first)
         compose.onNodeWithContentDescription("Sposta $first prima").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Sposta $first dopo").performClick()
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithContentDescription("Sposta $first dopo").performScrollTo().performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle { assertEquals("Spalle", savedDay!!.gruppiMuscolari["gruppo1"]!!.nome) }
         scroll("Tricipiti")
         compose.onNodeWithContentDescription("Sposta Tricipiti dopo").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Rimuovi Tricipiti dalla bozza").performClick()
+        compose.onNodeWithContentDescription("Rimuovi Tricipiti dalla bozza").performScrollTo().performClick()
         compose.onNodeWithText("Rimuovi dalla bozza").performClick()
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(listOf("gruppo1", "gruppo2"), savedDay!!.gruppiMuscolari.keys.toList()) }
     }
     @Test fun addSeveralGroupsKeepsEverySelectedGroup() {
@@ -113,7 +114,7 @@ class S08EditorsTest {
         compose.onAllNodes(isToggleable())[0].performClick()
         compose.onAllNodes(isToggleable())[1].performClick()
         compose.onNodeWithText("Aggiungi", substring = false).performClick()
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(5, savedDay!!.gruppiMuscolari.size); assertEquals(5, savedDay!!.gruppiMuscolari.keys.toSet().size) }
     }
     @Test fun dayPendingConsumesBack() {
@@ -133,7 +134,7 @@ class S08EditorsTest {
         compose.setContent { SportiliAppTheme {
             EditWorkoutCardScreen(card.copy(giorni = linkedMapOf()), onSave = { saved = it }, onCancel = {}, onDaySelected = { _, _, _ -> })
         } }
-        compose.onNodeWithText("Salva", substring = false).assertIsEnabled().performClick()
+        compose.onNodeWithText("Salva", substring = false).performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(saved!!.giorni.isEmpty()) }
     }
     @Test fun completionRetryPreservesIntentAndDraft() {
@@ -145,7 +146,7 @@ class S08EditorsTest {
                 onSave = { saved = it; calls++; error.value = "Errore locale" })
         } }
         compose.onNodeWithText("Durata (settimane)").performScrollTo().performTextReplacement("10")
-        compose.onNodeWithText("Salva e segna il cambio come completato").performClick()
+        compose.onNodeWithText("Salva e segna il cambio come completato").performScrollTo().performClick()
         scroll("Errore locale")
         compose.onNodeWithText("Riprova").performClick()
         compose.runOnIdle { assertEquals(2, calls); assertFalse(saved!!.cambioRichiesto); assertEquals(10, saved!!.durata) }
