@@ -1,11 +1,13 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
 
+import androidx.activity.compose.BackHandler
+import com.matthew.sportiliapp.ui.theme.sportiliStatusColors
+import java.util.Locale
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,7 +53,6 @@ import com.matthew.sportiliapp.newadmin.ui.viewmodel.WorkoutReportsViewModelFact
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,12 +70,17 @@ fun AdminReportsScreen(
     val actionState by viewModel.actionState.collectAsState()
     var reportPendingDeletion by remember { mutableStateOf<WorkoutIssueReport?>(null) }
 
+    val isSaving = actionState is AdminActionState.InProgress
+    var failedReport by remember { mutableStateOf<WorkoutIssueReport?>(null) }
+    var failedRemoval by remember { mutableStateOf(false) }
+    BackHandler(enabled = isSaving) {}
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Segnalazioni schede") },
+                title = { Text("Segnalazioni") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !isSaving) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
                     }
                 }
@@ -92,45 +96,31 @@ fun AdminReportsScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             val actionError = (actionState as? AdminActionState.Error)?.message
+            if (isSaving) Text("Aggiornamento in corso…", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
             actionError?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                AdminActionError(message, onRetry = failedReport?.let { failed ->
+                    {
+                        if (failedRemoval) {
+                            reportPendingDeletion = failed
+                            viewModel.clearActionError()
+                        } else {
+                            viewModel.toggleResolved(failed)
+                        }
+                    }
+                })
             }
 
             when (val state = uiState) {
-                WorkoutReportsUiState.Loading -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Caricamento segnalazioni...")
-                    }
-                }
-
-                is WorkoutReportsUiState.Error -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Errore: ${state.throwable.localizedMessage ?: "Sconosciuto"}")
-                    }
-                }
+                WorkoutReportsUiState.Loading -> AdminListState("Caricamento segnalazioni…", loading = true)
+                is WorkoutReportsUiState.Error -> AdminListState(
+                    "Segnalazioni non disponibili", "Non è stato possibile caricare le segnalazioni. Riprova.",
+                    onRetry = viewModel::retryLoading
+                )
 
                 is WorkoutReportsUiState.Success -> {
                     val reports = state.reports
                     if (reports.isEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("Nessuna segnalazione ricevuta")
-                        }
+                        AdminListState("Nessuna segnalazione ricevuta", "Qui troverai le richieste di chiarimento sulle schede.")
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -140,10 +130,15 @@ fun AdminReportsScreen(
                             items(reports, key = { it.id }) { report ->
                                 ReportCard(
                                     report = report,
+                                    enabled = !isSaving,
                                     onToggleResolved = {
-                                        viewModel.toggleResolved(report)
+                                        if (!isSaving) {
+                                            failedReport = report
+                                            failedRemoval = false
+                                            viewModel.toggleResolved(report)
+                                        }
                                     },
-                                    onRemove = { reportPendingDeletion = report }
+                                    onRemove = { if (!isSaving) reportPendingDeletion = report }
                                 )
                             }
                         }
@@ -163,6 +158,8 @@ fun AdminReportsScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        failedReport = report
+                        failedRemoval = true
                         viewModel.removeReport(report.id)
                         reportPendingDeletion = null
                     },
@@ -185,41 +182,28 @@ fun AdminReportsScreen(
 internal fun ReportCard(
     report: WorkoutIssueReport,
     onToggleResolved: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    enabled: Boolean = true
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = report.userName.ifBlank { report.userCode },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = report.userCode,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = if (report.resolved) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = if (report.resolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-            }
+            val status = MaterialTheme.sportiliStatusColors
+            AdminStatusLabel(if (report.resolved) "Risolta" else "Da rivedere",
+                if (report.resolved) Icons.Default.CheckCircle else Icons.Default.Warning,
+                if (report.resolved) status.successContainer else status.warningContainer,
+                if (report.resolved) status.onSuccessContainer else status.onWarningContainer)
+            Text(report.userName.ifBlank { report.userCode }, style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold)
+            Text("Codice ${report.userCode}", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Text(report.message, style = MaterialTheme.typography.bodyMedium)
 
             Text(
-                text = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+                text = DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", Locale.ITALIAN)
                     .withZone(ZoneId.systemDefault())
                     .format(Instant.ofEpochMilli(report.createdAt)),
                 style = MaterialTheme.typography.bodySmall,
@@ -231,10 +215,10 @@ internal fun ReportCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(onClick = onToggleResolved) {
+                Button(onClick = onToggleResolved, enabled = enabled) {
                     Text(if (report.resolved) "Segna come da rivedere" else "Segna come risolta")
                 }
-                OutlinedButton(onClick = onRemove) {
+                OutlinedButton(onClick = onRemove, enabled = enabled) {
                     Icon(Icons.Default.Delete, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Elimina")

@@ -19,6 +19,15 @@ internal class S02FixtureRepository : FirebaseRepository {
     var alertWrites = 0
     var saveAlert: suspend (Avviso) -> Result<Unit> = { Result.success(Unit) }
 
+    var observeAlerts: () -> Flow<List<Avviso>> = { alertsFlow }
+    var observeReports: () -> Flow<List<WorkoutIssueReport>> = { reportsFlow }
+    var reportWrites = 0
+    var reportRemovals = 0
+    var alertRemovals = 0
+    var saveReport: suspend (WorkoutIssueReport) -> Result<Unit> = { Result.success(Unit) }
+    var deleteReport: suspend (String) -> Result<Unit> = { Result.success(Unit) }
+    var deleteAlert: suspend (String) -> Result<Unit> = { Result.success(Unit) }
+
     override fun getUsers(): Flow<List<Utente>> = usersFlow
     override suspend fun addUser(utente: Utente): Result<Unit> = error("Unused fixture operation")
     override suspend fun updateUser(utente: Utente): Result<Unit> = error("Unused fixture operation")
@@ -78,7 +87,7 @@ internal class S02FixtureRepository : FirebaseRepository {
         exerciseKey: String
     ): Result<Unit> = error("Unused fixture operation")
 
-    override fun getAlerts(): Flow<List<Avviso>> = alertsFlow
+    override fun getAlerts(): Flow<List<Avviso>> = observeAlerts()
     override suspend fun addAlert(avviso: Avviso): Result<Unit> = writeAlert(avviso)
     override suspend fun updateAlert(avviso: Avviso): Result<Unit> = writeAlert(avviso)
     private suspend fun writeAlert(alert: Avviso): Result<Unit> {
@@ -90,15 +99,24 @@ internal class S02FixtureRepository : FirebaseRepository {
         }
         return result
     }
-    override suspend fun removeAlert(alertId: String): Result<Unit> = error("Unused fixture operation")
-    override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = reportsFlow
+    override suspend fun removeAlert(alertId: String): Result<Unit> {
+        alertRemovals++
+        val result = deleteAlert(alertId)
+        if (result.isSuccess) alertsFlow.value = alertsFlow.value.filterNot { it.id == alertId }
+        return result
+    }
+    override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = observeReports()
     override suspend fun addWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> = error("Unused fixture operation")
     override suspend fun updateWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> = run {
-        reportsFlow.value = reportsFlow.value.map { if (it.id == report.id) report else it }
-        Result.success(Unit)
+        reportWrites++
+        val result = saveReport(report)
+        if (result.isSuccess) reportsFlow.value = reportsFlow.value.map { if (it.id == report.id) report else it }
+        result
     }
     override suspend fun removeWorkoutIssueReport(reportId: String): Result<Unit> = run {
-        reportsFlow.value = reportsFlow.value.filterNot { it.id == reportId }
-        Result.success(Unit)
+        reportRemovals++
+        val result = deleteReport(reportId)
+        if (result.isSuccess) reportsFlow.value = reportsFlow.value.filterNot { it.id == reportId }
+        result
     }
 }

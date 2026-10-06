@@ -7,6 +7,7 @@ import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.newadmin.domain.GetWorkoutIssueReportsUseCase
 import com.matthew.sportiliapp.newadmin.domain.RemoveWorkoutIssueReportUseCase
 import com.matthew.sportiliapp.newadmin.domain.UpdateWorkoutIssueReportUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -31,12 +32,21 @@ class WorkoutReportsViewModel(
     private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
     val actionState: StateFlow<AdminActionState> = _actionState
 
+    private var observation: Job? = null
+
     init {
         observeReports()
     }
 
+    fun retryLoading() {
+        if (_uiState.value !is WorkoutReportsUiState.Error) return
+        _uiState.value = WorkoutReportsUiState.Loading
+        observeReports()
+    }
+
     private fun observeReports() {
-        viewModelScope.launch {
+        observation?.cancel()
+        observation = viewModelScope.launch {
             getReportsUseCase()
                 .catch { throwable -> _uiState.value = WorkoutReportsUiState.Error(throwable) }
                 .collectLatest { reports ->
@@ -46,8 +56,9 @@ class WorkoutReportsViewModel(
     }
 
     fun toggleResolved(report: WorkoutIssueReport, onResult: (Result<Unit>) -> Unit = {}) {
+        if (_actionState.value is AdminActionState.InProgress) return
+        _actionState.value = AdminActionState.InProgress
         viewModelScope.launch {
-            _actionState.value = AdminActionState.InProgress
             val updated = report.copy(resolved = !report.resolved)
             val result = updateReportUseCase(updated)
             _actionState.value = result.toActionState("Errore durante l'aggiornamento della segnalazione")
@@ -56,8 +67,9 @@ class WorkoutReportsViewModel(
     }
 
     fun removeReport(reportId: String, onResult: (Result<Unit>) -> Unit = {}) {
+        if (_actionState.value is AdminActionState.InProgress) return
+        _actionState.value = AdminActionState.InProgress
         viewModelScope.launch {
-            _actionState.value = AdminActionState.InProgress
             val result = removeReportUseCase(reportId)
             _actionState.value = result.toActionState("Errore durante l'eliminazione della segnalazione")
             onResult(result)
@@ -74,8 +86,8 @@ class WorkoutReportsViewModel(
 private fun Result<Unit>.toActionState(defaultErrorMessage: String): AdminActionState =
     fold(
         onSuccess = { AdminActionState.Idle },
-        onFailure = { error ->
-            AdminActionState.Error(error.localizedMessage ?: defaultErrorMessage)
+        onFailure = {
+            AdminActionState.Error(defaultErrorMessage + ". Riprova.")
         }
     )
 

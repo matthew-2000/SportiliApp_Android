@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <activity android:name=".S10PreviewActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.SportiliApp" />
         <activity android:name=".S09PreviewActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.SportiliApp" />
         <activity android:name=".S08PreviewActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.SportiliApp" />
         <activity android:name=".S07PreviewActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.SportiliApp" />

@@ -59,7 +59,7 @@ class AlertsAdminViewModelTest {
 
         val actionState = viewModel.actionState.value
         assertTrue(actionState is AdminActionState.Error)
-        assertEquals("write failed", (actionState as AdminActionState.Error).message)
+        assertEquals("Errore durante il salvataggio dell'avviso. Riprova.", (actionState as AdminActionState.Error).message)
     }
     @Test
     fun `add and update wait for outcome and reject repeated or overlapping writes`() = runTest {
@@ -95,7 +95,7 @@ class AlertsAdminViewModelTest {
                 assertEquals(listOf(result), outcomes)
                 if (succeeds) assertTrue(viewModel.actionState.value is AdminActionState.Idle)
                 else {
-                    assertEquals(AdminActionState.Error("write failed"), viewModel.actionState.value)
+                    assertEquals(AdminActionState.Error(if (updating) "Errore durante l'aggiornamento dell'avviso. Riprova." else "Errore durante il salvataggio dell'avviso. Riprova."), viewModel.actionState.value)
                     // Retry is accepted after failure, without creating a new editor/view model.
                     submit()
                     advanceUntilIdle()

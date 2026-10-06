@@ -7,6 +7,7 @@ import com.matthew.sportiliapp.newadmin.domain.AddAlertUseCase
 import com.matthew.sportiliapp.newadmin.domain.GetAlertsUseCase
 import com.matthew.sportiliapp.newadmin.domain.RemoveAlertUseCase
 import com.matthew.sportiliapp.newadmin.domain.UpdateAlertUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -32,12 +33,21 @@ class AlertsAdminViewModel(
     private val _actionState = MutableStateFlow<AdminActionState>(AdminActionState.Idle)
     val actionState: StateFlow<AdminActionState> = _actionState
 
+    private var observation: Job? = null
+
     init {
         observeAlerts()
     }
 
+    fun retryLoading() {
+        if (_uiState.value !is AlertsAdminUiState.Error) return
+        _uiState.value = AlertsAdminUiState.Loading
+        observeAlerts()
+    }
+
     private fun observeAlerts() {
-        viewModelScope.launch {
+        observation?.cancel()
+        observation = viewModelScope.launch {
             getAlertsUseCase()
                 .catch { throwable -> _uiState.value = AlertsAdminUiState.Error(throwable) }
                 .collectLatest { alerts ->
@@ -86,7 +96,7 @@ class AlertsAdminViewModel(
 private fun Result<Unit>.toActionState(defaultErrorMessage: String): AdminActionState =
     fold(
         onSuccess = { AdminActionState.Idle },
-        onFailure = { error ->
-            AdminActionState.Error(error.localizedMessage ?: defaultErrorMessage)
+        onFailure = {
+            AdminActionState.Error(defaultErrorMessage + ". Riprova.")
         }
     )

@@ -54,6 +54,6 @@ class WorkoutReportsViewModelTest {
 
         val actionState = viewModel.actionState.value
         assertTrue(actionState is AdminActionState.Error)
-        assertEquals("delete failed", (actionState as AdminActionState.Error).message)
+        assertEquals("Errore durante l'eliminazione della segnalazione. Riprova.", (actionState as AdminActionState.Error).message)
     }
 }

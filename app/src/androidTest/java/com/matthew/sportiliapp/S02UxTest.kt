@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import android.graphics.Bitmap
 import java.io.File
-import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.newadmin.domain.*
@@ -94,14 +93,14 @@ class S02UxTest {
         compose.onNodeWithText("Salva").assertIsNotEnabled()
         compose.onNodeWithText("Annulla").assertIsNotEnabled()
         compose.onNodeWithText("Salvataggio in corso…").assertIsDisplayed()
-        Espresso.pressBack() // Hide keyboard or attempt to dismiss the sheet.
-        Espresso.pressBack() // Pending writes must keep the sheet open.
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK) // Hide keyboard or attempt to dismiss the sheet.
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK) // Pending writes must keep the sheet open.
         compose.onNodeWithText("Salva").assertExists().assertIsNotEnabled()
         compose.runOnIdle { assertEquals(1, repository.alertWrites) }
         compose.runOnIdle { gate.complete(Result.failure(IllegalStateException("Errore fixture, riprova"))) }
-        compose.onNodeWithText("Errore fixture, riprova").performScrollTo()
+        compose.onNodeWithText(if (editing) "Errore durante l'aggiornamento dell'avviso. Riprova." else "Errore durante il salvataggio dell'avviso. Riprova.").performScrollTo()
         capture("alert-${if (editing) "edit" else "new"}-error")
-        compose.onNodeWithText("Errore fixture, riprova").assertIsDisplayed()
+        compose.onNodeWithText(if (editing) "Errore durante l'aggiornamento dell'avviso. Riprova." else "Errore durante il salvataggio dell'avviso. Riprova.").assertIsDisplayed()
         compose.onNodeWithText("Bozza conservata").assertExists()
         compose.onNodeWithText("Descrizione conservata").assertExists()
         compose.onNodeWithText("Salva").assertIsEnabled()

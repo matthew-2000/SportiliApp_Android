@@ -1,4 +1,7 @@
 package com.matthew.sportiliapp.newadmin.ui.screens
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -6,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
@@ -60,7 +63,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,10 @@ import com.matthew.sportiliapp.newadmin.ui.viewmodel.AdminActionState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminUiState
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminViewModel
 import com.matthew.sportiliapp.newadmin.ui.viewmodel.AlertsAdminViewModelFactory
+import com.matthew.sportiliapp.ui.theme.sportiliStatusColors
+import java.util.Locale
+import java.time.ZoneOffset
+import java.time.LocalDate
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -97,6 +103,9 @@ fun AdminAlertsScreen(
     var editingAlert by remember { mutableStateOf<Avviso?>(null) }
     var alertPendingDeletion by remember { mutableStateOf<Avviso?>(null) }
 
+    var failedDeletion by remember { mutableStateOf<Avviso?>(null) }
+    BackHandler(enabled = isSaving) {}
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -109,7 +118,7 @@ fun AdminAlertsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            if (!isSaving) FloatingActionButton(onClick = {
                 if (!isSaving) {
                     viewModel.clearActionError()
                     editingAlert = null
@@ -127,56 +136,36 @@ fun AdminAlertsScreen(
         ) {
             if (actionState is AdminActionState.InProgress) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                if (!showDialog) Text("Eliminazione in corso…", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
             }
             val actionError = (actionState as? AdminActionState.Error)?.message
             actionError?.takeIf { !showDialog }?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                AdminActionError(message, onRetry = failedDeletion?.let { failed ->
+                    { alertPendingDeletion = failed; viewModel.clearActionError() }
+                })
             }
 
             when (uiState) {
-                AlertsAdminUiState.Loading -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Caricamento avvisi...")
-                    }
-                }
-
-                is AlertsAdminUiState.Error -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Errore: ${uiState.throwable.localizedMessage ?: "Sconosciuto"}")
-                    }
-                }
+                AlertsAdminUiState.Loading -> AdminListState("Caricamento avvisi…", loading = true)
+                is AlertsAdminUiState.Error -> AdminListState(
+                    "Avvisi non disponibili", "Non è stato possibile caricare gli avvisi. Riprova.",
+                    onRetry = viewModel::retryLoading
+                )
 
                 is AlertsAdminUiState.Success -> {
                     val alerts = uiState.alerts
                     if (alerts.isEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("Nessun avviso disponibile")
-                        }
+                        AdminListState("Nessun avviso disponibile", "Usa Nuovo avviso per pubblicare un aggiornamento.")
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(alerts, key = { it.id }) { alert ->
                                 AlertAdminCard(
                                     alert = alert,
+                                    enabled = !isSaving,
                                     onEdit = {
                                         if (isSaving) return@AlertAdminCard
                                         viewModel.clearActionError()
@@ -225,7 +214,10 @@ fun AdminAlertsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.removeAlert(alert.id)
+                        failedDeletion = alert
+                        viewModel.removeAlert(alert.id) { result ->
+                            if (result.isSuccess) failedDeletion = null
+                        }
                         alertPendingDeletion = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -242,56 +234,57 @@ fun AdminAlertsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AlertAdminCard(
-    alert: Avviso,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(alert.titolo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    alert.scadenza?.let { deadline ->
-                        val formatted = Instant.ofEpochMilli(deadline)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
-                        Text(
-                            text = "Scadenza: ${formatted.format(DateTimeFormatter.ISO_LOCAL_DATE)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    alert.urgenza?.takeIf { it.isNotBlank() }?.let { urgency ->
-                        Text(
-                            text = "Urgenza: ${urgency.replaceFirstChar { it.uppercase() }}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+internal fun AlertAdminCard(alert: Avviso, onEdit: () -> Unit, onDelete: () -> Unit, enabled: Boolean = true) {
+    val status = MaterialTheme.sportiliStatusColors
+    val weight = alert.urgencyWeight()
+    val container = when (weight) {
+        3 -> MaterialTheme.colorScheme.errorContainer
+        2 -> status.warningContainer
+        else -> status.infoContainer
+    }
+    val foreground = when (weight) {
+        3 -> MaterialTheme.colorScheme.onErrorContainer
+        2 -> status.onWarningContainer
+        else -> status.onInfoContainer
+    }
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AdminStatusLabel(when (weight) {
+                3 -> "Priorità alta"
+                2 -> "Priorità media"
+                1 -> "Priorità bassa"
+                else -> "Senza priorità"
+            }, if (weight >= 2) Icons.Default.Warning else Icons.Default.Info, container, foreground)
+            Text(alert.titolo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(alert.descrizione, style = MaterialTheme.typography.bodyMedium)
+            val deadline = alert.scadenza?.let {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    .format(adminAlertDateFormatter)
+            }
+            Text(when {
+                deadline == null -> "Attivo · Nessuna scadenza"
+                alert.isExpired() -> "Scaduto il $deadline"
+                else -> "Attivo · Scade il $deadline"
+            }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onEdit, enabled = enabled) {
+                    Icon(Icons.Default.Edit, contentDescription = "Modifica avviso")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Modifica")
                 }
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Modifica avviso")
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Elimina avviso")
-                    }
+                TextButton(onClick = onDelete, enabled = enabled) {
+                    Icon(Icons.Default.Delete, contentDescription = "Elimina avviso")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Elimina")
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(alert.descrizione, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
+
+private val adminAlertDateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ITALIAN)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -320,7 +313,7 @@ private fun AlertEditorSheet(
             }
         )
     }
-    val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG) }
+    val dateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(Locale.ITALIAN) }
     var titleError by remember { mutableStateOf(false) }
     var descriptionError by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -328,7 +321,7 @@ private fun AlertEditorSheet(
     val datePickerState = rememberDatePickerState()
     LaunchedEffect(showDatePicker) {
         if (showDatePicker) {
-            datePickerState.selectedDateMillis = selectedDate?.atStartOfDay(zoneId)?.toInstant()?.toEpochMilli()
+            datePickerState.selectedDateMillis = alertPickerMillis(selectedDate)
         }
     }
 
@@ -339,7 +332,7 @@ private fun AlertEditorSheet(
                 TextButton(
                     onClick = {
                         selectedDate = datePickerState.selectedDateMillis?.let { millis ->
-                            Instant.ofEpochMilli(millis).atZone(zoneId).toLocalDate()
+                            alertPickerDate(millis)
                         }
                         showDatePicker = false
                     }
@@ -355,8 +348,10 @@ private fun AlertEditorSheet(
 
     val urgencyOptions = listOf("", "Bassa", "Media", "Alta")
 
+    val editorScrollState = rememberScrollState()
+
     // Material 1.3 retains the dialog's initial back callback. Recreate that dialog when
-    // pending changes, while keeping every draft field above this key intact.
+    // pending changes, while keeping the draft fields and scroll position above this key intact.
     key(isSaving) {
         ModalBottomSheet(
             onDismissRequest = { if (!isSaving) onDismiss() },
@@ -370,13 +365,14 @@ private fun AlertEditorSheet(
                     .navigationBarsPadding()
                     .imePadding()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(editorScrollState),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
                     text = if (initialAlert == null) "Nuovo avviso" else "Modifica avviso",
                     style = MaterialTheme.typography.headlineSmall
                 )
+                Text("Titolo e descrizione sono obbligatori.", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = title,
                     onValueChange = {
@@ -389,7 +385,7 @@ private fun AlertEditorSheet(
                     supportingText = if (titleError) {
                         { Text("Inserisci un titolo") }
                     } else null,
-                    singleLine = true,
+                    singleLine = false,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -415,9 +411,9 @@ private fun AlertEditorSheet(
                     onExpandedChange = { if (!isSaving) urgencyExpanded = !urgencyExpanded }
                 ) {
                     OutlinedTextField(
-                        value = urgency,
+                        value = urgency.ifBlank { "Nessuna" },
                         onValueChange = { urgency = it },
-                        label = { Text("Urgenza") },
+                        label = { Text("Priorità") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = urgencyExpanded) },
                         modifier = Modifier
                             .menuAnchor()
@@ -461,12 +457,8 @@ private fun AlertEditorSheet(
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Text("Salvataggio in corso…", style = MaterialTheme.typography.bodyMedium)
                 }
-                errorMessage?.let { message ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-                    }
-                }
+                errorMessage?.let { AdminActionError(it) }
+                if (errorMessage != null) Text("La bozza è conservata. Premi Salva per riprovare.", style = MaterialTheme.typography.bodySmall)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -475,7 +467,7 @@ private fun AlertEditorSheet(
                         Text("Annulla")
                     }
                     Button(
-                        enabled = !isSaving,
+                        enabled = !isSaving && title.isNotBlank() && description.isNotBlank(),
                         onClick = {
                             titleError = title.isBlank()
                             descriptionError = description.isBlank()
@@ -483,7 +475,7 @@ private fun AlertEditorSheet(
                             if (titleError || descriptionError) return@Button
 
                             val normalizedUrgency = urgency.lowercase().takeIf { it.isNotBlank() }
-                            val deadlineMillis = selectedDate?.atStartOfDay(zoneId)?.toInstant()?.toEpochMilli()
+                            val deadlineMillis = alertDeadlineMillis(selectedDate, initialAlert?.scadenza, zoneId)
 
                             val newAlert = Avviso(
                                 id = initialAlert?.id.orEmpty(),
@@ -502,4 +494,17 @@ private fun AlertEditorSheet(
             }
         }
     }
+}
+
+// Material DatePicker uses UTC midnight for calendar dates. The stored deadline stays local,
+// and an untouched existing timestamp is preserved exactly.
+internal fun alertPickerMillis(date: LocalDate?): Long? =
+    date?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+
+internal fun alertPickerDate(millis: Long): LocalDate =
+    Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+
+internal fun alertDeadlineMillis(date: LocalDate?, original: Long?, zone: ZoneId): Long? {
+    val originalDate = original?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }
+    return if (date == originalDate) original else date?.atStartOfDay(zone)?.toInstant()?.toEpochMilli()
 }

@@ -25,6 +25,15 @@ class FakeFirebaseRepository : FirebaseRepository {
     var updateReportResult: Result<Unit> = Result.success(Unit)
     var removeReportResult: Result<Unit> = Result.success(Unit)
 
+    var observeAlerts: () -> Flow<List<Avviso>> = { alertsFlow }
+    var observeReports: () -> Flow<List<WorkoutIssueReport>> = { reportsFlow }
+    var reportWrites = 0
+    var reportRemovals = 0
+    var alertRemovals = 0
+    var saveReport: suspend (WorkoutIssueReport) -> Result<Unit> = { Result.success(Unit) }
+    var deleteReport: suspend (String) -> Result<Unit> = { Result.success(Unit) }
+    var deleteAlert: suspend (String) -> Result<Unit> = { Result.success(Unit) }
+
     override fun getUsers(): Flow<List<Utente>> = usersFlow
     override suspend fun addUser(utente: Utente): Result<Unit> = Result.success(Unit)
     override suspend fun updateUser(utente: Utente): Result<Unit> = Result.success(Unit)
@@ -84,7 +93,7 @@ class FakeFirebaseRepository : FirebaseRepository {
         exerciseKey: String
     ): Result<Unit> = Result.success(Unit)
 
-    override fun getAlerts(): Flow<List<Avviso>> = alertsFlow
+    override fun getAlerts(): Flow<List<Avviso>> = observeAlerts()
     override suspend fun addAlert(avviso: Avviso): Result<Unit> {
         addAlertCalls++
         awaitAlertWrite()
@@ -96,8 +105,16 @@ class FakeFirebaseRepository : FirebaseRepository {
         return updateAlertResult
     }
     override suspend fun removeAlert(alertId: String): Result<Unit> = removeAlertResult
-    override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = reportsFlow
+    override fun getWorkoutIssueReports(): Flow<List<WorkoutIssueReport>> = observeReports()
     override suspend fun addWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> = Result.success(Unit)
-    override suspend fun updateWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> = updateReportResult
-    override suspend fun removeWorkoutIssueReport(reportId: String): Result<Unit> = removeReportResult
+    override suspend fun updateWorkoutIssueReport(report: WorkoutIssueReport): Result<Unit> {
+        reportWrites++
+        saveReport(report)
+        return updateReportResult
+    }
+    override suspend fun removeWorkoutIssueReport(reportId: String): Result<Unit> {
+        reportRemovals++
+        deleteReport(reportId)
+        return removeReportResult
+    }
 }
