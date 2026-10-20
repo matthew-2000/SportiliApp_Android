@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.matthew.sportiliapp"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.matthew.sportiliapp"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 32
         versionName = "2.0"
 
