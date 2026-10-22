@@ -41,13 +41,13 @@ class S09PreviewActivity : ComponentActivity() {
                 } else if (mode == "editor" || mode == "new") EsercizioDialog(
                     if (mode == "new") Esercizio("", "") else s09Exercise(),
                     onDismiss = { closed = true }, onConfirm = { saved = GruppoMuscolare("Circuito", mapOf("esercizio1" to it)) },
-                    predefiniti = s09Catalog().flatMap { it.esercizi })
+                    predefiniti = s09Catalog().flatMap { it.esercizi }, userContext = "Giulia Rossi · Circuito")
                 else EditMuscleGroupContent("SPT-042", "giorno1", if (mode == "empty") s09Group().copy(esercizi = emptyMap()) else s09Group(),
                     s09Catalog(), pending, error, onSave = { updated ->
                         pending = true; error = null
                         scope.launch { delay(intent.getLongExtra("delay", 3000)); pending = false
                             if (mode == "failure" && attempts++ == 0) error = "Connessione interrotta. La bozza è ancora disponibile." else saved = updated }
-                    }, onCancel = { closed = true })
+                    }, onCancel = { closed = true }, userName = "Giulia Rossi", dayName = "Giorno A")
             }
         }
     }

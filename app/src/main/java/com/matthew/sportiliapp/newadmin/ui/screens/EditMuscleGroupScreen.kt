@@ -78,7 +78,9 @@ fun EditMuscleGroupScreen(
     isSaving: Boolean = false,
     errorMessage: String? = null,
     onSave: (GruppoMuscolare) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    userName: String = "",
+    dayName: String = ""
 ) {
     val viewModel: EserciziPredefinitiViewModel = viewModel()
 
@@ -90,7 +92,7 @@ fun EditMuscleGroupScreen(
         }
     }
 
-    EditMuscleGroupContent(userCode, dayKey, group, predefiniti, isSaving, errorMessage, onSave, onCancel)
+    EditMuscleGroupContent(userCode, dayKey, group, predefiniti, isSaving, errorMessage, onSave, onCancel, userName, dayName)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -103,7 +105,9 @@ internal fun EditMuscleGroupContent(
     isSaving: Boolean = false,
     errorMessage: String? = null,
     onSave: (GruppoMuscolare) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    userName: String = "",
+    dayName: String = ""
 ) {
     // Stato: nome del gruppo
     var groupName by remember { mutableStateOf(group.nome) }
@@ -210,7 +214,7 @@ internal fun EditMuscleGroupContent(
         modifier = Modifier.imePadding(),
         topBar = {
             AdminContextAppBar(
-                title = groupName, context = "Utente $userCode · Scheda · $dayKey · Gruppo",
+                title = groupName, context = listOf(userName, dayName).filter(String::isNotBlank).joinToString(" · "),
                 enabled = !isSaving, onBack = { requestExit() }
             )
         },
@@ -219,7 +223,8 @@ internal fun EditMuscleGroupContent(
                 isDirty = isDirty,
                 isSaving = isSaving,
                 onCancel = { requestExit() },
-                onSave = { onSave(buildUpdatedGroup()) }
+                onSave = { onSave(buildUpdatedGroup()) },
+                saveLabel = "Salva modifiche"
             )
         }
     ) { paddingValues ->
@@ -240,16 +245,14 @@ internal fun EditMuscleGroupContent(
             item {
                 if (isSaving) LinearProgressIndicator(Modifier.fillMaxWidth())
                 errorMessage?.let { AdminEditorErrorBanner(it, onRetry = { onSave(buildUpdatedGroup()) }) }
-                AdminEditorSection("Esercizi selezionati", "${selectedExercises.size} esercizi nel gruppo. Modifica e riordina la bozza, poi salva il gruppo.")
+                AdminEditorSection("Esercizi (${selectedExercises.size})")
             }
-            if (selectedExercises.isEmpty()) item { Text("Nessun esercizio aggiunto. Scegli dal catalogo o crea un esercizio personalizzato.") }
             items(selectedExercises, key = { it.id }) { entry ->
                 val index = selectedExercises.indexOfFirst { it.id == entry.id }
                 AdminOrderedItem(
                     name = entry.exercise.name,
-                    summary = "Prescrizione: ${entry.exercise.serie}" +
-                        (entry.exercise.riposo?.takeIf { it.isNotBlank() }?.let { "\nRecupero: $it" } ?: "") +
-                        (if (entry.exercise.notePT.isNullOrBlank()) "" else "\nIstruzioni trainer presenti"),
+                    summary = entry.exercise.serie +
+                        (entry.exercise.riposo?.takeIf { it.isNotBlank() }?.let { "\nRecupero: $it" } ?: ""),
                     kind = "esercizio", position = index + 1, total = selectedExercises.size,
                     enabled = !isSaving,
                     onMoveUp = { if (index > 0) selectedExercises.swap(index, index - 1) },
@@ -257,7 +260,7 @@ internal fun EditMuscleGroupContent(
                     onRemove = { selectedExercises.removeAll { it.id == entry.id } },
                     onEdit = { exerciseEntryInEdit = entry },
                     editLabel = "Modifica",
-                    removalSupportingText = "La rimozione sarà applicata quando salvi il gruppo. Puoi annullarla uscendo e scartando la bozza."
+                    removalSupportingText = "La rimozione sarà applicata quando salvi le modifiche."
                 )
             }
             item {
@@ -265,7 +268,7 @@ internal fun EditMuscleGroupContent(
                     Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Nuovo esercizio")
                 }
                 Spacer(Modifier.height(16.dp))
-                AdminEditorSection("Catalogo esercizi", "Cerca e aggiungi alla bozza. Gli esercizi già presenti possono essere aggiunti di nuovo.")
+                AdminEditorSection("Catalogo esercizi")
                 OutlinedTextField(searchText, { searchText = it }, label = { Text("Cerca esercizio...") },
                     modifier = Modifier.fillMaxWidth(), enabled = !isSaving, singleLine = true,
                     trailingIcon = { if (searchText.isNotEmpty()) TextButton(onClick = { searchText = "" }, enabled = !isSaving) { Text("Cancella") } })
@@ -359,7 +362,8 @@ internal fun EditMuscleGroupContent(
                 }
             },
             // *** Passiamo l'elenco determinato sopra: per "Circuito" conterrà tutti i predefiniti ***
-            predefiniti = predefinitiGruppo
+            predefiniti = predefinitiGruppo,
+            userContext = listOf(userName, dayName, groupName).filter(String::isNotBlank).joinToString(" · ")
         )
     }
 
@@ -392,8 +396,8 @@ fun PredefinedExerciseCard(
                 text = esercizioPredefinito.nome,
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text(if (isSelected) "Già presente · Aggiungi ancora" else "Aggiungi alla bozza",
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            if (isSelected) Text("Già presente", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary)
         }
     }
 }

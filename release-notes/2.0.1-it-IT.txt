@@ -1,0 +1,5 @@
+Miglioramenti all'area amministratore:
+- Pulsanti di conferma e salvataggio accessibili anche con la navigazione Android a tre tasti.
+- Etichette più chiare per confermare un esercizio e salvare le modifiche al gruppo.
+- Nome e cognome dell'utente nelle intestazioni degli editor.
+- Schermate di modifica più pulite, con meno testi ripetitivi.

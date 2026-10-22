@@ -34,7 +34,8 @@ class S07AdminUsersTest {
         }
     }
     private fun scrollTo(text: String) {
-        compose.onNode(hasScrollAction() and !hasTestTag("admin-editor-actions")).performScrollToNode(hasText(text, substring = false))
+        compose.onNode(hasScrollAction() and !hasTestTag("admin-editor-actions")
+            and !hasTestTag("admin-editor-context")).performScrollToNode(hasText(text, substring = false))
     }
     private fun editName(name: String) {
         compose.onNodeWithText("Modifica dati utente").performClick()
@@ -128,12 +129,12 @@ class S07AdminUsersTest {
     @Test fun cleanAndRevertedNamesDisableSaveButWorkoutNavigationRemainsAvailable() {
         showEditor()
         compose.onNodeWithText("Giulia Rossi").assertExists()
-        compose.onNodeWithText("Codice SPT-042 · Utente esistente").assertExists()
+        compose.onNodeWithText("Codice di accesso: SPT-042").assertExists()
         compose.onNodeWithText("Salva", substring = false).assertIsNotEnabled()
         editName("Giulia Maria")
         compose.onNodeWithText("Salva", substring = false).assertIsEnabled()
         compose.onNodeWithText("Nome", substring = false).performTextReplacement("  giulia  ")
-        compose.onNodeWithText("Nessuna modifica").assertExists()
+        compose.onNodeWithText("Nessuna modifica").assertDoesNotExist()
         compose.onNodeWithText("Salva", substring = false).assertIsNotEnabled()
         scrollTo("Modifica scheda")
         compose.onNodeWithText("Modifica scheda").assertIsEnabled()
@@ -142,11 +143,11 @@ class S07AdminUsersTest {
     @Test fun draftBackCanContinueOrDiscard() {
         showEditor()
         editName("Giulia Maria")
-        compose.onNodeWithContentDescription("Torna agli utenti").performClick()
+        compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onAllNodesWithText("Modifiche non salvate", substring = false).assertCountEquals(2)
         Espresso.pressBack()
         compose.onNodeWithText("Nome", substring = false).assertTextContains("Giulia Maria")
-        compose.onNodeWithContentDescription("Torna agli utenti").performClick()
+        compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onNodeWithText("Scarta", substring = false).performClick()
         compose.runOnIdle { assertEquals(1, cancelled); assertNull(saved) }
     }
@@ -156,7 +157,7 @@ class S07AdminUsersTest {
         compose.onNodeWithText("Salvataggio in corso…").assertExists()
         compose.onNodeWithText("Salva", substring = false).assertIsNotEnabled()
         compose.onNodeWithText("Annulla", substring = false).assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Torna agli utenti").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Indietro").assertIsNotEnabled()
         Espresso.pressBack()
         compose.runOnIdle { assertEquals(0, cancelled); assertEquals(0, removed); assertNull(saved) }
     }
@@ -213,7 +214,7 @@ class S07AdminUsersTest {
         compose.onNodeWithText("Torna al form").performClick()
         scrollTo("Nome")
         compose.onNodeWithText("Nome", substring = false).assertTextContains("Giulia Maria")
-        compose.onNodeWithContentDescription("Torna agli utenti").performClick()
+        compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onNodeWithText("Scarta").performClick()
         compose.onNodeWithText("Richieste 1").assertIsSelected()
     }

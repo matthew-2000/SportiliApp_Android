@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.view.ViewTreeObserver
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.Insets
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
@@ -34,8 +35,10 @@ fun EsercizioDialog(
     initialExercise: Esercizio,
     onDismiss: () -> Unit,
     onConfirm: (Esercizio) -> Unit,
-    predefiniti: List<EsercizioPredefinito>
+    predefiniti: List<EsercizioPredefinito>,
+    userContext: String = ""
 ) {
+    val hostView = LocalView.current
     val names = remember(initialExercise) { initialExercise.name.split(" + ") }
     val prescriptions = remember(initialExercise) { initialExercise.serie.split(" + ") }
     val initialMain = prescriptions.firstOrNull().orEmpty()
@@ -89,7 +92,8 @@ fun EsercizioDialog(
         val view = LocalView.current
         val density = LocalDensity.current
         var keyboardBottom by remember { mutableIntStateOf(0) }
-        DisposableEffect(view) {
+        var navigationInsets by remember { mutableStateOf(Insets.NONE) }
+        DisposableEffect(view, hostView) {
             val window = (view.parent as? DialogWindowProvider)?.window
             val previousMode = window?.attributes?.softInputMode
             // The dialog owns its keyboard insets. Prevent native adjustPan, and read the
@@ -101,6 +105,12 @@ fun EsercizioDialog(
                 val insets = ViewCompat.getRootWindowInsets(view)
                 keyboardBottom = if (Build.VERSION.SDK_INT >= 30 && insets?.isVisible(WindowInsetsCompat.Type.ime()) == true)
                     insets.getInsets(WindowInsetsCompat.Type.ime()).bottom else 0
+                // This full-screen dialog can report zero navigation insets even while
+                // the system buttons cover it. Keep the host window's safe area too.
+                val dialogNavigation = insets?.getInsets(WindowInsetsCompat.Type.navigationBars()) ?: Insets.NONE
+                val hostNavigation = ViewCompat.getRootWindowInsets(hostView)
+                    ?.getInsets(WindowInsetsCompat.Type.navigationBars()) ?: Insets.NONE
+                navigationInsets = Insets.max(dialogNavigation, hostNavigation)
                 true
             }
             observer.addOnPreDrawListener(listener)
@@ -111,17 +121,22 @@ fun EsercizioDialog(
         }
         Surface(Modifier.fillMaxSize()) {
             Scaffold(
-                modifier = Modifier.padding(bottom = with(density) { keyboardBottom.toDp() }),
+                modifier = with(density) {
+                    Modifier.absolutePadding(
+                        left = navigationInsets.left.toDp(),
+                        right = navigationInsets.right.toDp(),
+                        bottom = maxOf(keyboardBottom, navigationInsets.bottom).toDp()
+                    )
+                },
                 topBar = { AdminContextAppBar(if (pickerIndex == null) "Esercizio" else "Scegli dal catalogo",
-                    if (pickerIndex == null) "Bozza del gruppo · ${extras.size + 1} parti" else "Parte ${pickerIndex!! + 2} · Esercizio extra",
+                    if (pickerIndex == null) userContext else "Parte ${pickerIndex!! + 2}",
                     true, onBack = { exit() }) },
                 bottomBar = {
                     if (pickerIndex == null) Surface(tonalElevation = 3.dp) {
-                        Column(Modifier.fillMaxWidth().then(if (keyboardBottom == 0) Modifier.navigationBarsPadding() else Modifier).padding(12.dp)) {
-                            Text("Conferma nella bozza; salva il gruppo per applicare le modifiche.", style = MaterialTheme.typography.bodySmall)
+                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = { exit() }, modifier = Modifier.weight(1f)) { Text("Annulla") }
-                                Button(onClick = { confirm() }, modifier = Modifier.weight(1f)) { Text("Salva") }
+                                Button(onClick = { confirm() }, modifier = Modifier.weight(1f)) { Text("Conferma esercizio") }
                             }
                         }
                     }
@@ -144,7 +159,6 @@ fun EsercizioDialog(
                         }
                     }
                 } else Column(Modifier.padding(padding).fillMaxSize().verticalScroll(formScroll).padding(16.dp)) {
-                    SectionTitle("Parte principale")
                     OutlinedTextField(name, { name = it }, label = { Text("Nome Esercizio") }, modifier = Modifier.fillMaxWidth(),
                         isError = validating && name.isBlank(), supportingText = { if (validating && name.isBlank()) Text("Inserisci il nome dell'esercizio") })
                     SectionDivider(); SectionTitle("Prescrizione")
@@ -153,7 +167,7 @@ fun EsercizioDialog(
                         Stepper(reps, { reps = it; prescriptionChanged = true }, 1..50, "Ripetizioni")
                     }
                     OutlinedTextField(custom, { custom = it; prescriptionChanged = true }, label = { Text("Formato Serie (opzionale)") },
-                        supportingText = { Text("Lascia vuoto per usare serie e ripetizioni. Esempio: 4x8 oppure 2 minuti.") }, modifier = Modifier.fillMaxWidth())
+                        supportingText = { Text("Es. 4x8 oppure 2 minuti") }, modifier = Modifier.fillMaxWidth())
                     SectionDivider(); SectionTitle("Recupero")
                     Row(Modifier.fillMaxWidth().clickable { includeRest = !includeRest; restChanged = true }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(includeRest, { includeRest = it; restChanged = true }); Text("Includi Riposo", Modifier.weight(1f))
@@ -163,7 +177,6 @@ fun EsercizioDialog(
                         Stepper(seconds, { seconds = it; restChanged = true }, 0..55 step 5, "Secondi")
                     }
                     SectionDivider(); SectionTitle("Parti del superset")
-                    Text("Le parti sono eseguite insieme, nell'ordine indicato.", style = MaterialTheme.typography.bodySmall)
                     extras.forEachIndexed { index, state ->
                         Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Column(Modifier.padding(12.dp)) {
@@ -182,9 +195,9 @@ fun EsercizioDialog(
                         }
                     }
                     OutlinedButton(onClick = { extras.add(ExerciseInputState()) }, modifier = Modifier.fillMaxWidth()) { Text("Aggiungi esercizio extra") }
-                    SectionDivider(); SectionTitle("Istruzioni del trainer")
+                    SectionDivider()
                     OutlinedTextField(trainer, { trainer = it; trainerChanged = true }, label = { Text("Istruzioni del trainer") },
-                        minLines = 3, modifier = Modifier.fillMaxWidth(), supportingText = { Text("Visibili nel dettaglio dell'esercizio. Puoi lasciarle vuote.") })
+                        minLines = 3, modifier = Modifier.fillMaxWidth())
                 }
             }
             if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Scartare la bozza dell'esercizio?") },

@@ -154,10 +154,10 @@ class S08EditorsTest {
     @Test fun loadingErrorKeepsContextBackAndRetry() {
         var retries = 0
         compose.setContent { SportiliAppTheme {
-            AdminEditorLoadState("Scheda", "Utente SPT-042 · Scheda", false,
+            AdminEditorLoadState("Scheda", "Giulia Rossi", false,
                 onBack = { cancelled++ }, onRetry = { retries++ })
         } }
-        compose.onNodeWithText("Utente SPT-042 · Scheda").assertIsDisplayed()
+        compose.onNodeWithText("Giulia Rossi").assertIsDisplayed()
         compose.onNodeWithText("Impossibile caricare la scheda").assertIsDisplayed()
         compose.onNodeWithText("Riprova").performClick()
         compose.onNodeWithContentDescription("Indietro").performClick()
@@ -172,7 +172,11 @@ class S08EditorsTest {
         val group = card.giorni.values.first().gruppiMuscolari.values.first().nome
         scroll(group)
         compose.onNodeWithText(group).performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithText("Utente SPT-042 · Scheda · giorno1 · Gruppo").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10000) {
+            compose.onAllNodes(hasText(group) and hasAnyAncestor(hasTestTag("admin-editor-context")))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Giulia Rossi · ${card.giorni.values.first().name}").assertIsDisplayed()
         compose.onNodeWithContentDescription("Indietro").performClick()
         compose.onNodeWithText("Modifica giorno").assertIsDisplayed()
         compose.onNodeWithContentDescription("Indietro").performClick()

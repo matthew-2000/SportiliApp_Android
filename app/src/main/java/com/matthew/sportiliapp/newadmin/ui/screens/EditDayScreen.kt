@@ -61,7 +61,8 @@ fun EditDayScreen(
     errorMessage: String? = null,
     onSave: (Giorno) -> Unit,
     onCancel: () -> Unit,
-    onMuscleGroupSelected: (String, GruppoMuscolare, Giorno) -> Unit
+    onMuscleGroupSelected: (String, GruppoMuscolare, Giorno) -> Unit,
+    userName: String = ""
 ) {
     val initialGroupsList = remember(day) { day.gruppiMuscolari.toList() }
 
@@ -141,7 +142,7 @@ fun EditDayScreen(
         topBar = {
             AdminContextAppBar(
                 title = "Modifica giorno",
-                context = "Utente $userCode · Scheda · ${day.name}",
+                context = listOf(userName, day.name).filter(String::isNotBlank).joinToString(" · "),
                 enabled = !isSaving,
                 onBack = { requestExit() }
             )
@@ -171,11 +172,6 @@ fun EditDayScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                AdminEditorSection(
-                    title = "Dati giorno",
-                    supportingText = "Il nome identifica il giorno nella scheda dell’utente."
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = dayName,
                     onValueChange = {
@@ -192,7 +188,7 @@ fun EditDayScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 AdminEditorSection(
                     title = "Gruppi muscolari",
-                    supportingText = "Ordina i gruppi. Aprire un gruppo salva prima la bozza del giorno."
+                    supportingText = if (isDirty) "Aprire un gruppo salva le modifiche." else null
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 

@@ -92,9 +92,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                                 userActionInProgress = false
                                 result.fold(
                                     onSuccess = {
-                                        navController.navigate(
-                                            Screen.EditWorkoutCard.createRoute(user.code)
-                                        )
+                                        navController.openAdminEditor(Screen.EditWorkoutCard.createRoute(user.code),
+                                            "${user.nome} ${user.cognome}".trim())
                                     },
                                     onFailure = { error ->
                                         userActionError = error.asUserMessage(
@@ -130,9 +129,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                                             userActionInProgress = false
                                             result.fold(
                                                 onSuccess = {
-                                                    navController.navigate(
-                                                        Screen.EditWorkoutCard.createRoute(user.code)
-                                                    )
+                                                    navController.openAdminEditor(Screen.EditWorkoutCard.createRoute(user.code),
+                                                        "${user.nome} ${user.cognome}".trim())
                                                     navController.popBackStack()
                                                 },
                                                 onFailure = { error ->
@@ -162,7 +160,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                                     },
                                     onCancel = { navController.popBackStack() },
                                     onEditWorkoutCard = { code ->
-                                        navController.navigate(Screen.EditWorkoutCard.createRoute(code))
+                                        navController.openAdminEditor(Screen.EditWorkoutCard.createRoute(code),
+                                            "${initialUser.nome} ${initialUser.cognome}".trim())
                                     }
                                 )
                             }
@@ -173,6 +172,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
         }
         composable(Screen.EditWorkoutCard.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
+            val userName = backStackEntry.savedStateHandle.get<String>("adminUserName").orEmpty()
             val workoutCardViewModel: WorkoutCardViewModel =
                 viewModel(factory = WorkoutCardViewModelFactory(userCode))
             val state by workoutCardViewModel.state.collectAsState()
@@ -185,19 +185,20 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     WorkoutCardUiState.Idle,
-                    WorkoutCardUiState.Loading -> AdminEditorLoadState("Scheda", "Utente $userCode · Scheda", true,
+                    WorkoutCardUiState.Loading -> AdminEditorLoadState("Scheda", userName, true,
                         onBack = { navController.popBackStack() }, onRetry = { workoutCardViewModel.loadWorkoutCard(userCode) })
 
                     is WorkoutCardUiState.Success -> {
                         val successState = state as WorkoutCardUiState.Success
                         EditWorkoutCardScreen(
                             userCode = userCode,
+                            userName = userName,
                             scheda = successState.scheda,
                             isSaving = actionState is AdminActionState.InProgress,
                             errorMessage = actionState.errorMessage("Non è stato possibile salvare la scheda."),
-                            onDaySelected = { dayKey, _, scheda ->
+                            onDaySelected = { dayKey, day, scheda ->
                                 workoutCardViewModel.updateWorkoutCard(userCode, scheda) {
-                                    navController.navigate(Screen.EditDay.createRoute(userCode, dayKey))
+                                    navController.openAdminEditor(Screen.EditDay.createRoute(userCode, dayKey), userName, day.name)
                                 }
                             },
                             onSave = { updatedScheda ->
@@ -210,7 +211,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is WorkoutCardUiState.Error -> {
-                        AdminEditorLoadState("Scheda", "Utente $userCode · Scheda", false,
+                        AdminEditorLoadState("Scheda", userName, false,
                         onBack = { navController.popBackStack() }, onRetry = { workoutCardViewModel.loadWorkoutCard(userCode) })
                     }
                 }
@@ -219,6 +220,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
 
         composable(Screen.EditDay.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
+            val userName = backStackEntry.savedStateHandle.get<String>("adminUserName").orEmpty()
+            val dayName = backStackEntry.savedStateHandle.get<String>("adminDayName").orEmpty()
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val dayViewModel: DayViewModel = viewModel(factory = DayViewModelFactory(userCode, dayKey))
             val state by dayViewModel.state.collectAsState()
@@ -231,22 +234,23 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
             AdminAdaptiveEditorLayout(navController) {
                 when (state) {
                     DayUiState.Idle,
-                    DayUiState.Loading -> AdminEditorLoadState("Giorno", "Utente $userCode · Scheda · $dayKey", true,
+                    DayUiState.Loading -> AdminEditorLoadState("Giorno",
+                        listOf(userName, dayName).filter(String::isNotBlank).joinToString(" · "), true,
                         onBack = { navController.popBackStack() }, onRetry = { dayViewModel.loadDay(userCode, dayKey) })
 
                     is DayUiState.Success -> {
                         val successState = state as DayUiState.Success
                         EditDayScreen(
                             userCode = userCode,
+                            userName = userName,
                             dayKey = dayKey,
                             day = successState.day,
                             isSaving = actionState is AdminActionState.InProgress,
                             errorMessage = actionState.errorMessage("Non è stato possibile salvare il giorno."),
                             onMuscleGroupSelected = { groupKey, _, updatedDay ->
                                 dayViewModel.updateDay(userCode, dayKey, updatedDay) {
-                                    navController.navigate(
-                                        Screen.EditMuscleGroup.createRoute(userCode, dayKey, groupKey)
-                                    )
+                                    navController.openAdminEditor(
+                                        Screen.EditMuscleGroup.createRoute(userCode, dayKey, groupKey), userName, updatedDay.name)
                                 }
                             },
                             onSave = { updatedDay ->
@@ -259,7 +263,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                     }
 
                     is DayUiState.Error -> {
-                        AdminEditorLoadState("Giorno", "Utente $userCode · Scheda · $dayKey", false,
+                        AdminEditorLoadState("Giorno",
+                        listOf(userName, dayName).filter(String::isNotBlank).joinToString(" · "), false,
                         onBack = { navController.popBackStack() }, onRetry = { dayViewModel.loadDay(userCode, dayKey) })
                     }
                 }
@@ -268,6 +273,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
 
         composable(Screen.EditMuscleGroup.route) { backStackEntry ->
             val userCode = backStackEntry.arguments?.getString("userCode") ?: ""
+            val userName = backStackEntry.savedStateHandle.get<String>("adminUserName").orEmpty()
+            val dayName = backStackEntry.savedStateHandle.get<String>("adminDayName").orEmpty()
             val dayKey = backStackEntry.arguments?.getString("dayKey") ?: ""
             val groupKey = backStackEntry.arguments?.getString("groupKey") ?: ""
             val muscleGroupViewModel: MuscleGroupViewModel =
@@ -283,7 +290,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                 when (state) {
                     MuscleGroupUiState.Idle,
                     MuscleGroupUiState.Loading -> AdminEditorLoadState("Gruppo muscolare",
-                        "Utente $userCode · Scheda · $dayKey · $groupKey", true,
+                        userName, true,
                         onBack = { navController.popBackStack() },
                         onRetry = { muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey) })
 
@@ -291,6 +298,8 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
                         val successState = state as MuscleGroupUiState.Success
                         EditMuscleGroupScreen(
                             userCode = userCode,
+                            userName = userName,
+                            dayName = dayName,
                             dayKey = dayKey,
                             group = successState.group,
                             isSaving = actionState is AdminActionState.InProgress,
@@ -311,7 +320,7 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
 
                     is MuscleGroupUiState.Error -> {
                         AdminEditorLoadState("Gruppo muscolare",
-                            "Utente $userCode · Scheda · $dayKey · $groupKey", false,
+                            userName, false,
                             onBack = { navController.popBackStack() },
                             onRetry = { muscleGroupViewModel.loadGroup(userCode, dayKey, groupKey) })
                     }
@@ -324,6 +333,15 @@ fun AdminNavGraph(navController: NavHostController = rememberNavController()) {
         composable(Screen.Reports.route) {
             AdminReportsScreen(onBack = { navController.popBackStack() })
         }
+    }
+}
+
+// Display context survives back navigation and process recreation without changing route IDs.
+private fun NavHostController.openAdminEditor(route: String, userName: String, dayName: String = "") {
+    navigate(route)
+    currentBackStackEntry?.savedStateHandle?.apply {
+        set("adminUserName", userName)
+        set("adminDayName", dayName)
     }
 }
 
@@ -395,13 +413,6 @@ private fun AdminEmptyDetailPane() {
             text = "Seleziona un utente",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(top = 12.dp)
-        )
-        Text(
-            text = "I dati e gli editor verranno mostrati in questo pannello.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }

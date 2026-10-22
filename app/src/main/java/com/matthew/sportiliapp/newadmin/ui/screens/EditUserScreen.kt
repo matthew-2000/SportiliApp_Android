@@ -18,12 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,7 +34,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -243,13 +238,11 @@ fun EditUserScreen(
     Scaffold(
         modifier = Modifier.imePadding(),
         topBar = {
-            TopAppBar(
-                title = { Text(if (isEditMode) "Modifica utente" else "Nuovo utente") },
-                navigationIcon = {
-                    IconButton(onClick = { requestExit() }, enabled = !isSaving) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Torna agli utenti")
-                    }
-                }
+            AdminContextAppBar(
+                title = if (isEditMode) "Modifica utente" else "Nuovo utente",
+                context = initialUser?.let { "${it.nome} ${it.cognome}".trim() }.orEmpty(),
+                enabled = !isSaving,
+                onBack = { requestExit() }
             )
         },
         bottomBar = {
@@ -260,9 +253,7 @@ fun EditUserScreen(
                 onSave = { validateAndSave() },
                 canSave = !isEditMode || isDirty,
                 saveLabel = if (isEditMode) "Salva" else "Crea utente",
-                idleStatus = if (isEditMode) "Nessuna modifica" else "Dati da completare",
-                pendingStatus = if (lastActionWasRemoval) "Rimozione in corso…" else "Salvataggio in corso…",
-                idleIcon = if (isEditMode) Icons.Default.CheckCircle else Icons.Default.Edit
+                pendingStatus = if (lastActionWasRemoval) "Rimozione in corso…" else "Salvataggio in corso…"
             )
         }
     ) { padding ->
@@ -286,15 +277,9 @@ fun EditUserScreen(
             }
 
             if (initialUser != null) {
-                AdminEditorSection(
-                    title = "${initialUser.nome} ${initialUser.cognome}",
-                    supportingText = "Codice ${initialUser.code} · Utente esistente"
-                )
+                Text("Codice di accesso: ${initialUser.code}", style = MaterialTheme.typography.bodySmall)
             } else {
-                AdminEditorSection(
-                    title = "Crea un nuovo utente",
-                    supportingText = "Il codice di accesso viene generato alla creazione. Poi potrai personalizzare la scheda."
-                )
+                Text("Il codice di accesso viene generato alla creazione.", style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider()
             AdminEditorSection(title = "Dati personali")
@@ -343,8 +328,7 @@ fun EditUserScreen(
 
             if (initialUser?.scheda != null) {
                 AdminEditorSection(
-                    title = "Scheda di allenamento",
-                    supportingText = "Controlla il riepilogo o apri l’editor completo."
+                    title = "Scheda di allenamento"
                 )
                 Card(
                     shape = MaterialTheme.shapes.medium,
@@ -383,10 +367,6 @@ fun EditUserScreen(
                     }
                     if (onRemove != null) {
                         HorizontalDivider()
-                        AdminEditorSection(
-                            title = "Rimozione utente",
-                            supportingText = "La rimozione non può essere annullata."
-                        )
                         OutlinedButton(
                             onClick = { showRemoveDialog = true },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),

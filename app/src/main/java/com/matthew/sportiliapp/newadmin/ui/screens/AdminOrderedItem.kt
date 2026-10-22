@@ -31,7 +31,7 @@ internal fun AdminContextAppBar(title: String, context: String, enabled: Boolean
                 Column(Modifier.weight(1f).heightIn(max = contextHeight)
                     .testTag("admin-editor-context").verticalScroll(rememberScrollState())) {
                     if (titleFirst) Text(title, style = MaterialTheme.typography.titleLarge)
-                    Text(context, style = MaterialTheme.typography.bodySmall,
+                    if (context.isNotBlank()) Text(context, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (!titleFirst) Text(title, style = MaterialTheme.typography.titleLarge)
                 }
@@ -68,12 +68,8 @@ internal fun AdminOrderedItem(
                 .padding(vertical = 8.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
                 Text(summary, style = MaterialTheme.typography.bodySmall)
-                Text("$position di $total" + when {
-                    total == 1 -> " · Unico"
-                    position == 1 -> " · Primo"
-                    position == total -> " · Ultimo"
-                    else -> ""
-                }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$position / $total", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconButton(enabled = enabled && position > 1, onClick = onMoveUp) {

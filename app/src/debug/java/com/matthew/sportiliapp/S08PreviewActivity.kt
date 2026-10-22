@@ -57,9 +57,9 @@ internal fun S08Fixture(screen: String = "card", resultDelayMillis: Long = 3000)
         composable("card") {
             var unavailable by remember { mutableStateOf(screen == "loading" || screen == "load_error") }
             if (unavailable) {
-                AdminEditorLoadState("Scheda", "Utente SPT-042 · Scheda", screen == "loading",
+                AdminEditorLoadState("Scheda", "Giulia Rossi", screen == "loading",
                     onBack = { nav.navigate("result") }, onRetry = { unavailable = false })
-            } else EditWorkoutCardScreen(card, userCode = "SPT-042", isSaving = pending, errorMessage = error,
+            } else EditWorkoutCardScreen(card, userCode = "SPT-042", userName = "Giulia Rossi", isSaving = pending, errorMessage = error,
                 onDaySelected = { key, _, updated -> save { card = updated; nav.navigate("day/$key") } },
                 onSave = { updated -> save { card = updated; nav.navigate("result") } },
                 onCancel = { nav.navigate("result") })
@@ -68,7 +68,7 @@ internal fun S08Fixture(screen: String = "card", resultDelayMillis: Long = 3000)
             val key = entry.arguments!!.getString("key")!!
             val day = card.giorni.getValue(key)
             fun update(updated: Giorno) { card = card.copy(giorni = LinkedHashMap(card.giorni).apply { put(key, updated) }) }
-            EditDayScreen(key, day, userCode = "SPT-042", isSaving = pending, errorMessage = error,
+            EditDayScreen(key, day, userCode = "SPT-042", userName = "Giulia Rossi", isSaving = pending, errorMessage = error,
                 onSave = { updated -> save { update(updated); nav.popBackStack() } },
                 onCancel = { nav.popBackStack() },
                 onMuscleGroupSelected = { groupKey, _, updated -> save { update(updated); nav.navigate("group/$key/$groupKey") } })
@@ -77,7 +77,7 @@ internal fun S08Fixture(screen: String = "card", resultDelayMillis: Long = 3000)
             val key = entry.arguments!!.getString("day")!!
             val group = entry.arguments!!.getString("group")!!
             EditMuscleGroupContent("SPT-042", key, card.giorni.getValue(key).gruppiMuscolari.getValue(group),
-                predefiniti = emptyList(),
+                predefiniti = emptyList(), userName = "Giulia Rossi", dayName = card.giorni.getValue(key).name,
                 onSave = { nav.popBackStack() }, onCancel = { nav.popBackStack() })
         }
         composable("result") {

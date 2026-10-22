@@ -25,7 +25,7 @@ class ExerciseEditorTest {
             MaterialTheme { EsercizioDialog(original, {}, { saved = it }, emptyList()) }
         }
         compose.onNodeWithText("Nome Esercizio").performTextReplacement("Panca inclinata")
-        compose.onNodeWithText("Salva", substring = false).performClick()
+        compose.onNodeWithText("Conferma esercizio", substring = false).performClick()
         compose.runOnIdle {
             assertNotNull(saved)
             assertEquals("Panca inclinata", saved!!.name)

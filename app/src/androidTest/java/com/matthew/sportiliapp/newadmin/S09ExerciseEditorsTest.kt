@@ -28,7 +28,7 @@ class S09ExerciseEditorsTest {
         val original = s09Exercise(); var saved: Esercizio? = null
         edit(onSave = { saved = it })
         field("Istruzioni del trainer").performScrollTo().performTextReplacement("Nuove istruzioni")
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle {
             assertEquals(original.name, saved!!.name)
             assertEquals(original.serie, saved!!.serie)
@@ -45,26 +45,44 @@ class S09ExerciseEditorsTest {
         val original = Esercizio("Rematore", "AMRAP 45 secondi", riposo = "90 secondi", notePT = null)
         edit(original, onSave = { saved = it })
         field("Nome Esercizio").performTextReplacement("Rematore manubrio")
-        compose.onNodeWithText("Salva", false).assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.onNodeWithText("Conferma esercizio", false).assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.runOnIdle { assertEquals(original.serie, saved!!.serie); assertEquals(original.riposo, saved!!.riposo); assertNull(saved!!.notePT) }
     }
     @Test fun trainerCanBeInsertedAndCleared() {
         var saved: Esercizio? = null
         edit(Esercizio("Panca", "3 x 10", notePT = "Prima"), onSave = { saved = it })
         field("Istruzioni del trainer").performScrollTo().performTextClearance()
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle { assertEquals("", saved!!.notePT) }
     }
     @Test fun newExerciseValidationAndDefaultSyntax() {
         var saved: Esercizio? = null
         edit(Esercizio("", ""), onSave = { saved = it })
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.onNodeWithText("Inserisci il nome dell'esercizio").assertExists()
         compose.runOnIdle { assertNull(saved) }
         field("Nome Esercizio").performTextReplacement("Affondi")
         field("Istruzioni del trainer").performScrollTo().performTextReplacement("Passo lungo")
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle { assertEquals("3 x 10", saved!!.serie); assertEquals("Passo lungo", saved!!.notePT) }
+    }
+    @Test fun newExerciseIsIncludedWhenSavingAnEmptyGroup() {
+        val original = GruppoMuscolare("Circuito")
+        var saved: GruppoMuscolare? = null
+        compose.setContent { SportiliAppTheme {
+            EditMuscleGroupContent("SPT", "giorno1", original, s09Catalog(),
+                onSave = { saved = it }, onCancel = {})
+        } }
+        compose.onNodeWithText("Nuovo esercizio").performClick()
+        field("Nome Esercizio").performTextReplacement("Esercizio di prova")
+        compose.onNode(hasText("Conferma esercizio") and hasAnyAncestor(isDialog())).performClick()
+        compose.onNodeWithText("Esercizio di prova").assertIsDisplayed()
+        compose.runOnIdle { assertNull(saved) }
+        compose.onNodeWithText("Salva modifiche", false).performClick()
+        compose.runOnIdle {
+            assertEquals("Esercizio di prova", saved!!.esercizi.getValue("esercizio1").name)
+            assertEquals("3 x 10", saved!!.esercizi.getValue("esercizio1").serie)
+        }
     }
     @Test fun extraPickerReturnsToSameDraftAndPreservesPrescription() {
         var saved: Esercizio? = null
@@ -73,17 +91,17 @@ class S09ExerciseEditorsTest {
         field("Cerca nel catalogo").performTextReplacement("squat")
         compose.onNodeWithText("Squat", false).performClick()
         field("Prescrizione parte 2").performScrollTo().assertTextContains("12")
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle { assertEquals("Panca piana + Squat + Push up con controllo della fase eccentrica", saved!!.name); assertEquals("4x8 + 12 + 30 secondi", saved!!.serie) }
     }
     @Test fun extraAdditionValidatesAndUsesExistingSerialization() {
         var saved: Esercizio? = null
         edit(Esercizio("Panca", "3x10"), onSave = { saved = it })
         compose.onNodeWithText("Aggiungi esercizio extra").performScrollTo().performClick()
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         field("Nome parte 2").performScrollTo().performTextReplacement("Croci")
         field("Prescrizione parte 2").performTextReplacement("15")
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle { assertEquals("Panca + Croci", saved!!.name); assertEquals("3x10 + 15", saved!!.serie) }
     }
     @Test fun extraRemovalKeepsNamePrescriptionAssociation() {
@@ -91,7 +109,7 @@ class S09ExerciseEditorsTest {
         edit(onSave = { saved = it })
         compose.onNodeWithContentDescription("Rimuovi parte 2").performScrollTo().performClick()
         compose.onNodeWithText("Rimuovi parte", false).performClick()
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Conferma esercizio", false).performClick()
         compose.runOnIdle { assertEquals("Panca piana + Push up con controllo della fase eccentrica", saved!!.name); assertEquals("4x8 + 30 secondi", saved!!.serie) }
     }
     @Test fun cancelOffersContinueAndDiscardWithoutConfirming() {
@@ -113,8 +131,8 @@ class S09ExerciseEditorsTest {
         compose.onNodeWithText("Nessun esercizio trovato").assertExists()
         compose.onNodeWithText("Cancella", false).performScrollTo().performClick()
         field("Cerca esercizio...").performTextReplacement("panca")
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Già presente · Aggiungi ancora"))
-        compose.onNodeWithText("Già presente · Aggiungi ancora").assertExists()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Già presente"))
+        compose.onNodeWithText("Già presente").assertExists()
         compose.onNodeWithText("Panca piana", false).performScrollTo().performClick()
         field("Nome Esercizio").assertTextContains("Panca piana")
     }
@@ -123,13 +141,13 @@ class S09ExerciseEditorsTest {
         compose.setContent { SportiliAppTheme { EditMuscleGroupContent("SPT", "giorno1", s09Group(), s09Catalog(), onSave = { saved = it }, onCancel = {}) } }
         compose.onAllNodesWithText("Modifica", false).onFirst().performClick()
         field("Istruzioni del trainer").performScrollTo().performTextReplacement("Istruzioni modificate")
-        compose.onNode(hasText("Salva") and hasAnyAncestor(isDialog())).performClick()
+        compose.onNode(hasText("Conferma esercizio") and hasAnyAncestor(isDialog())).performClick()
         val name = s09Exercise().name
         compose.onNodeWithContentDescription("Sposta $name prima").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Sposta $name dopo").performScrollTo().performClick()
         compose.onNodeWithContentDescription("Rimuovi Squat dalla bozza").performScrollTo().performClick()
         compose.onNodeWithText("Rimuovi dalla bozza").performClick()
-        compose.onNodeWithText("Salva", false).performClick()
+        compose.onNodeWithText("Salva modifiche", false).performClick()
         compose.runOnIdle { assertEquals(listOf("esercizio1"), saved!!.esercizi.keys.toList()); assertEquals(0, saved!!.esercizi.values.first().ordine); assertEquals(s09Exercise().weightLogs, saved!!.esercizi.values.first().weightLogs); assertEquals("Istruzioni modificate", saved!!.esercizi.values.first().notePT) }
     }
     @Test fun groupDraftDiscardDoesNotSaveAndPendingConsumesBack() {

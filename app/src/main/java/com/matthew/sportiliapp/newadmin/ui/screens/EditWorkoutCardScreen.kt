@@ -70,7 +70,8 @@ fun EditWorkoutCardScreen(
     errorMessage: String? = null,
     onDaySelected: (String, Giorno, Scheda) -> Unit,
     onSave: (Scheda) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    userName: String = ""
 ) {
     val context = LocalContext.current
     val initialDaysList = remember(scheda) { scheda.giorni.toList() }
@@ -175,7 +176,7 @@ fun EditWorkoutCardScreen(
         topBar = {
             AdminContextAppBar(
                 title = "Modifica scheda",
-                context = "Utente $userCode · Scheda",
+                context = userName,
                 enabled = !isSaving,
                 onBack = { requestExit() }
             )
@@ -211,11 +212,6 @@ fun EditWorkoutCardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                AdminEditorSection(
-                    title = "Dati scheda",
-                    supportingText = "Imposta l’inizio e la durata del programma."
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = startDate,
                     onValueChange = {},
@@ -255,7 +251,7 @@ fun EditWorkoutCardScreen(
 
                 AdminEditorSection(
                     title = "Giorni di allenamento",
-                    supportingText = "Aprire un giorno salva prima la bozza della scheda."
+                    supportingText = if (isDirty) "Aprire un giorno salva le modifiche." else null
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 

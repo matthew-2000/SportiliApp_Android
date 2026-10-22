@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -109,9 +108,7 @@ fun AdminEditorBottomBar(
     onSave: () -> Unit,
     saveLabel: String = "Salva",
     canSave: Boolean = true,
-    idleStatus: String = "Nessuna modifica",
     pendingStatus: String = "Salvataggio in corso…",
-    idleIcon: ImageVector = Icons.Default.CheckCircle,
     onComplete: (() -> Unit)? = null
 ) {
     val focusManager = LocalFocusManager.current
@@ -124,7 +121,9 @@ fun AdminEditorBottomBar(
     Surface(shadowElevation = 8.dp, tonalElevation = 2.dp) {
         // Keep the form reachable even with the largest system text or the IME.
         // The actions retain their full text and can scroll within the bottom bar.
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // A custom Scaffold bottom bar must reserve space for the system navigation bar.
+        // Insets already consumed by the screen's imePadding are not applied twice.
+        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding()) {
             val stackedActions = LocalDensity.current.fontScale >= 1.8f && maxWidth < 480.dp
             Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.4f)
@@ -132,9 +131,9 @@ fun AdminEditorBottomBar(
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isDirty || isSaving) Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        if (isDirty) Icons.Default.Edit else idleIcon,
+                        Icons.Default.Edit,
                         contentDescription = null,
                         tint = if (isDirty) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -142,11 +141,7 @@ fun AdminEditorBottomBar(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        when {
-                            isSaving -> pendingStatus
-                            isDirty -> "Modifiche non salvate"
-                            else -> idleStatus
-                        },
+                        if (isSaving) pendingStatus else "Modifiche non salvate",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -170,7 +165,6 @@ fun AdminEditorBottomBar(
                     ) { Text(saveLabel) }
                 }
                 onComplete?.let { complete ->
-                    Text("Salva mantiene la richiesta di cambio aperta.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = complete, enabled = !isSaving, modifier = Modifier.fillMaxWidth()) {
                         Text("Salva e segna il cambio come completato")
                     }
