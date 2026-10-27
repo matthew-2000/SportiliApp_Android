@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,7 +79,7 @@ fun GiornoScreen(navController: NavHostController, giornoId: String, viewModel: 
                     modifier = Modifier.padding(padding),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(giorno.gruppiMuscolari.entries.toList()) { (gruppoId, gruppo) ->
+                    items(giorno.gruppiMuscolari.entries.toList(), key = { it.key }) { (gruppoId, gruppo) ->
                         GruppoSection(gruppo = gruppo, navController, gruppoId, giornoId)
                     }
                 }
@@ -132,9 +133,11 @@ fun GruppoSection(gruppo: GruppoMuscolare, navController: NavHostController, gru
         )
         Column {
             gruppo.esercizi.forEach { (esercizioId, esercizio) ->
-                EsercizioRow(esercizio = esercizio) {
-                    // Passa solo gli ID nella route
-                    navController.navigate("esercizio/$giornoId/$gruppoId/$esercizioId")
+                key(esercizioId) {
+                    EsercizioRow(esercizio = esercizio) {
+                        // Passa solo gli ID nella route
+                        navController.navigate("esercizio/$giornoId/$gruppoId/$esercizioId")
+                    }
                 }
             }
         }
@@ -209,16 +212,20 @@ private fun ExercisePartLabel(part: String, index: Int, count: Int) {
 
 @Composable
 private fun ExerciseThumbnail(name: String) {
-    val painter = rememberAsyncImagePainter(model = exerciseImageUrl(name))
-    Box(Modifier.size(64.dp).clip(RoundedCornerShape(10.dp))
-        .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-        Image(painter, contentDescription = null, contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize())
-        when (painter.state) {
-            is AsyncImagePainter.State.Success -> Unit
-            is AsyncImagePainter.State.Error -> Icon(Icons.Filled.Warning,
-                contentDescription = "Immagine non disponibile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            else -> CircularProgressIndicator(Modifier.size(24.dp))
+    val imageUrl = exerciseImageUrl(name)
+    // A recycled list cell must not retain the previous exercise's painter.
+    key(imageUrl) {
+        val painter = rememberAsyncImagePainter(model = imageUrl)
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Image(painter, contentDescription = null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize())
+            when (painter.state) {
+                is AsyncImagePainter.State.Success -> Unit
+                is AsyncImagePainter.State.Error -> Icon(Icons.Filled.Warning,
+                    contentDescription = "Immagine non disponibile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> CircularProgressIndicator(Modifier.size(24.dp))
+            }
         }
     }
 }

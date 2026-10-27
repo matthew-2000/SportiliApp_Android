@@ -1,0 +1,3 @@
+Migliorata la gestione delle immagini nella vista del giorno:
+- Ogni esercizio mantiene la propria immagine durante lo scorrimento della lista.
+- Caricamento delle immagini più affidabile anche negli esercizi in superset.
