@@ -34,6 +34,7 @@ import androidx.navigation.NavHostController
 import com.matthew.sportiliapp.model.Giorno
 import com.matthew.sportiliapp.model.GruppoMuscolare
 import com.matthew.sportiliapp.model.Scheda
+import com.matthew.sportiliapp.model.SchedaChangeRequestSchedule
 import com.matthew.sportiliapp.model.SchedaViewModel
 import com.matthew.sportiliapp.model.WorkoutIssueReport
 import com.matthew.sportiliapp.newadmin.di.ManualInjection
@@ -64,8 +65,24 @@ fun SchedaScreen(navController: NavHostController, viewModel: SchedaViewModel) {
     var reportError by remember { mutableStateOf<String?>(null) }
     var isRequesting by remember { mutableStateOf(false) }
     var requestError by remember { mutableStateOf<String?>(null) }
+    var showOutsideWindowConfirmation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val submitReportUseCase = remember { ManualInjection.submitWorkoutIssueReportUseCase }
+
+    fun sendWorkoutChangeRequest() {
+        // Recheck after confirmation: the card may have refreshed in the meantime.
+        val current = scheda ?: return
+        if (isRequesting || current.cambioRichiesto || current.isSchedaValida()) return
+        isRequesting = true
+        requestError = null
+        viewModel.inviaRichiestaCambioScheda(
+            onSuccess = { isRequesting = false },
+            onError = {
+                isRequesting = false
+                requestError = "Non riusciamo a inviare la richiesta. Controlla la connessione e riprova."
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -114,18 +131,29 @@ fun SchedaScreen(navController: NavHostController, viewModel: SchedaViewModel) {
             onOpenDay = { navController.navigate("giorno/$it") },
             onRequestNewWorkout = {
                 if (!isRequesting) {
-                    isRequesting = true
-                    requestError = null
-                    viewModel.inviaRichiestaCambioScheda(
-                        onSuccess = {
-                            isRequesting = false
-                        },
-                        onError = {
-                            isRequesting = false
-                            requestError = "Non riusciamo a inviare la richiesta. Controlla la connessione e riprova."
-                        }
-                    )
+                    if (SchedaChangeRequestSchedule.isWithinWindow()) {
+                        sendWorkoutChangeRequest()
+                    } else {
+                        showOutsideWindowConfirmation = true
+                    }
                 }
+            }
+        )
+    }
+
+    if (showOutsideWindowConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showOutsideWindowConfirmation = false },
+            title = { Text("Richiesta fuori orario") },
+            text = { Text(SchedaChangeRequestSchedule.outsideWindowMessage) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showOutsideWindowConfirmation = false
+                    sendWorkoutChangeRequest()
+                }) { Text("Invia comunque") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOutsideWindowConfirmation = false }) { Text("Annulla") }
             }
         )
     }
@@ -379,7 +407,7 @@ private fun statusVisuals(status: WorkoutStatus): StatusVisuals {
             MaterialTheme.colorScheme.onErrorContainer
         )
         WorkoutStatus.Requested -> StatusVisuals(
-            "Richiesta inviata", "Il trainer ha ricevuto la richiesta.", null,
+            "Richiesta inviata", SchedaChangeRequestSchedule.sentMessage, null,
             Icons.AutoMirrored.Filled.Send, colors.infoContainer, colors.onInfoContainer
         )
     }
