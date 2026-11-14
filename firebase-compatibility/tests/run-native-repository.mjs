@@ -36,7 +36,7 @@ try {
   }
   const result = spawnSync('./gradlew', [
     ':app:connectedDebugAndroidTest', '--console=plain',
-    '-Pandroid.testInstrumentationRunnerArguments.class=com.matthew.sportiliapp.newadmin.FirebaseRepositoryEmulatorTest,com.matthew.sportiliapp.model.SchedaRealtimeEmulatorTest',
+    `-Pandroid.testInstrumentationRunnerArguments.class=${process.env.SPORTILI_NATIVE_TEST_CLASS || 'com.matthew.sportiliapp.newadmin.FirebaseRepositoryEmulatorTest,com.matthew.sportiliapp.model.SchedaRealtimeEmulatorTest'}`,
     '-Pandroid.testInstrumentationRunnerArguments.sportiliLocalDatabase=1'
   ], { cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: 'inherit', env: { ...process.env, ANDROID_SERIAL: serial } });
   if (result.error) throw result.error;

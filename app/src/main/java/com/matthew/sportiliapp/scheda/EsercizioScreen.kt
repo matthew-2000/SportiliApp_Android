@@ -106,6 +106,9 @@ import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.matthew.sportiliapp.model.SchedaViewModel
 import com.matthew.sportiliapp.model.WeightLogEntry
+import com.matthew.sportiliapp.model.WorkoutWeightSession
+import com.matthew.sportiliapp.model.ExerciseDataKey
+import com.matthew.sportiliapp.model.workoutRepetitions
 import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -136,6 +139,11 @@ private sealed class WeightDialogMode {
     object Hidden : WeightDialogMode()
     object Create : WeightDialogMode()
     data class Edit(val record: WeightLogRecord) : WeightDialogMode()
+}
+
+private data class WeightHistoryEntry(val single: WeightLogRecord? = null, val session: WorkoutWeightSession? = null) {
+    val id get() = single?.let { "single_${it.id}" } ?: "session_${session!!.id}"
+    val timestamp get() = single?.timestamp ?: session!!.timestamp
 }
 
 internal data class WeightProgressSummaryData(
@@ -182,6 +190,8 @@ fun EsercizioScreen(
         ?.gruppiMuscolari?.get(gruppoMuscolareId)?.esercizi?.get(esercizioId)
 
     val userExerciseData by viewModel.userExerciseData.observeAsState(initial = emptyMap())
+    val allSessions by viewModel.weightSessions.observeAsState(initial = emptyMap())
+    val sessionsError by viewModel.weightSessionsError.observeAsState()
 
     val exerciseParts = remember(esercizio) {
         esercizio?.name?.let(::exerciseNameParts) ?: emptyList()
@@ -199,6 +209,7 @@ fun EsercizioScreen(
         viewModel.exerciseKeyFromName(currentPartName)
     }
     val currentData = userExerciseData[exerciseKey]
+    val sessionKey = ExerciseDataKey.canonical(currentPartName)
 
     val canManageData = esercizio != null && exerciseKey.isNotEmpty()
     val topBarTitle = ""
@@ -211,6 +222,7 @@ fun EsercizioScreen(
     // UI states
     var weightDialogMode by remember { mutableStateOf<WeightDialogMode>(WeightDialogMode.Hidden) }
     var weightInput by remember { mutableStateOf("") }
+    var sessionEditor by remember { mutableStateOf<WeightSessionEditorContext?>(null) }
     var showTimerSheet by remember { mutableStateOf(false) }
     var showNotesSheet by remember { mutableStateOf(false) }
     var isImageFullScreen by remember { mutableStateOf(false) }
@@ -236,6 +248,7 @@ fun EsercizioScreen(
         isWeightSaving = false
         dialogExerciseKey = exerciseKey
     }
+    LaunchedEffect(currentPartName) { sessionEditor = null }
 
     LaunchedEffect(exerciseKey, currentData?.weightLogs) {
         val logs = currentData?.weightLogs?.mapNotNull { (id, entry) ->
@@ -257,6 +270,10 @@ fun EsercizioScreen(
 
     val sortedLogs = remember(weightLogs) { weightLogs.sortedBy { it.timestamp } }
     val recentLogs = remember(sortedLogs) { sortedLogs.takeLast(10) }
+    val sessions = allSessions[sessionKey].orEmpty()
+    val history = (sortedLogs.map { WeightHistoryEntry(single = it) } + sessions.map { WeightHistoryEntry(session = it) })
+        .sortedWith(compareByDescending<WeightHistoryEntry> { it.timestamp }.thenByDescending { it.id })
+    val prescribedReps = if (exerciseParts.size == 1) workoutRepetitions(esercizio?.serie.orEmpty()) else emptyList()
     val savedNote = currentData?.noteUtente ?: ""
     val isNoteDirty = noteInput != savedNote
     val closeNotes = {
@@ -394,21 +411,34 @@ fun EsercizioScreen(
                 item {
                     SectionHeader(title = "Pesi e progressi")
                     sortedLogs.lastOrNull()?.let { latest ->
-                        Text("Ultimo peso: ${formatWeight(latest.weight)} kg", style = MaterialTheme.typography.titleMedium,
+                        Text("${if (sessions.isEmpty()) "Ultimo peso" else "Ultimo peso singolo"}: ${formatWeight(latest.weight)} kg", style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold)
                         Text(summaryDateFormatter.format(Date(latest.timestamp)), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Button(onClick = openWeightEntrySheet, enabled = canManageData,
+                    Button(onClick = {
+                        if (prescribedReps.isEmpty()) openWeightEntrySheet()
+                        else sessionEditor = WeightSessionEditorContext(sessionKey, currentPartName, prescribedReps)
+                    }, enabled = canManageData,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                         Icon(Icons.Filled.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Registra peso")
+                        Text(if (prescribedReps.isEmpty()) "Registra peso" else "Registra pesi per serie")
+                    }
+                    TextButton(onClick = {
+                        if (prescribedReps.isEmpty()) sessionEditor = WeightSessionEditorContext(sessionKey, currentPartName, emptyList())
+                        else openWeightEntrySheet()
+                    }, enabled = canManageData) {
+                        Text(if (prescribedReps.isEmpty()) "Registra pesi per serie" else "Registra un peso singolo")
+                    }
+                    sessionsError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = viewModel::retryWeightSessions) { Text("Riprova") }
                     }
                 }
 
                 item {
-                    if (recentLogs.isEmpty()) {
+                    if (history.isEmpty()) {
                         ElevatedCard(
                             shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.elevatedCardColors(
@@ -420,7 +450,7 @@ fun EsercizioScreen(
                                 message = "Registra il primo peso per iniziare a seguire i progressi."
                             )
                         }
-                    } else {
+                    } else if (recentLogs.isNotEmpty()) {
                         val chartEntries = remember(recentLogs) {
                             recentLogs.map { WeightLogEntry(weight = it.weight, timestamp = it.timestamp) }
                         }
@@ -441,7 +471,7 @@ fun EsercizioScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "Ultime 10 registrazioni",
+                                        text = "Pesi singoli · ultime 10 registrazioni",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -455,8 +485,24 @@ fun EsercizioScreen(
                     }
                 }
 
-                if (sortedLogs.isNotEmpty()) {
-                    items(sortedLogs.asReversed(), key = { it.id }) { record ->
+                if (history.isNotEmpty()) {
+                    items(history, key = { it.id }) { entry ->
+                        val session = entry.session
+                        if (session != null) {
+                            WeightSessionHistoryCard(
+                                session = session,
+                                previous = sessions.lastOrNull { it.timestamp < session.timestamp && it.matches(session.sets.map { set -> set.reps }) },
+                                onEdit = { sessionEditor = WeightSessionEditorContext(sessionKey, currentPartName, emptyList(), session) },
+                                onDelete = { success, failure ->
+                                    viewModel.deleteWeightSession(sessionKey, session.id, success, { message ->
+                                        // Keep errors visible even if RTDB temporarily removed the row locally.
+                                        alertMessage = message
+                                        failure(message)
+                                    })
+                                }
+                            )
+                        } else {
+                        val record = entry.single!!
                         WeightLogSwipeCard(
                             record = record,
                             dateText = summaryDateFormatter.format(Date(record.timestamp)),
@@ -468,6 +514,7 @@ fun EsercizioScreen(
                             },
                             onDelete = { pendingDeletionRecord = record }
                         )
+                        }
                     }
                 }
 
@@ -569,6 +616,14 @@ fun EsercizioScreen(
                 }
             }
 
+            sessionEditor?.let { editor ->
+                key(editor.id) {
+                    WeightSessionEditor(editor, allSessions[editor.key].orEmpty(),
+                        onDismiss = { sessionEditor = null },
+                        onSave = { session, success, failure -> viewModel.saveWeightSession(editor.key, session, success, failure) })
+                }
+            }
+
             if (weightDialogMode != WeightDialogMode.Hidden) {
                 val currentSaving by rememberUpdatedState(isWeightSaving)
                 val weightSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
@@ -616,6 +671,7 @@ fun EsercizioScreen(
                             },
                             dateLabel = dateLabel,
                             dateValue = dateValue,
+                            lastWeight = if (weightDialogMode == WeightDialogMode.Create) sortedLogs.lastOrNull()?.weight else null,
                             onCancel = {
                                 weightDialogMode = WeightDialogMode.Hidden
                                 weightInput = ""
@@ -1170,7 +1226,7 @@ private fun ProgressMessage(message: String) {
 private fun WeightEntrySheet(
     title: String, weightInput: String, canManage: Boolean, isSaving: Boolean, errorMessage: String?,
     onWeightChange: (String) -> Unit, dateLabel: String, dateValue: String,
-    onCancel: () -> Unit, onConfirm: () -> Unit
+    onCancel: () -> Unit, onConfirm: () -> Unit, lastWeight: Double? = null
 ) {
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
@@ -1183,6 +1239,11 @@ private fun WeightEntrySheet(
             Button(onClick = onConfirm, enabled = canManage && !isSaving, modifier = Modifier.weight(1f)) { Text("Salva") }
         }
         if (isSaving) { ProgressMessage("Salvataggio peso…") }
+        lastWeight?.let { weight ->
+            TextButton(onClick = { onWeightChange(editingString(weight)) }, enabled = !isSaving && canManage) {
+                Text("Usa l'ultimo peso (${formatWeight(weight)} kg)")
+            }
+        }
         OutlinedTextField(value = weightInput, onValueChange = onWeightChange, label = { Text("Peso (kg)") },
             singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {

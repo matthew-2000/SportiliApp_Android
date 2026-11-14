@@ -41,7 +41,8 @@ class SchedaRealtimeEmulatorTest {
             .setDatabaseUrl("https://demo-sportili-compat.firebaseio.com").build()
         val app = FirebaseApp.initializeApp(instrumentation.targetContext, options, "realtime-${UUID.randomUUID()}")
         apps += app
-        return FirebaseDatabase.getInstance(app).apply { useEmulator("10.0.2.2", 19000); databases += this }
+        // The local runner installs adb reverse for this exact loopback endpoint.
+        return FirebaseDatabase.getInstance(app).apply { useEmulator("127.0.0.1", 19000); databases += this }
     }
     private fun <T> main(action: () -> T): T {
         val result = AtomicReference<T>()
@@ -163,5 +164,47 @@ class SchedaRealtimeEmulatorTest {
         main { vm.refresh() }
         until("vm.loadError.value != null && vm.isLoading.value == false") { vm.loadError.value != null && vm.isLoading.value == false }
         assertNull(main { vm.scheda.value })
+    }
+
+    @Test fun weightSessionsRoundTripWithoutChangingLegacyDataOrLeakingAcrossUsers() = runBlocking<Unit> {
+        val code = "weights-${UUID.randomUUID()}"
+        val ref = writer.getReference("users/$code")
+        ref.setValue(payload(4)).await()
+        ref.child("exerciseData/lite").setValue(mapOf("noteUtente" to "legacy", "weightLogs" to
+            mapOf("old" to mapOf("weight" to 20.0, "timestamp" to 1700000000000L)))).await()
+        main { preferences.edit().putString("code", code).commit() }
+        val (_, vm) = viewModel()
+        until("legacy read") { vm.userExerciseData.value?.get("lite")?.noteUtente == "legacy" }
+        val session = WorkoutWeightSession("session-a", 1790000000000L, listOf(
+            WorkoutWeightSet(12, 30.0), WorkoutWeightSet(10, 35.5), WorkoutWeightSet(8, 40.0), WorkoutWeightSet(6, 45.0)))
+        suspend fun save(value: WorkoutWeightSession) {
+            val result = kotlinx.coroutines.CompletableDeferred<Unit>()
+            main { vm.saveWeightSession("elite", value, { result.complete(Unit) }, { result.completeExceptionally(AssertionError(it)) }) }
+            withTimeout(12_000) { result.await() }
+        }
+        save(session)
+        until("session visible") { vm.weightSessions.value?.get("elite") == listOf(session) }
+        assertEquals(session, WorkoutWeightSession.parse(session.id, ref.child("weightSessions/elite/${session.id}").get().await().value))
+        assertEquals("legacy", ref.child("exerciseData/lite/noteUtente").get().await().value)
+        // Installed iOS can remove this entire old subtree; new sessions must survive.
+        ref.child("exerciseData/lite").removeValue().await()
+        until("legacy removed") { vm.userExerciseData.value?.get("lite") == null }
+        assertEquals(listOf(session), main { vm.weightSessions.value?.get("elite") })
+        val edited = session.copy(sets = session.sets.mapIndexed { index, set -> if (index == 0) set.copy(weight = 32.5) else set })
+        save(edited); save(edited)
+        assertEquals(1, ref.child("weightSessions/elite").get().await().childrenCount.toInt())
+        assertEquals(session.timestamp, (ref.child("weightSessions/elite/session-a/timestamp").get().await().value as Number).toLong())
+        val deleted = kotlinx.coroutines.CompletableDeferred<Unit>()
+        main { vm.deleteWeightSession("elite", session.id, { deleted.complete(Unit) }, { deleted.completeExceptionally(AssertionError(it)) }) }
+        withTimeout(12_000) { deleted.await() }
+        until("session deleted") { vm.weightSessions.value?.get("elite").orEmpty().isEmpty() }
+        assertFalse(ref.child("weightSessions/elite/session-a").get().await().exists())
+        save(session)
+        main { preferences.edit().putString("code", "next-${UUID.randomUUID()}").commit() }
+        until("no cross-user sessions") { vm.weightSessions.value.orEmpty().isEmpty() }
+        ref.child("weightSessions/elite/session-a/sets/set_00/weight").setValue(99).await()
+        delay(250)
+        assertTrue(main { vm.weightSessions.value.orEmpty().isEmpty() })
+        ref.removeValue().await()
     }
 }

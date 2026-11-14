@@ -29,6 +29,9 @@ class SchedaViewModel(
     val name: LiveData<String?> = _name
     val isOfflineMode: LiveData<Boolean> = _isOfflineMode
     val userExerciseData: LiveData<Map<String, UserExerciseData>> = _userExerciseData
+    private val _weightSessions = MutableLiveData<Map<String, List<WorkoutWeightSession>>>(emptyMap())
+    val weightSessions: LiveData<Map<String, List<WorkoutWeightSession>>> = _weightSessions
+    val weightSessionsError = MutableLiveData<String?>(null)
     val isLoading = MutableLiveData(true)
     val loadError = MutableLiveData<String?>(null)
 
@@ -57,6 +60,8 @@ class SchedaViewModel(
         userCode = savedCode.takeIf { it.isNotBlank() }
         loadError.value = null
         _userExerciseData.value = emptyMap()
+        _weightSessions.value = emptyMap()
+        weightSessionsError.value = null
         var cacheOwner = preferences.getString(CACHED_OWNER_KEY, null)
         // Legacy logout clears these preferences, so an untagged cache belongs to
         // the existing signed-in code. Adopt it once to preserve offline upgrades.
@@ -79,6 +84,7 @@ class SchedaViewModel(
         }
 
         observeUserExerciseData(savedCode)
+        observeWeightSessions(savedCode)
         var workoutFailed = false
         var nameFailed = false
         fun current() = !closed && generation == token && preferences.getString("code", "") == savedCode
@@ -410,6 +416,68 @@ class SchedaViewModel(
     fun exerciseKeyFromName(name: String): String {
         return ExerciseDataKey.resolve(name, _userExerciseData.value?.keys.orEmpty())
     }
+
+    fun retryWeightSessions() {
+        userCode?.let { observeWeightSessions(it) }
+    }
+
+    private fun observeWeightSessions(code: String) {
+        val token = generation
+        weightSessionsError.value = null
+        replaceObservation("weightSessions", database.getReference("users/$code/weightSessions"), { snapshot ->
+            if (!closed && generation == token && preferences.getString("code", "") == code) {
+                _weightSessions.value = snapshot.children.mapNotNull { exercise ->
+                    val key = exercise.key ?: return@mapNotNull null
+                    val sessions = exercise.children.mapNotNull { session ->
+                        session.key?.let { WorkoutWeightSession.parse(it, session.value) }
+                    }.sortedWith(compareBy<WorkoutWeightSession> { it.timestamp }.thenBy { it.id })
+                    if (sessions.isEmpty()) null else key to sessions
+                }.toMap()
+                weightSessionsError.value = null
+            }
+        }, {
+            if (!closed && generation == token) weightSessionsError.value = "Impossibile aggiornare gli allenamenti con serie. Riprova."
+        })
+    }
+
+    fun saveWeightSession(key: String, session: WorkoutWeightSession, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val code = userCode
+        if (code.isNullOrBlank() || !validWeightKey(key) || !validWeightKey(session.id) || !session.isValid) {
+            onError("Controlla ripetizioni e pesi di tutte le serie."); return
+        }
+        if (!isNetworkAvailable()) { onError("Connessione internet assente. Riprova quando sei online."); return }
+        val token = generation
+        database.getReference("users/$code/weightSessions/$key/${session.id}").setValue(session.toMap())
+            .addOnSuccessListener {
+                if (!closed && generation == token && userCode == code) {
+                    val current = _weightSessions.value.orEmpty().toMutableMap()
+                    current[key] = (current[key].orEmpty().filter { it.id != session.id } + session)
+                        .sortedWith(compareBy<WorkoutWeightSession> { it.timestamp }.thenBy { it.id })
+                    _weightSessions.value = current
+                }
+                onSuccess()
+            }.addOnFailureListener { onError("Impossibile salvare l'allenamento. Riprova.") }
+    }
+
+    fun deleteWeightSession(key: String, id: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val code = userCode
+        if (code.isNullOrBlank() || !validWeightKey(key) || !validWeightKey(id)) {
+            onError("Impossibile identificare l'allenamento."); return
+        }
+        if (!isNetworkAvailable()) { onError("Connessione internet assente. Riprova quando sei online."); return }
+        val token = generation
+        database.getReference("users/$code/weightSessions/$key/$id").removeValue()
+            .addOnSuccessListener {
+                if (!closed && generation == token && userCode == code) {
+                    val current = _weightSessions.value.orEmpty().toMutableMap()
+                    current[key] = current[key].orEmpty().filter { it.id != id }
+                    _weightSessions.value = current
+                }
+                onSuccess()
+            }.addOnFailureListener { onError("Impossibile eliminare l'allenamento. Riprova.") }
+    }
+
+    private fun validWeightKey(key: String) = key.isNotBlank() && key.none { it in ".#$[]/" || it.code < 32 || it.code == 127 }
 
     private fun observeUserExerciseData(code: String) {
         val reference = database.reference
