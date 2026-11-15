@@ -333,7 +333,7 @@ fun EsercizioScreen(
                     if (exerciseParts.size > 1) {
                         Text("Superset · ${exerciseParts.size} parti",
                             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text("Esegui tutte le parti in combinazione.", style = MaterialTheme.typography.bodyMedium,
+                        Text("Seleziona una parte per vedere i suoi pesi e le sue note.", style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 8.dp))
                         ExerciseVariationPicker(parts = exerciseParts, selectedIndex = selectedPartIndex,
@@ -409,7 +409,7 @@ fun EsercizioScreen(
                 }
 
                 item {
-                    SectionHeader(title = "Pesi e progressi")
+                    SectionHeader(title = "Pesi registrati")
                     sortedLogs.lastOrNull()?.let { latest ->
                         Text("${if (sessions.isEmpty()) "Ultimo peso" else "Ultimo peso singolo"}: ${formatWeight(latest.weight)} kg", style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold)
@@ -447,7 +447,7 @@ fun EsercizioScreen(
                         ) {
                             EmptyStateCard(
                                 title = "Nessun peso registrato",
-                                message = "Registra il primo peso per iniziare a seguire i progressi."
+                                message = "Aggiungi il peso usato oggi con i pulsanti qui sopra."
                             )
                         }
                     } else if (recentLogs.isNotEmpty()) {
@@ -681,7 +681,7 @@ fun EsercizioScreen(
                                 if (isWeightSaving) return@WeightEntrySheet
                                 val parsed = parsedWeightInput(weightInput)
                                 if (parsed == null) {
-                                    weightInputError = "Inserisci un peso maggiore di zero."
+                                    weightInputError = "Inserisci un numero maggiore di zero."
                                     return@WeightEntrySheet
                                 }
                                 if (dialogExerciseKey.isEmpty()) {
@@ -1250,7 +1250,7 @@ private fun WeightEntrySheet(
                 focusManager.clearFocus()
                 if (canManage && !isSaving) onConfirm()
             }), isError = errorMessage != null,
-            supportingText = { Text(errorMessage ?: "Usa la virgola o il punto, ad esempio 47,5.") },
+            supportingText = { Text(errorMessage ?: "Inserisci i kg, ad esempio 47,5.") },
             enabled = canManage && !isSaving, modifier = Modifier.fillMaxWidth().focusRequester(focusRequester))
         Text(dateLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(dateValue, style = MaterialTheme.typography.bodyLarge)
@@ -1449,14 +1449,14 @@ fun WeightProgressChart(entries: List<WeightLogEntry>) {
             Text("1", style = MaterialTheme.typography.labelMedium)
             if (plottedEntries.size > 1) Text(plottedEntries.size.toString(), style = MaterialTheme.typography.labelMedium)
         }
-        Text("Campioni in ordine di registrazione. Gli intervalli tra le date possono variare.",
+        Text("Ogni punto è una registrazione. Le distanze tra i punti non rappresentano i giorni trascorsi.",
             style = MaterialTheme.typography.bodyMedium, color = colorText)
         TextButton(onClick = { showValues = !showValues }) {
-            Text(if (showValues) "Nascondi valori e date" else "Valori e date dei campioni")
+            Text(if (showValues) "Nascondi pesi e date" else "Pesi e date")
         }
         if (showValues) plottedEntries.forEachIndexed { index, entry ->
             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).semantics(mergeDescendants = true) {}) {
-                Text("Campione ${index + 1}: ${formatWeight(entry.weight!!)} kg", style = MaterialTheme.typography.bodyLarge)
+                Text("Registrazione ${index + 1}: ${formatWeight(entry.weight!!)} kg", style = MaterialTheme.typography.bodyLarge)
                 Text(dateFormatter.format(Date(entry.timestamp!!)), style = MaterialTheme.typography.bodyMedium, color = colorText)
             }
         }
@@ -1576,7 +1576,7 @@ private fun ExerciseEmptyHistoryPreview() {
         ElevatedCard(modifier = Modifier.padding(16.dp)) {
             EmptyStateCard(
                 title = "Nessun peso registrato",
-                message = "Registra il primo peso per iniziare a seguire i progressi."
+                message = "Aggiungi il peso usato oggi con i pulsanti qui sopra."
             )
         }
     }

@@ -181,10 +181,6 @@ internal fun LoginContent(
                     Image(painterResource(R.drawable.icon), contentDescription = null, modifier = Modifier.size(88.dp))
                     Spacer(Modifier.height(12.dp))
                     Text("SportiliApp", style = MaterialTheme.typography.headlineLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Inserisci il codice ricevuto dal tuo trainer.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
                 OutlinedTextField(
@@ -197,7 +193,7 @@ internal fun LoginContent(
                                 Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Text(codeError, modifier = Modifier.weight(1f))
                             }
-                        } else Text("Puoi usare lettere e numeri.")
+                        } else Text("Inserisci il codice fornito dal trainer.")
                     },
                     isError = codeError != null,
                     keyboardOptions = KeyboardOptions(

@@ -83,7 +83,7 @@ fun TimerSheet(riposo: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Timer recupero", style = MaterialTheme.typography.headlineSmall)
+        Text("Timer di recupero", style = MaterialTheme.typography.headlineSmall)
         if (initialDuration > 0) {
             Text(
                 text = "Recupero impostato: ${formatTime(initialDuration)}",
@@ -135,7 +135,7 @@ fun TimerSheet(riposo: String) {
                         Text("Pausa")
                     }
                 } else {
-                    val startLabel = if (timerPaused) "Riprendi" else "Inizia"
+                    val startLabel = if (timerPaused) "Riprendi" else "Avvia"
                     Button(
                         onClick = {
                             if (timeRemaining <= 0) timeRemaining = totalTime
@@ -159,18 +159,18 @@ fun TimerSheet(riposo: String) {
                     enabled = timerIsActive || timerPaused || timeRemaining != totalTime,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Reset")
+                    Text("Reimposta")
                 }
             }
 
             Text(
-                text = "Suggerimento: usa il timer ad ogni fine serie per mantenere costante il recupero.",
+                text = "Chiudendo il timer interrompi il recupero.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             Text(
-                text = "Recupero non configurato per questo esercizio.",
+                text = "Scegli la durata del recupero.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -259,7 +259,7 @@ fun playSound(context: Context) {
     ringtone.play()
 }
 
-@Preview(name = "Timer recupero", showBackground = true, widthDp = 360, heightDp = 620)
+@Preview(name = "Timer di recupero", showBackground = true, widthDp = 360, heightDp = 620)
 @Preview(
     name = "Timer dark font grande",
     showBackground = true,

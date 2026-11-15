@@ -548,7 +548,7 @@ private fun EmptyState(
                 )
                 Text(
                     if (isOffline) "Connettiti per caricare la scheda."
-                    else "Quando il trainer ne assegnerà una, la troverai qui.",
+                    else "Non c’è una scheda per il tuo codice. Contatta il trainer per verificarla.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
@@ -573,7 +573,7 @@ private fun OfflineBanner() {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(Icons.Filled.Info, contentDescription = null)
-            Text("Sei offline. Mostriamo gli ultimi dati disponibili.", style = MaterialTheme.typography.bodySmall)
+            Text("Sei offline. Stai vedendo l’ultima scheda ricevuta.", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -592,7 +592,7 @@ private fun InlineError(onRetry: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Filled.Warning, contentDescription = null)
-                Text("Aggiornamento non riuscito. Mostriamo gli ultimi dati disponibili.",
+                Text("Scheda non aggiornata. Stai vedendo l’ultima versione ricevuta.",
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
             }
             TextButton(onClick = onRetry) { Text("Riprova") }
@@ -631,6 +631,8 @@ private fun UserCodeCard(code: String, isCodeVisible: Boolean, onToggleCodeVisib
 @Composable
 fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
     val groups = getGruppiString(giorno)
+    val exerciseCount = giorno.gruppiMuscolari.values.sumOf { it.esercizi.size }
+    val exerciseCountLabel = if (exerciseCount == 1) "1 esercizio" else "$exerciseCount esercizi"
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -639,7 +641,7 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
                 contentDescription = buildString {
                     append(giorno.name)
                     if (groups.isNotBlank()) append(". $groups")
-                    append(". Apri allenamento")
+                    append(". $exerciseCountLabel")
                 }
             },
         shape = MaterialTheme.shapes.medium,
@@ -655,7 +657,7 @@ fun GiornoItem(giorno: Giorno, onClick: () -> Unit) {
                 if (groups.isNotBlank()) {
                     Text(groups, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("Apri allenamento", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(exerciseCountLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }

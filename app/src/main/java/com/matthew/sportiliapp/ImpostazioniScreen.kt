@@ -158,7 +158,7 @@ internal fun ImpostazioniContent(
                 SettingsSection(title = "Sessione") {
                     ListItem(
                         headlineContent = { Text("Esci") },
-                        supportingContent = { Text("Esci dall’app su questo dispositivo.") },
+                        supportingContent = { Text("Per accedere di nuovo servirà il tuo codice.") },
                         leadingContent = {
                             Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
                         },

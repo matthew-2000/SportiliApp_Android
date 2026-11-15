@@ -198,15 +198,9 @@ fun EmptyAlertsScreen(padding: PaddingValues) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Nessun avviso disponibile",
+            "Nessun avviso",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            "Controlla più tardi per nuovi aggiornamenti.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
         )
     }
 }

@@ -61,21 +61,21 @@ internal fun WeightSessionEditor(
     AlertDialog(
         onDismissRequest = close,
         properties = DialogProperties(dismissOnBackPress = !saving, dismissOnClickOutside = !saving),
-        title = { Text(if (context.session == null) "Registra pesi per serie" else "Modifica allenamento") },
+        title = { Text(if (context.session == null) "Registra pesi per serie" else "Modifica pesi") },
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(context.name, style = MaterialTheme.typography.titleMedium)
-                Text("Ripetizioni e kg per ogni serie.", style = MaterialTheme.typography.bodySmall)
+                Text("Inserisci il peso usato in ogni serie. Correggi le ripetizioni se sono diverse da quelle previste.", style = MaterialTheme.typography.bodySmall)
                 if (context.session == null) {
                     if (previous != null) {
                         TextButton(onClick = {
                             rows = rows.mapIndexed { index, row -> row.copy(weight = previous.sets[index].weight.toString()) }
                             error = null
-                        }, enabled = !saving) { Text("Usa gli ultimi pesi") }
-                        Text("Ultimi carichi: ${sessionDate(previous.timestamp)}", style = MaterialTheme.typography.bodySmall)
+                        }, enabled = !saving) { Text("Usa ultimi pesi") }
+                        Text("Ultimi pesi con queste ripetizioni: ${sessionDate(previous.timestamp)}", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("Nessun allenamento precedente con queste ripetizioni. I vecchi pesi singoli restano nello storico.")
+                        Text("Nessun peso da riutilizzare con queste ripetizioni. Inserisci i kg di ogni serie.")
                     }
                 }
                 rows.forEachIndexed { index, row ->
@@ -102,9 +102,9 @@ internal fun WeightSessionEditor(
                 if (rows.size < 20) {
                     TextButton(onClick = { rows = rows + WeightSetDraft() }, enabled = !saving) { Text("Aggiungi serie") }
                 }
-                Text("Pesi maggiori di zero; usa la virgola o il punto. Ripetizioni da 1 a 1000.", style = MaterialTheme.typography.bodySmall)
+                Text("Compila tutte le serie prima di salvare. Per i decimali puoi usare la virgola o il punto.", style = MaterialTheme.typography.bodySmall)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (saving) { CircularProgressIndicator(); Text("Salvataggio allenamento…") }
+                if (saving) { CircularProgressIndicator(); Text("Salvataggio pesi…") }
             }
         },
         confirmButton = {
@@ -112,7 +112,7 @@ internal fun WeightSessionEditor(
                 if (!saving) {
                     val sets = rows.mapNotNull { it.value() }
                     if (sets.size != rows.size) {
-                        error = "Controlla ripetizioni e pesi di tutte le serie."
+                        error = "Controlla ogni serie: ripetizioni da 1 a 1000 e peso maggiore di zero."
                     } else {
                         error = null
                         saving = true
@@ -122,7 +122,7 @@ internal fun WeightSessionEditor(
                         }, { saving = false; error = it })
                     }
                 }
-            }) { Text("Salva allenamento") }
+            }) { Text("Salva pesi") }
         },
         dismissButton = { TextButton(onClick = close, enabled = !saving) { Text("Annulla") } }
     )
@@ -161,8 +161,8 @@ internal fun WeightSessionHistoryCard(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                TextButton(onClick = onEdit, enabled = !deleting) { Text("Modifica allenamento") }
-                TextButton(onClick = { confirmsDelete = true }, enabled = !deleting) { Text("Elimina allenamento") }
+                TextButton(onClick = onEdit, enabled = !deleting) { Text("Modifica pesi") }
+                TextButton(onClick = { confirmsDelete = true }, enabled = !deleting) { Text("Elimina pesi") }
                 if (deleting) CircularProgressIndicator()
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
@@ -170,7 +170,7 @@ internal fun WeightSessionHistoryCard(
     }
     if (confirmsDelete) {
         AlertDialog(onDismissRequest = { confirmsDelete = false },
-            title = { Text("Eliminare tutte le serie di questo allenamento?") },
+            title = { Text("Eliminare questa registrazione di pesi?") },
             confirmButton = { TextButton(onClick = {
                 confirmsDelete = false
                 if (!deleting) {
@@ -178,7 +178,7 @@ internal fun WeightSessionHistoryCard(
                     error = null
                     onDelete({ deleting = false }, { deleting = false; error = it })
                 }
-            }) { Text("Elimina allenamento") } },
+            }) { Text("Elimina pesi") } },
             dismissButton = { TextButton(onClick = { confirmsDelete = false }) { Text("Annulla") } })
     }
 }
