@@ -10,4 +10,4 @@
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>
 -->
-</full-backup-content>
+<exclude domain="sharedpref" path="native_surfaces.xml"/><exclude domain="sharedpref" path="surface_session.xml"/><exclude domain="sharedpref" path="workout_surface.xml"/></full-backup-content>

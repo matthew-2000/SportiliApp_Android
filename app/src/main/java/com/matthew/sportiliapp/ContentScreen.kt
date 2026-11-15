@@ -25,6 +25,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
@@ -74,6 +75,20 @@ internal fun ContentNavigation(
     exerciseActions: ExerciseDetailActions? = null
 ) {
     val navController2 = rememberNavController()
+    val context = LocalContext.current
+    val request by MainActivity.widgetRequest.collectAsState()
+    val workout by workoutViewModel.scheda.observeAsState()
+    val loading by workoutViewModel.isLoading.observeAsState(true)
+    var unavailable by remember { mutableStateOf(false) }
+    LaunchedEffect(request, workout, loading) {
+        val link = request ?: return@LaunchedEffect
+        if (loading) return@LaunchedEffect
+        MainActivity.widgetRequest.value = null
+        if (link.session == com.matthew.sportiliapp.nativefeatures.WorkoutSurface.session(context) && link.day != null && workout?.giorni?.containsKey(link.day) == true) {
+            navController2.navigate("giorno/${android.net.Uri.encode(link.day)}") { launchSingleTop = true }
+        } else { navController2.navigate("scheda") { launchSingleTop = true }; unavailable = true }
+    }
+    if (unavailable) androidx.compose.material3.AlertDialog(onDismissRequest = { unavailable = false }, title = { Text("Giorno non disponibile") }, text = { Text("Scegli un giorno dalla scheda aggiornata.") }, confirmButton = { androidx.compose.material3.TextButton(onClick = { unavailable = false }) { Text("Torna alla scheda") } })
     Scaffold(
         bottomBar = { ContentBottomNavigation(navController2) },
         content = { padding ->

@@ -69,6 +69,7 @@ fun ImpostazioniScreen(navController: NavHostController) {
         buildNumber = buildNumber,
         onOpenLink = { url -> openExternalLink(context, url) },
         onLogout = {
+            com.matthew.sportiliapp.nativefeatures.WorkoutSurface.clear(context)
             FirebaseAuth.getInstance().signOut()
             resetSharedPref(context)
             navController.navigate("login") {

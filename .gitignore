@@ -18,3 +18,4 @@ local.properties
 /tmp/pdfs/generate_app_summary_pdf.py
 /output/pdf/sportiliapp-summary.pdf
 /tmp/pdfs/sportiliapp-summary.png
+/.kotlin/

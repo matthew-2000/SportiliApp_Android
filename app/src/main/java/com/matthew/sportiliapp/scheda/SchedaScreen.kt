@@ -128,7 +128,7 @@ fun SchedaScreen(navController: NavHostController, viewModel: SchedaViewModel) {
             requestError = requestError,
             onToggleCodeVisibility = { isCodeVisible = !isCodeVisible },
             onRetry = viewModel::refresh,
-            onOpenDay = { navController.navigate("giorno/$it") },
+            onOpenDay = { id -> scheda?.giorni?.get(id)?.let { com.matthew.sportiliapp.nativefeatures.WorkoutSurface.save(context, id, it) }; navController.navigate("giorno/$id") },
             onRequestNewWorkout = {
                 if (!isRequesting) {
                     if (SchedaChangeRequestSchedule.isWithinWindow()) {

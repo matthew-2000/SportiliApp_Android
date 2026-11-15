@@ -1,12 +1,7 @@
 package com.matthew.sportiliapp.scheda
 
 import android.content.res.Configuration
-import android.content.Context
-import android.media.RingtoneManager
 import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,19 +53,22 @@ fun TimerSheet(riposo: String) {
         timerPaused = false
     }
 
-    // Aggiorna il timer in tempo reale quando è attivo
-    LaunchedEffect(timerIsActive, timeRemaining, totalTime) {
-        if (timerIsActive && timeRemaining > 0) {
-            delay(1000L)
-            timeRemaining -= 1
-            timerAnnouncement = timerAnnouncementFor(timeRemaining).orEmpty()
-            if (timeRemaining <= 0) {
-                timeRemaining = 0
+    val permission = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { com.matthew.sportiliapp.nativefeatures.RestTimer.refresh(context) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val end = com.matthew.sportiliapp.nativefeatures.RestTimer.deadline(context)
+            if (end > 0) {
+                totalTime = com.matthew.sportiliapp.nativefeatures.RestTimer.total(context)
+                val next = com.matthew.sportiliapp.nativefeatures.RestTimer.remaining(context)
+                if (next != timeRemaining) timerAnnouncement = timerAnnouncementFor(next).orEmpty()
+                timeRemaining = next
+                timerIsActive = timeRemaining > 0
+                if (!timerIsActive) com.matthew.sportiliapp.nativefeatures.RestTimer.finish(context, end)
+            } else {
+                if (timerIsActive) timeRemaining = totalTime
                 timerIsActive = false
-                timerPaused = false
-                playSound(context)
-                triggerVibration(context)
             }
+            delay(250)
         }
     }
 
@@ -83,6 +81,11 @@ fun TimerSheet(riposo: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (!com.matthew.sportiliapp.nativefeatures.RestTimer.allowed(context)) Text("Notifiche disattivate. Abilitale nelle impostazioni per ricevere l’avviso.")
+        if (Build.VERSION.SDK_INT >= 31 && !context.getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()) {
+            Text("L’avviso può arrivare in ritardo. Per maggiore precisione abilita Sveglie e promemoria.")
+            TextButton(onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:${context.packageName}"))) }) { Text("Imposta avviso preciso") }
+        }
         Text("Timer di recupero", style = MaterialTheme.typography.headlineSmall)
         if (initialDuration > 0) {
             Text(
@@ -129,7 +132,7 @@ fun TimerSheet(riposo: String) {
             ) {
                 if (timerIsActive) {
                     Button(
-                        onClick = { timerIsActive = false; timerPaused = true },
+                        onClick = { com.matthew.sportiliapp.nativefeatures.RestTimer.clear(context); timerIsActive = false; timerPaused = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Pausa")
@@ -140,6 +143,8 @@ fun TimerSheet(riposo: String) {
                         onClick = {
                             if (timeRemaining <= 0) timeRemaining = totalTime
                             timerAnnouncement = ""
+                            if (Build.VERSION.SDK_INT >= 33) permission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            com.matthew.sportiliapp.nativefeatures.RestTimer.start(context, timeRemaining, totalTime)
                             timerIsActive = true
                             timerPaused = false
                         },
@@ -151,6 +156,7 @@ fun TimerSheet(riposo: String) {
 
                 OutlinedButton(
                     onClick = {
+                        com.matthew.sportiliapp.nativefeatures.RestTimer.clear(context)
                         timeRemaining = totalTime
                         timerAnnouncement = ""
                         timerIsActive = false
@@ -164,7 +170,7 @@ fun TimerSheet(riposo: String) {
             }
 
             Text(
-                text = "Chiudendo il timer interrompi il recupero.",
+                text = "Il recupero continua anche chiudendo questa schermata.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -232,31 +238,6 @@ fun formatTime(time: Int): String {
     val minutes = time / 60
     val seconds = time % 60
     return String.format("%02d:%02d", minutes, seconds)
-}
-
-// Funzione per attivare la vibrazione
-fun triggerVibration(context: Context) {
-    val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val vibratorManager = context.getSystemService(VibratorManager::class.java)
-        vibratorManager?.defaultVibrator
-    } else {
-        context.getSystemService(Vibrator::class.java)
-    }
-    if (vibrator == null) return
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
-    } else {
-        @Suppress("DEPRECATION")
-        vibrator.vibrate(500)
-    }
-}
-
-// Funzione per riprodurre il suono
-fun playSound(context: Context) {
-    val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-    val ringtone = RingtoneManager.getRingtone(context, sound)
-    ringtone.play()
 }
 
 @Preview(name = "Timer di recupero", showBackground = true, widthDp = 360, heightDp = 620)

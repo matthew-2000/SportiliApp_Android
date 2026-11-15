@@ -26,8 +26,15 @@ private sealed interface StartupUiState {
 }
 
 class MainActivity : ComponentActivity() {
+    companion object { val widgetRequest = kotlinx.coroutines.flow.MutableStateFlow<IntentRequest?>(null) }
+    data class IntentRequest(val day: String?, val session: String?, val token: Long = System.nanoTime())
+    private fun receiveWidget(intent: android.content.Intent) {
+        if (intent.getBooleanExtra("workout_widget", false)) widgetRequest.value = IntentRequest(intent.getStringExtra("workout_day"), intent.getStringExtra("workout_session"))
+    }
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); setIntent(intent); receiveWidget(intent) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        receiveWidget(intent)
 
         setContent {
             SportiliAppTheme {

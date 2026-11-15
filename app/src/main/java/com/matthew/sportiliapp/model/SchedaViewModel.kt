@@ -95,6 +95,7 @@ class SchedaViewModel(
                     try {
                         val sorted = snapshot.getValue(Scheda::class.java)?.sortedSnapshot()
                         _scheda.value = sorted
+                        com.matthew.sportiliapp.nativefeatures.WorkoutSurface.update(context, sorted?.giorni)
                         saveSchedaToCache(preferences, sorted)
                         workoutFailed = false
                         loadError.value = null
