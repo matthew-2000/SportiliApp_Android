@@ -33,3 +33,13 @@ Suono e vibrazione dipendono dal canale notifiche e dalle impostazioni di sistem
 - [Accesso agli allarmi precisi](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms)
 - [Permesso notifiche](https://developer.android.com/develop/ui/views/notifications/notification-permission)
 - [Widget](https://developer.android.com/develop/ui/views/appwidgets/overview)
+
+## Revisione UI widget e notifiche
+
+- Widget con palette chiara/scura dell’app, titolo del giorno, conteggio con singolare/plurale e indicazione «Apri scheda». Lo stato senza dati invita a scegliere un giorno nell’app.
+- Layout regolare e compatto: su Android 12+ il launcher sceglie il RemoteViews adatto allo spazio; sulle versioni precedenti viene aggiornato al ridimensionamento. I widget già installati con altezza ridotta continuano a usare il formato compatto. I cambiamenti di configurazione aggiornano i widget.
+- Notifiche di sistema con icona dedicata, colore dell’app, nome dell’esercizio e avviso finale più leggibile. Countdown, canali esistenti, permessi, scadenza e azioni Interrompi/+30 sec restano quelli nativi. Il nome dell’esercizio è solo un campo locale aggiuntivo, cancellato al cambio di sessione.
+- Versione 2.0.3 (36): build Debug e bundle Release riusciti, 60 test unitari e tre controlli NativeSurfaceTest passati. I controlli strumentali sono stati ripetuti dopo errori di temporizzazione durante i rallentamenti dell’emulatore.
+- I tre controlli NativeSurfaceTest passano su Pixel 8 / API 34: rendering reale RemoteViews nei due formati e temi, stato vuoto e cancellazione del giorno precedente, durata, azioni, metadati dell’esercizio e singolo avviso finale. I controlli attendono la pubblicazione asincrona del NotificationManager prima di leggere l’avviso.
+- Anteprima Debug con dati fittizi e widget effettivamente aggiunto alla Home del launcher. Screenshot salvati fuori dal repository. Nessun accesso Firebase diretto nei widget e nessuna scrittura su Firebase durante le prove.
+- Il layout delle notifiche viene disegnato dal sistema e può variare fra produttori. Suono, vibrazione e comportamento del risparmio energetico richiedono ancora verifica su dispositivi fisici.

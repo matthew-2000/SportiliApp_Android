@@ -38,7 +38,7 @@ import com.matthew.sportiliapp.ui.theme.SportiliAppTheme
 import kotlinx.coroutines.delay
 
 @Composable
-fun TimerSheet(riposo: String) {
+fun TimerSheet(riposo: String, exerciseName: String? = null) {
     val initialDuration = remember(riposo) { parseRiposo(riposo) }
     var totalTime by remember(riposo) { mutableIntStateOf(initialDuration) }
     var timeRemaining by remember(riposo) { mutableIntStateOf(initialDuration) }
@@ -144,7 +144,7 @@ fun TimerSheet(riposo: String) {
                             if (timeRemaining <= 0) timeRemaining = totalTime
                             timerAnnouncement = ""
                             if (Build.VERSION.SDK_INT >= 33) permission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                            com.matthew.sportiliapp.nativefeatures.RestTimer.start(context, timeRemaining, totalTime)
+                            com.matthew.sportiliapp.nativefeatures.RestTimer.start(context, timeRemaining, totalTime, exerciseName)
                             timerIsActive = true
                             timerPaused = false
                         },

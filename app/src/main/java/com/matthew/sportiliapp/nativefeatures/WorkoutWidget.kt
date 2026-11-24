@@ -3,6 +3,9 @@ package com.matthew.sportiliapp.nativefeatures
 import android.app.PendingIntent
 import android.appwidget.*
 import android.content.*
+import android.os.Build
+import android.os.Bundle
+import android.util.SizeF
 import android.widget.RemoteViews
 import com.matthew.sportiliapp.MainActivity
 import com.matthew.sportiliapp.R
@@ -26,15 +29,43 @@ object WorkoutSurface {
 }
 class WorkoutWidget : AppWidgetProvider() {
     override fun onUpdate(c: Context, manager: AppWidgetManager, ids: IntArray) {
+        ids.forEach { widget ->
+            val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                RemoteViews(mapOf(
+                    SizeF(140f, 60f) to createViews(c, widget, compact = true),
+                    SizeF(180f, 140f) to createViews(c, widget, compact = false)
+                ))
+            } else {
+                val options = manager.getAppWidgetOptions(widget)
+                createViews(c, widget, compact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140) < 140 ||
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180) < 180)
+            }
+            manager.updateAppWidget(widget, views)
+        }
+    }
+
+    override fun onAppWidgetOptionsChanged(c: Context, manager: AppWidgetManager, id: Int, newOptions: Bundle) {
+        onUpdate(c, manager, intArrayOf(id))
+    }
+
+    /** The same local-only RemoteViews used by launchers and the debug preview. */
+    internal fun createViews(c: Context, widget: Int, compact: Boolean): RemoteViews {
         val p = c.getSharedPreferences("workout_surface", Context.MODE_PRIVATE)
         val id = p.getString("id", null)
-        ids.forEach { widget ->
-            val view = RemoteViews(c.packageName, R.layout.workout_widget)
-            view.setTextViewText(R.id.widget_title, p.getString("name", "Apri la scheda"))
-            view.setTextViewText(R.id.widget_detail, if (id == null) "Scegli un giorno nell’app" else "${p.getInt("count", 0)} esercizi · Giorno scelto")
-            val open = Intent(c, MainActivity::class.java).putExtra("workout_day", id).putExtra("workout_widget", true).putExtra("workout_session", WorkoutSurface.session(c))
-            view.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(c, widget, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-            manager.updateAppWidget(widget, view)
-        }
+        val title = p.getString("name", null)?.takeIf { it.isNotBlank() && id != null }
+            ?: c.getString(R.string.widget_empty_title)
+        val count = p.getInt("count", 0)
+        val detail = if (id == null) c.getString(R.string.widget_empty_detail)
+            else c.resources.getQuantityString(R.plurals.widget_exercise_count, count, count)
+        val view = RemoteViews(c.packageName, if (compact) R.layout.workout_widget_compact else R.layout.workout_widget)
+        view.setTextViewText(R.id.widget_title, title)
+        view.setTextViewText(R.id.widget_detail, detail)
+        view.setTextViewText(R.id.widget_action, c.getString(if (id == null) R.string.widget_open_app else R.string.widget_open))
+        view.setContentDescription(R.id.widget_root, "$title. $detail. ${c.getString(if (id == null) R.string.widget_open_app else R.string.widget_open)}")
+        val open = Intent(c, MainActivity::class.java).putExtra("workout_day", id)
+            .putExtra("workout_widget", true).putExtra("workout_session", WorkoutSurface.session(c))
+        view.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(c, widget, open,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+        return view
     }
 }

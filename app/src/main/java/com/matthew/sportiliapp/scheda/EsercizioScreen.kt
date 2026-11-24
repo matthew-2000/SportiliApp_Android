@@ -536,7 +536,7 @@ fun EsercizioScreen(
                     sheetState = timerSheetState
                 ) {
                     // TimerSheet è già presente nel progetto
-                    TimerSheet(riposo = ex.riposo ?: "")
+                    TimerSheet(riposo = ex.riposo ?: "", exerciseName = ex.name)
                 }
             }
 

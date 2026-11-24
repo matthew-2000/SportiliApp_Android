@@ -23,4 +23,9 @@ class SurfaceApplication : Application() {
         reconcile()
         RestTimer.restore(this)
     }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        WorkoutSurface.refresh(this)
+    }
+
 }

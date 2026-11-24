@@ -1,0 +1,18 @@
+<resources>
+    <color name="widget_background">#FFFBF7</color>
+    <color name="widget_foreground">#211A15</color>
+    <color name="widget_secondary">#51443A</color>
+    <color name="widget_accent">#9B4A00</color>
+    <color name="widget_accent_surface">#F2E5DA</color>
+    <dimen name="widget_corner_radius">24dp</dimen>
+    <string name="widget_brand">SportiliApp</string>
+    <string name="widget_empty_title">La tua scheda</string>
+    <string name="widget_empty_detail">Scegli un giorno nell’app</string>
+    <string name="widget_open">Apri scheda</string>
+    <string name="widget_open_app">Apri l’app</string>
+    <string name="widget_description">Apri il giorno scelto nella tua scheda.</string>
+    <plurals name="widget_exercise_count">
+        <item quantity="one">%d esercizio</item>
+        <item quantity="other">%d esercizi</item>
+    </plurals>
+</resources>
