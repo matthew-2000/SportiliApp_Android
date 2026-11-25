@@ -19,3 +19,8 @@ local.properties
 /output/pdf/sportiliapp-summary.pdf
 /tmp/pdfs/sportiliapp-summary.png
 /.kotlin/
+gha-creds-*.json
+*.jks
+*.keystore
+/ci/__pycache__/
+/play-internal-receipt.json
