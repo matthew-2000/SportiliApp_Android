@@ -25,7 +25,7 @@ def release_parameters(env, root):
     path = (root / env.get("NOTES_FILE", "")).resolve()
     if not path.is_relative_to((root / "release-notes").resolve()):
         raise ValueError("Notes must be under release-notes/")
-    notes = path.read_text().strip()
+    notes = (json.loads(path.read_text())["notes"] if path.suffix == ".json" else path.read_text()).strip()
     if not 1 <= len(notes) <= 500:
         raise ValueError("Release notes must contain 1..500 characters")
     release = {"name": name, "versionCodes": [code],

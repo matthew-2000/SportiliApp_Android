@@ -2,7 +2,8 @@
 
 ## Flusso
 
-Avviare `Android - Produzione Google Play` da `main`: controlli automatici,
+Pubblicare un tag `vX.Y.Z` sul commit corrente di `main` (oppure avviare
+manualmente `Android - Produzione Google Play` da `main`): controlli automatici,
 compilazione/firma AAB, conservazione di bundle e piano, **una approvazione**,
 invio dello stesso AAB direttamente al canale `production` tramite API Google.
 Nessun passaggio obbligatorio su canali di test. Il riepilogo mostra commit,
@@ -14,9 +15,9 @@ Nessuna modifica a Firebase, dati, regole o flussi delle versioni installate.
 
 1. Unire la PR e verificare `Android - Verifica` su GitHub. I controlli usano
    Firebase fittizio ed emulatori locali.
-2. Creare l'environment `android-signing`, limitato a `main`, senza approvazione
+2. Creare l'environment `android-signing`, limitato al branch `main` e ai tag `v*`, senza approvazione
    manuale. Inserire qui i cinque segreti della tabella.
-3. Creare `google-play-production`, limitato a `main`, con Matteo come
+3. Creare `google-play-production`, limitato al branch `main` e ai tag `v*`, con Matteo come
    **required reviewer**. Consentire l'approvazione della propria esecuzione
    se Matteo avvia il workflow; disabilitare il bypass delle regole.
    Il solo campo `environment:` nel YAML NON crea la regola di approvazione.
@@ -26,7 +27,8 @@ Nessuna modifica a Firebase, dati, regole o flussi delle versioni installate.
    permessi limitati ai test non bastano.
 5. Configurare GitHub OIDC/Workload Identity Federation e il ruolo
    `roles/iam.workloadIdentityUser` sul service account. Limitare il provider a
-   repository ID `809730971`, owner ID `55196582`, `refs/heads/main` e subject
+   repository ID `809730971`, owner ID `55196582`, ref `refs/heads/main` oppure
+   tag di versione `refs/tags/vX.Y.Z`, e subject
    `repo:matthew-2000/SportiliApp_Android:environment:google-play-production`.
    Il subject precedente `play-internal` non serve alla produzione.
 6. Inserire le due variabili Google nell'environment `google-play-production`.
@@ -90,3 +92,22 @@ Fonti: [canali](https://developers.google.com/android-publisher/tracks),
 [commit](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit),
 [OIDC](https://github.com/google-github-actions/auth),
 [pubblicazione gestita](https://support.google.com/googleplay/android-developer/answer/9859654).
+
+## Avvio da tag
+
+Prima del tag, fare commit su main di `release-notes/X.Y.Z.json`:
+
+```json
+{"version_code": 37, "notes": "Novità reali della versione", "rollout_percent": 100}
+```
+
+Il numero è un esempio: deve superare tutti i versionCode già caricati.
+Poi creare e pubblicare soltanto il tag desiderato, ad esempio `v2.0.4`.
+Versione, note e numero vengono letti dal commit del tag. Il workflow rifiuta
+prerelease, tag su altri commit e tag diversi da vX.Y.Z. Non spostare un tag
+pubblicato. Un push normale avvia solo i controlli, non la produzione.
+L'approvazione del deployment resta obbligatoria dopo la build.
+
+Negli environment aggiungere una regola branch `main` e una regola tag `v*`.
+La condizione WIF deve consentire main o tag di versione, oltre a repository,
+proprietario e subject dell'environment. L'invio manuale resta disponibile.
