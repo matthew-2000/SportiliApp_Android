@@ -1,0 +1,140 @@
+name: Android - Produzione Google Play
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Versione commerciale (major.minor.patch)
+        required: true
+        type: string
+      version_code:
+        description: Numero maggiore di tutti i versionCode gia caricati
+        required: true
+        type: string
+      notes_file:
+        description: File italiano sotto release-notes/
+        required: true
+        type: string
+      rollout_percent:
+        description: Percentuale produzione (100 = rilascio completo dopo revisione)
+        default: '100'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: google-play-production
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: github.ref == 'refs/heads/main' && vars.PLAY_PRODUCTION_ENABLED == 'true'
+    uses: ./.github/workflows/android-checks.yml
+
+  build:
+    needs: checks
+    environment: android-signing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SPORTILI_CI_RELEASE: 'true'
+      SPORTILI_VERSION_NAME: ${{ inputs.version_name }}
+      SPORTILI_VERSION_CODE: ${{ inputs.version_code }}
+      SPORTILI_KEYSTORE_PATH: ${{ runner.temp }}/sportili-upload.jks
+      SPORTILI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      SPORTILI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      SPORTILI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      NOTES_FILE: ${{ inputs.notes_file }}
+      ROLLOUT_PERCENT: ${{ inputs.rollout_percent }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Validazione locale della release
+        run: python3 ci/publish_production.py
+      - name: Ripristino della configurazione e della chiave esistenti
+        env:
+          CONFIG_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          config = json.loads(os.environ['CONFIG_JSON'])
+          if config['project_info']['project_id'] != 'sportiliapp':
+              raise SystemExit('Progetto Firebase inatteso')
+          if not any(c['client_info']['android_client_info']['package_name'] == 'com.matthew.sportiliapp' for c in config['client']):
+              raise SystemExit('Package Android inatteso')
+          Path('app/google-services.json').write_text(json.dumps(config))
+          key = Path(os.environ['SPORTILI_KEYSTORE_PATH'])
+          key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          key.chmod(0o600)
+          PY
+      - name: Test e bundle Release firmato
+        run: bash ./gradlew :app:testReleaseUnitTest :app:bundleRelease --no-daemon --console=plain
+      - name: Preparazione della build da approvare
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/bundle/release/app-release.aab dist/
+          python3 ci/publish_production.py --prepare
+          cat dist/release-plan.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-production-${{ github.sha }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Rimozione dei file di firma
+        if: always()
+        run: rm -f -- "$SPORTILI_KEYSTORE_PATH" app/google-services.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: android-release-tests-${{ github.sha }}
+          path: app/build/reports/tests/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  production:
+    needs: build
+    # Configure a required reviewer on this environment before enabling the workflow.
+    environment: google-play-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-production-${{ github.sha }}
+          path: dist/
+      - id: google
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+          create_credentials_file: false
+      - name: Invio diretto in produzione della build approvata
+        env:
+          GOOGLE_PLAY_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+        run: python3 ci/publish_production.py --publish
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: google-play-production-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/play-production-receipt.json
+          retention-days: 90
+          if-no-files-found: ignore

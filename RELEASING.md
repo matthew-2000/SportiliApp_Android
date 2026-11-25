@@ -1,119 +1,92 @@
-# Rilasci Android con GitHub Actions e Google Play
+# Produzione Android con GitHub Actions
 
-## Stato e funzionamento
+## Flusso
 
-`Android - Verifica` compila il Debug con una configurazione Firebase fittizia,
-esegue i test unitari e verifica i contratti legacy su emulatori locali.
-Parte sulle pull request e sui push a `main`, oppure manualmente.
-Non avvia l'app sul backend condiviso e non distribuisce regole Firebase.
+Avviare `Android - Produzione Google Play` da `main`: controlli automatici,
+compilazione/firma AAB, conservazione di bundle e piano, **una approvazione**,
+invio dello stesso AAB direttamente al canale `production` tramite API Google.
+Nessun passaggio obbligatorio su canali di test. Il riepilogo mostra commit,
+versione, note, SHA-256 e percentuale. Il job finale non ricompila.
+Firma tramite la chiave di upload esistente e Play App Signing attuale.
+Nessuna modifica a Firebase, dati, regole o flussi delle versioni installate.
 
-`Android - Beta Google Play` parte solo manualmente dal branch predefinito.
-Riesegue prima tutti i controlli, poi esegue i test Release, firma il bundle
-con la **chiave di upload esistente**, conserva l'AAB e lo carica sul solo
-canale `internal` tramite Google Play Developer API. Verifica numero e SHA-256
-restituiti da Google prima di aggiornare il canale. Conserva la ricevuta con
-commit, versione, edit ID e impronta dell'AAB per 30 giorni.
+## Setup una sola volta
 
-Il job di distribuzione resta disabilitato finché `PLAY_INTERNAL_ENABLED`
-non viene impostata a `true`. Non esiste un workflow di produzione.
-Il setup locale non equivale ad aver collegato o provato gli account remoti.
+1. Unire la PR e verificare `Android - Verifica` su GitHub. I controlli usano
+   Firebase fittizio ed emulatori locali.
+2. Creare l'environment `android-signing`, limitato a `main`, senza approvazione
+   manuale. Inserire qui i cinque segreti della tabella.
+3. Creare `google-play-production`, limitato a `main`, con Matteo come
+   **required reviewer**. Consentire l'approvazione della propria esecuzione
+   se Matteo avvia il workflow; disabilitare il bypass delle regole.
+   Il solo campo `environment:` nel YAML NON crea la regola di approvazione.
+4. Abilitare Google Play Android Developer API nel progetto Cloud scelto e
+   autorizzare il service account in Play Console per la sola app
+   `com.matthew.sportiliapp`: lettura e **rilascio in produzione**. I precedenti
+   permessi limitati ai test non bastano.
+5. Configurare GitHub OIDC/Workload Identity Federation e il ruolo
+   `roles/iam.workloadIdentityUser` sul service account. Limitare il provider a
+   repository ID `809730971`, owner ID `55196582`, `refs/heads/main` e subject
+   `repo:matthew-2000/SportiliApp_Android:environment:google-play-production`.
+   Il subject precedente `play-internal` non serve alla produzione.
+6. Inserire le due variabili Google nell'environment `google-play-production`.
+7. In Play Console controllare **Pubblicazione gestita**: per il rilascio
+   automatico dopo la revisione deve essere disattivata. Se attiva, Google
+   trattiene le modifiche approvate e richiede un ulteriore comando dalla
+   console; il commit API non supera quel blocco. Non cambiarla mentre ci
+   sono modifiche approvate in attesa senza valutarne l'effetto.
+8. Solo con account e reviewer pronti creare la variabile di repository
+   `PLAY_PRODUCTION_ENABLED=true`.
 
-## Collegamenti iniziali
-
-1. Pubblicare queste modifiche su GitHub insieme al codice da verificare.
-   La toolchain usa Gradle 9.8, SDK 37 e daemon JBR 25, con la versione AGP
-   dichiarata nel catalogo Gradle. Eventuali aggiornamenti AGP restano separati.
-   Il runner installa Java 25; Gradle rispetta i criteri JBR già nel repository.
-2. In GitHub abilitare Actions e creare l'environment `play-internal`, limitato
-   al branch predefinito. Le PR non ricevono i segreti di distribuzione.
-3. Nel progetto Google Cloud scelto per la pubblicazione abilitare Google Play
-   Android Developer API e creare un service account dedicato. Questo non
-   modifica Auth, Realtime Database o Storage dell'app.
-4. In Play Console invitare quel service account dalla sezione utenti e
-   permessi. Limitare l'accesso a `com.matthew.sportiliapp`, con lettura e rilascio
-   sui canali di test. Non assegnare permessi di produzione o amministratore.
-5. Configurare Workload Identity Federation per GitHub OIDC, con audience
-   prevista dal provider. Limitare la condizione al repository Android
-   (preferibilmente ID numerici di repository e proprietario), al branch
-   predefinito e all'environment `play-internal`. Assegnare al principal
-   federato `roles/iam.workloadIdentityUser` sul service account.
-   Non creare o caricare una chiave privata JSON permanente.
-6. Configurare le variabili e i segreti elencati sotto. La chiave di upload
-   deve corrispondere al certificato già registrato in Play Console: non
-   generare una nuova chiave e non modificare Play App Signing.
-7. Eseguire `Android - Verifica` e controllarne l'esito remoto. Solo dopo
-   impostare `PLAY_INTERNAL_ENABLED=true` e avviare la prima Beta.
-
-### Variabili GitHub
-
-| Nome | Dove | Valore |
-| --- | --- | --- |
-| `PLAY_INTERNAL_ENABLED` | Repository | `true` solo al termine del setup |
-| `GOOGLE_PLAY_WIF_PROVIDER` | Environment `play-internal` | `projects/NUMERO/locations/global/workloadIdentityPools/POOL/providers/PROVIDER` |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Environment `play-internal` | Email del service account autorizzato su Play |
-
-### Segreti dell'environment `play-internal`
-
-| Nome | Contenuto |
+| Secret in `android-signing` | Contenuto |
 | --- | --- |
-| `ANDROID_GOOGLE_SERVICES_JSON` | Configurazione esistente dell'app per `sportiliapp`, JSON completo |
-| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Keystore di upload esistente codificato Base64 |
+| `ANDROID_GOOGLE_SERVICES_JSON` | JSON attuale di sportiliapp per Android |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Keystore di upload esistente in Base64 |
 | `ANDROID_KEYSTORE_PASSWORD` | Password del keystore |
-| `ANDROID_KEY_ALIAS` | Alias della chiave esistente |
+| `ANDROID_KEY_ALIAS` | Alias esistente |
 | `ANDROID_KEY_PASSWORD` | Password della chiave |
 
-Inserire questi valori nelle impostazioni GitHub, senza copiarli in chat,
-file versionati o log. I workflow cancellano dal runner i file di firma al termine.
+| Variabile in `google-play-production` | Contenuto |
+| --- | --- |
+| `GOOGLE_PLAY_WIF_PROVIDER` | projects/NUMERO/locations/global/workloadIdentityPools/POOL/providers/PROVIDER |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Email del service account autorizzato su Play |
 
-## Preparare una Beta
+`PLAY_INTERNAL_ENABLED` e `play-internal` non servono più. Non generare una
+nuova chiave di upload o una chiave JSON permanente del service account.
+Non inserire segreti in chat, file Git o log.
 
-1. Fare commit del codice e delle note italiane in `release-notes/`, massimo
-   500 caratteri. Non inserire note segnaposto in una release reale.
-2. Verificare in Play Console il massimo `versionCode` già usato in tutti
-   i canali. Scegliere un intero maggiore; il numero locale 36 non dimostra
-   quale sia il massimo sullo store. Non riutilizzare un codice dopo un upload
-   riuscito, anche se un passaggio successivo del workflow fallisce.
-3. Avviare `Android - Beta Google Play` sul branch predefinito, indicando
-   `version_name` (es. `2.0.4`), `version_code` e il percorso completo delle note
-   (es. `release-notes/2.0.4-it-IT.txt`). La numerazione è esplicita in questa
-   prima configurazione, per evitare collisioni con i rilasci manuali.
-4. Controllare l'artifact AAB, i test, la ricevuta e la disponibilità sul canale
-   interno. Configurare il gruppo di tester in Play Console e provare l'app.
-   Il tempo di disponibilità dipende anche dai controlli Google.
+## Ogni rilascio
 
-Non eseguire contemporaneamente modifiche di release in Play Console e nella
-pipeline: gli edit condividono lo stato dell'app. Se esiste una revisione in
-corso, lo script si ferma senza annullarla; non forza un secondo tentativo
-con opzioni che cambiano la revisione. Errori di permessi, firma o stato
-dell'app vanno risolti prima di rilanciare.
+1. Completare eventuali dichiarazioni Google: scheda store, Data safety,
+   accesso per la revisione e contratti, senza inventare risposte.
+2. Fare commit su `main` delle modifiche e delle note reali in `release-notes/`.
+3. Actions > `Android - Produzione Google Play` > Run workflow, su `main`.
+   Inserire `version_name`, un `version_code` sopra tutti quelli già caricati,
+   `notes_file` e `rollout_percent`.
+4. Dopo build e controlli, leggere il riepilogo e approvare il deployment.
+5. La pipeline invia l'AAB in produzione. La ricevuta attesta l'invio,
+   non l'approvazione Google o la disponibilità pubblica.
 
-## Approvazione e produzione
+`rollout_percent=100` (predefinito) richiede il rilascio completo dopo revisione.
+Con 1–99 Google avvia un rollout a quella percentuale: questa pipeline NON
+lo aumenta automaticamente fino al 100%.
 
-Dopo la prova il proprietario approva e promuove **lo stesso versionCode già
-testato** dalla Play Console. Nessuna ricompilazione per la produzione.
-Controllare note, dichiarazioni e revisione, quindi usare il rilascio graduale
-ufficiale quando disponibile e appropriato. L'invio e la promozione restano
-manuali fino alla prima Beta riuscita; questa configurazione non realizza
-ancora l'automazione completa della produzione con una sola approvazione.
+Lo script blocca rollout già in corso/in pausa e non annulla revisioni.
+Non lavorare simultaneamente sulle release in Play Console. Dopo un errore
+verificare lo stato prima di rilanciare: un upload riuscito può consumare il
+versionCode anche se il commit fallisce. Nessun retry automatico delle scritture.
 
-Per modifiche condivise Firebase/admin, verificare anche i client installati:
-i test contrattuali non dimostrano da soli la compatibilità di tutti i binari
-distribuiti. Questi workflow non cambiano dati, accessi, schema o regole.
+## Verifica e limiti
 
-## Verifica locale della procedura Play
+`python3 -m unittest discover -s ci -p 'test_*.py' -v`
 
-```sh
-python3 -m unittest discover -s ci -p 'test_*.py' -v
-SPORTILI_VERSION_NAME=2.0.4 SPORTILI_VERSION_CODE=37 \
-  NOTES_FILE=release-notes/2.0.4-it-IT.txt python3 ci/publish_internal.py
-```
+API simulate: rilascio completo/graduale, SHA/versione, commit e artifact,
+rollout esistenti, errori e pulizia degli edit. Firma reale e primo upload
+richiedono il setup degli account. Numeri/versioni restano espliciti.
+Per cambi Firebase condivisi restano necessarie le verifiche sui client
+installati previste nelle istruzioni del progetto.
 
-Il secondo comando richiede un file di note reale e, senza `--publish`,
-non effettua richieste a Google. I test usano soltanto un'API simulata.
-
-Fonti ufficiali:
-[canali Play](https://developers.google.com/android-publisher/tracks),
-[edit e pubblicazione](https://developers.google.com/android-publisher/edits),
-[comportamento durante una revisione](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit),
-[autenticazione GitHub verso Google](https://github.com/google-github-actions/auth),
-[configurazione delle API Play](https://developers.google.com/android-publisher/getting_started).
+Fonti: [canali](https://developers.google.com/android-publisher/tracks),
+[commit](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit),
+[OIDC](https://github.com/google-github-actions/auth),
+[pubblicazione gestita](https://support.google.com/googleplay/android-developer/answer/9859654).

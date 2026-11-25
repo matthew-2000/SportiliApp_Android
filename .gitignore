@@ -23,4 +23,4 @@ gha-creds-*.json
 *.jks
 *.keystore
 /ci/__pycache__/
-/play-internal-receipt.json
+/dist/
