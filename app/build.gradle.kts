@@ -5,12 +5,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Optional CI-only settings; Android Studio keeps the existing local defaults.
-val ciRelease = providers.environmentVariable("SPORTILI_CI_RELEASE").orNull == "true"
-fun requiredReleaseValue(name: String): String =
-    providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
-        ?: error("Missing CI release setting: $name")
-
 android {
     namespace = "com.matthew.sportiliapp"
     compileSdk = 37
@@ -19,8 +13,8 @@ android {
         applicationId = "com.matthew.sportiliapp"
         minSdk = 27
         targetSdk = 36
-        versionCode = if (ciRelease) requiredReleaseValue("SPORTILI_VERSION_CODE").toInt() else 36
-        versionName = if (ciRelease) requiredReleaseValue("SPORTILI_VERSION_NAME") else "2.0.3"
+        versionCode = 36
+        versionName = "2.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -28,19 +22,8 @@ android {
         }
     }
 
-    if (ciRelease) {
-        signingConfigs {
-            create("ciUpload") {
-                storeFile = file(requiredReleaseValue("SPORTILI_KEYSTORE_PATH"))
-                storePassword = requiredReleaseValue("SPORTILI_KEYSTORE_PASSWORD")
-                keyAlias = requiredReleaseValue("SPORTILI_KEY_ALIAS")
-                keyPassword = requiredReleaseValue("SPORTILI_KEY_PASSWORD")
-            }
-        }
-    }
     buildTypes {
         release {
-            if (ciRelease) signingConfig = signingConfigs.getByName("ciUpload")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
